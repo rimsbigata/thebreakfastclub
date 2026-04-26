@@ -8,10 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Sparkles, Loader2, ArrowLeftRight, Users2, Trophy, Trash2 } from 'lucide-react';
-import { generateMatch } from '@/ai/flows/ai-match-suggestions-flow';
+import { Plus, Zap, Loader2, ArrowLeftRight, Users2, Trophy, Trash2 } from 'lucide-react';
+import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { SKILL_LEVELS } from '@/lib/types';
 
 export default function CourtsPage() {
   const { courts, players, addCourt, deleteCourt, startMatch, endMatch } = useClub();
@@ -32,7 +33,7 @@ export default function CourtsPage() {
     toast({ title: "Court Deleted" });
   };
 
-  const handleGenerateMatch = async () => {
+  const handleGenerateMatch = () => {
     const availablePlayers = players.filter(p => p.status === 'available');
     const availableCourts = courts.filter(c => c.status === 'available');
 
@@ -47,30 +48,21 @@ export default function CourtsPage() {
 
     setLoadingMatch(true);
     try {
-      const result = await generateMatch({
-        availablePlayers: availablePlayers.map(p => ({
-          id: p.id,
-          name: p.name,
-          skillLevel: p.skillLevel,
-          gamesPlayed: p.gamesPlayed,
-          partnerHistory: p.partnerHistory,
-        })),
-        availableCourts: availableCourts.map(c => ({ id: c.id, name: c.name })),
-      });
+      const result = generateDeterministicMatch(availablePlayers, availableCourts);
 
-      if (result.matchFound && result.courtId) {
+      if (result.matchCreated && result.courtId && result.teamA && result.teamB) {
         startMatch({
           teamA: result.teamA,
           teamB: result.teamB,
           courtId: result.courtId,
         });
-        toast({ title: "Match Started!", description: `Assigned to ${result.courtName}.` });
+        toast({ title: "Match Started!", description: result.analysis || `Assigned to ${result.courtName}.` });
       } else {
-        toast({ title: "No optimal match", description: "AI couldn't find a balance with current rules." });
+        toast({ title: "No optimal match", description: result.error || "Logic engine couldn't find a balance." });
       }
     } catch (e) {
       console.error(e);
-      toast({ title: "AI Error", description: "Failed to generate match logic.", variant: "destructive" });
+      toast({ title: "Matchmaking Error", description: "Failed to generate match logic.", variant: "destructive" });
     } finally {
       setLoadingMatch(false);
     }
@@ -82,12 +74,12 @@ export default function CourtsPage() {
         <h1 className="text-2xl font-bold">Courts</h1>
         <div className="flex gap-2">
           <Button onClick={handleGenerateMatch} disabled={loadingMatch || !courts.length} className="gap-2 bg-primary">
-            {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            AI Match
+            {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />}
+            Quick Match
           </Button>
           <Dialog>
             <DialogTrigger asChild>
-              <Button size="icon"><Plus className="h-4 w-4" /></Button>
+              <Button size="icon" variant="outline"><Plus className="h-4 w-4" /></Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Add New Court</DialogTitle></DialogHeader>
@@ -135,15 +127,8 @@ export default function CourtsPage() {
                   <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase">
                     <Users2 className="h-4 w-4" /> Live Match
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-secondary/30 rounded-lg space-y-1">
-                      <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Team A</p>
-                      <div className="text-xs font-bold truncate">Active Pairing</div>
-                    </div>
-                    <div className="p-3 bg-secondary/30 rounded-lg space-y-1">
-                      <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Team B</p>
-                      <div className="text-xs font-bold truncate">Active Pairing</div>
-                    </div>
+                  <div className="h-24 flex items-center justify-center bg-secondary/10 rounded-lg border-2 border-dashed">
+                    <p className="text-xs text-muted-foreground font-medium italic">Match in progress on {court.name}</p>
                   </div>
                 </div>
               ) : (
@@ -167,6 +152,12 @@ export default function CourtsPage() {
             </CardFooter>
           </Card>
         ))}
+        {courts.length === 0 && (
+          <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed rounded-xl bg-muted/20">
+            <Trophy className="h-10 w-10 text-muted-foreground/20 mb-2" />
+            <p className="text-sm font-medium text-muted-foreground">No courts added yet.</p>
+          </div>
+        )}
       </div>
 
       <Dialog open={isSwapOpen} onOpenChange={setIsSwapOpen}>
@@ -175,8 +166,12 @@ export default function CourtsPage() {
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             <Label>Select replacement from available players:</Label>
             {players.filter(p => p.status === 'available').map(player => (
-              <Button key={player.id} variant="outline" className="w-full justify-between" onClick={() => setIsSwapOpen(false)}>
-                {player.name} <Badge>Lvl {player.skillLevel}</Badge>
+              <Button key={player.id} variant="outline" className="w-full justify-between h-12" onClick={() => setIsSwapOpen(false)}>
+                <div className="flex flex-col items-start">
+                  <span className="font-bold">{player.name}</span>
+                  <span className="text-[10px] uppercase text-muted-foreground">{player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}</span>
+                </div>
+                <Badge>Available</Badge>
               </Button>
             ))}
             {players.filter(p => p.status === 'available').length === 0 && (

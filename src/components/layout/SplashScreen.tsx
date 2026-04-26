@@ -45,7 +45,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
           )}
         </div>
         <div className="absolute -bottom-2 bg-white text-[#f76a01] px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
-          EST. 2024
+          EST. 2025
         </div>
       </div>
 
