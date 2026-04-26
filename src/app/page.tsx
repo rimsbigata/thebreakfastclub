@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -47,6 +46,7 @@ export default function HomePage() {
 
   const availablePlayersCount = players.filter(p => p.status === 'available').length;
   const occupiedCourtsCount = courts.filter(c => c.status === 'occupied').length;
+  const today = new Date().toLocaleDateString();
 
   const handleAddCourtAction = () => {
     if (!newCourtName) return;
@@ -90,8 +90,8 @@ export default function HomePage() {
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black uppercase tracking-tight">Live Courts</h1>
-          <p className="text-sm text-muted-foreground">FIFO matching with deterministic balance.</p>
+          <h1 className="text-2xl font-black uppercase tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Live court status and FIFO matchmaking.</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -156,8 +156,9 @@ export default function HomePage() {
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Total Members</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Total Players</p>
               <p className="text-2xl font-black">{players.length}</p>
+              <p className="text-[8px] font-bold uppercase text-muted-foreground/60">{today}</p>
             </div>
           </CardContent>
         </Card>

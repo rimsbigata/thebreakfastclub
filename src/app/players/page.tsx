@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -18,6 +17,7 @@ export default function PlayersPage() {
   const { players, addPlayer, deletePlayer } = useClub();
   const [newName, setNewName] = useState('');
   const [newSkill, setNewSkill] = useState('3');
+  const today = new Date().toLocaleDateString();
 
   const skillDistribution = useMemo(() => {
     const dist = Object.keys(SKILL_LEVELS).map(level => ({
@@ -124,8 +124,9 @@ export default function PlayersPage() {
                <div className="space-y-3">
                  <div className="flex justify-between items-center p-3 bg-secondary/20 rounded-lg">
                    <div className="flex flex-col">
-                     <span className="text-[10px] font-bold text-muted-foreground uppercase">Total Members</span>
+                     <span className="text-[10px] font-bold text-muted-foreground uppercase">Total Players</span>
                      <span className="text-xl font-black">{players.length}</span>
+                     <span className="text-[8px] font-bold text-muted-foreground/60 uppercase">{today}</span>
                    </div>
                    <Users className="h-8 w-8 text-primary/20" />
                  </div>

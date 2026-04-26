@@ -1,9 +1,8 @@
-
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Users, Trophy, Banknote, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useClub } from '@/context/ClubContext';
@@ -15,7 +14,7 @@ export function Sidebar() {
   const placeholderLogo = PlaceHolderImages.find(img => img.id === 'logo');
 
   const navItems = [
-    { label: 'Courts', href: '/', icon: Search },
+    { label: 'Dashboard', href: '/', icon: LayoutDashboard },
     { label: 'Players', href: '/players', icon: Users },
     { label: 'Rankings', href: '/rankings', icon: Trophy },
     { label: 'Fees', href: '/fees', icon: Banknote },

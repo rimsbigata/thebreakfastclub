@@ -1,16 +1,15 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Trophy, Users, Banknote, Settings, Search } from 'lucide-react';
+import { Trophy, Users, Banknote, Settings, LayoutDashboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function BottomNav() {
   const pathname = usePathname();
 
   const navItems = [
-    { label: 'Court', href: '/', icon: Search },
+    { label: 'Dashboard', href: '/', icon: LayoutDashboard },
     { label: 'Players', href: '/players', icon: Users },
     { label: 'Rankings', href: '/rankings', icon: Trophy },
     { label: 'Fees', href: '/fees', icon: Banknote },
