@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -24,13 +23,19 @@ export function Sidebar() {
     <aside className="hidden md:flex flex-col w-64 border-r bg-card h-screen sticky top-0">
       <div className="p-6 flex items-center gap-3">
         <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 border-primary">
-          <Image 
-            src={logo?.imageUrl || ''} 
-            alt="Logo" 
-            fill 
-            className="object-cover"
-            data-ai-hint="badminton logo"
-          />
+          {logo?.imageUrl ? (
+            <Image 
+              src={logo.imageUrl} 
+              alt="Logo" 
+              fill 
+              className="object-cover"
+              data-ai-hint="badminton logo"
+            />
+          ) : (
+            <div className="h-full w-full bg-primary/10 flex items-center justify-center">
+              <span className="text-xs font-bold text-primary">BC</span>
+            </div>
+          )}
         </div>
         <h1 className="font-black text-lg tracking-tighter text-primary">TheBreakfastClub</h1>
       </div>
