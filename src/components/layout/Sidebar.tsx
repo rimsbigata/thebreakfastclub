@@ -5,13 +5,10 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Users, Trophy, Banknote, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { useClub } from '@/context/ClubContext';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import tbcLogo from '@/assets/images/tbclogo.jpg';
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { clubLogo } = useClub();
-  const placeholderLogo = PlaceHolderImages.find(img => img.id === 'logo');
 
   const navItems = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -25,26 +22,12 @@ export function Sidebar() {
     <aside className="hidden md:flex flex-col w-64 border-r bg-card h-screen sticky top-0">
       <div className="p-6 flex items-center gap-3">
         <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 border-primary bg-background">
-          {clubLogo ? (
-            <Image 
-              src={clubLogo} 
-              alt="Club Logo" 
-              fill 
-              className="object-cover"
-            />
-          ) : placeholderLogo?.imageUrl ? (
-            <Image 
-              src={placeholderLogo.imageUrl} 
-              alt="Logo" 
-              fill 
-              className="object-cover"
-              data-ai-hint="badminton logo"
-            />
-          ) : (
-            <div className="h-full w-full bg-primary/10 flex items-center justify-center">
-              <span className="text-xs font-bold text-primary">BC</span>
-            </div>
-          )}
+          <Image 
+            src={tbcLogo} 
+            alt="The Breakfast Club Logo" 
+            fill 
+            className="object-cover"
+          />
         </div>
         <h1 className="font-black text-lg tracking-tighter text-primary">TheBreakfastClub</h1>
       </div>
@@ -72,7 +55,7 @@ export function Sidebar() {
       
       <div className="p-4 border-t">
         <p className="text-[10px] text-center font-bold text-muted-foreground uppercase tracking-widest">
-          Club Edition v1.1
+          TBC App Edition v1.0
         </p>
       </div>
     </aside>

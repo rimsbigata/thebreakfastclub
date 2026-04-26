@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { SKILL_LEVELS } from '@/lib/types';
+import Image from 'next/image';
+import tbcLogo from '@/assets/images/tbclogo.jpg';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -93,9 +95,19 @@ export default function HomePage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black uppercase tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Live court status and FIFO matchmaking.</p>
+        <div className="flex items-center gap-4">
+          <div className="relative h-16 w-16 rounded-lg overflow-hidden shadow-md">
+            <Image 
+              src={tbcLogo} 
+              alt="TBC Logo" 
+              fill 
+              className="object-cover"
+            />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black uppercase tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Live court status and FIFO matchmaking.</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button 

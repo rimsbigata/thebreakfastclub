@@ -138,42 +138,6 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5" /> Club Branding
-            </CardTitle>
-            <CardDescription>Customize the look of your club dashboard.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-6">
-              <div className="relative h-20 w-20 border-2 rounded-xl overflow-hidden bg-muted">
-                {clubLogo ? (
-                  <Image src={clubLogo} alt="Logo" fill className="object-cover" />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center text-muted-foreground italic text-[10px] p-2 text-center">
-                    No logo
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 space-y-2">
-                <Label>Club Logo</Label>
-                <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoChange} />
-                <div className="flex gap-2">
-                  <Button onClick={() => logoInputRef.current?.click()} disabled={isLogoUploading} variant="outline" className="gap-2">
-                    {isLogoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    Upload Logo
-                  </Button>
-                  {clubLogo && (
-                    <Button onClick={() => setClubLogo(null)} variant="ghost" className="text-destructive">Reset</Button>
-                  )}
-                </div>
-                <p className="text-[10px] text-muted-foreground">Appears in the sidebar and dashboard. Best as a square image.</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
               <QrCode className="h-5 w-5" /> Payment QR Methods
             </CardTitle>
             <CardDescription>Manage your scan-to-pay codes for player fees.</CardDescription>

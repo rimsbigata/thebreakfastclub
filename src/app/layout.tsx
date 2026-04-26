@@ -9,6 +9,9 @@ import { ThemeProvider } from '@/context/ThemeContext';
 export const metadata: Metadata = {
   title: 'TheBreakfastClub | Badminton Club',
   description: 'Badminton court queuing and matching for TheBreakfastClub.',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({

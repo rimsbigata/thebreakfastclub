@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import clubLogo from '@/assets/images/tbc_logo_loading.png';
 
 interface SplashScreenProps {
   logo?: string | null;
@@ -25,7 +26,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
   }
 
   const placeholderLogo = PlaceHolderImages.find(img => img.id === 'logo');
-  const displayLogo = logo || placeholderLogo?.imageUrl;
+  const displayLogo = logo || clubLogo.src || placeholderLogo?.imageUrl;
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
@@ -51,8 +52,8 @@ export function SplashScreen({ logo }: SplashScreenProps) {
 
       <div className="flex flex-col items-center gap-4">
         <div className="flex flex-col items-center">
-          <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-1">
-            TheBreakfastClub
+          <h1 className="text-3xl font-black tracking-tighter leading-none mb-1">
+            The Breakfast Club
           </h1>
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-80">
             Badminton Club
@@ -68,7 +69,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
       </div>
       
       <div className="absolute bottom-8 text-[10px] font-bold opacity-40 uppercase tracking-widest">
-        Powered by ShuttleQueue
+        Built with ❤️ by Rimuel
       </div>
     </div>
   );
