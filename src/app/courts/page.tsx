@@ -2,27 +2,30 @@
 "use client";
 
 import { useState } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { Court, Player } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Sparkles, Loader2, ArrowLeftRight } from 'lucide-react';
+import { Plus, Sparkles, Loader2, ArrowLeftRight, Users2, Trophy } from 'lucide-react';
 import { generateMatch } from '@/ai/flows/ai-match-suggestions-flow';
 import { useToast } from '@/hooks/use-toast';
-import { updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { Badge } from '@/components/ui/badge';
 
 export default function CourtsPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [loadingMatch, setLoadingMatch] = useState(false);
   const [newCourtName, setNewCourtName] = useState('');
+  const [isSwapOpen, setIsSwapOpen] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<{ courtId: string, team: 'A' | 'B', index: number } | null>(null);
 
   const courtsRef = useMemoFirebase(() => collection(db, 'courts'), [db]);
   const playersRef = useMemoFirebase(() => collection(db, 'players'), [db]);
+  const matchesRef = useMemoFirebase(() => collection(db, 'matches'), [db]);
   
   const { data: courts } = useCollection<Court>(courtsRef);
   const { data: players } = useCollection<Player>(playersRef);
@@ -43,11 +46,11 @@ export default function CourtsPage() {
     const availableCourts = courts?.filter(c => c.status === 'available') || [];
 
     if (availablePlayers.length < 4) {
-      toast({ title: "Not enough players", description: "Need at least 4 available players for a doubles match.", variant: "destructive" });
+      toast({ title: "Not enough players", description: "Need at least 4 available players.", variant: "destructive" });
       return;
     }
     if (availableCourts.length === 0) {
-      toast({ title: "No courts", description: "All courts are currently occupied.", variant: "destructive" });
+      toast({ title: "No courts", description: "All courts are occupied.", variant: "destructive" });
       return;
     }
 
@@ -65,20 +68,56 @@ export default function CourtsPage() {
       });
 
       if (result.matchFound && result.courtId) {
-        toast({ title: "Match Suggested!", description: `Team A vs Team B on ${result.courtName}.` });
-        // In a real app, we would auto-assign or show a confirm dialog
+        const matchId = Math.random().toString(36).substring(7);
+        // Create the match
+        addDocumentNonBlocking(matchesRef, {
+          id: matchId,
+          teamA: result.teamA,
+          teamB: result.teamB,
+          courtId: result.courtId,
+          timestamp: new Date().toISOString(),
+          isCompleted: false,
+        });
+
+        // Update court status
+        const courtDocRef = doc(db, 'courts', result.courtId);
+        updateDocumentNonBlocking(courtDocRef, { status: 'occupied', currentMatchId: matchId });
+
+        // Update player status
+        [...result.teamA, ...result.teamB].forEach(pid => {
+          const pRef = doc(db, 'players', pid);
+          updateDocumentNonBlocking(pRef, { status: 'playing', gamesPlayed: (players?.find(p => p.id === pid)?.gamesPlayed || 0) + 1 });
+        });
+
+        toast({ title: "Match Started!", description: `Assigned to ${result.courtName}.` });
       } else {
-        toast({ title: "No optimal match", description: "AI couldn't find a perfectly balanced match with current history rules." });
+        toast({ title: "No optimal match", description: "AI couldn't find a balance with current rules." });
       }
     } catch (e) {
       console.error(e);
+      toast({ title: "AI Error", description: "Failed to generate match logic.", variant: "destructive" });
     } finally {
       setLoadingMatch(false);
     }
   };
 
+  const handleCompleteMatch = (court: Court) => {
+    if (!court.currentMatchId) return;
+    const courtRef = doc(db, 'courts', court.id);
+    const matchRef = doc(db, 'matches', court.currentMatchId);
+
+    updateDocumentNonBlocking(matchRef, { isCompleted: true });
+    updateDocumentNonBlocking(courtRef, { status: 'available', currentMatchId: null });
+
+    // In a real flow, we'd ask for winner to update improvement score
+    // For MVP, we just set players back to resting or available
+    players?.filter(p => p.status === 'playing').forEach(p => {
+       updateDocumentNonBlocking(doc(db, 'players', p.id), { status: 'available' });
+    });
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
+    <div className="container mx-auto px-4 py-8 space-y-6 pb-24">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Courts</h1>
         <div className="flex gap-2">
@@ -109,31 +148,66 @@ export default function CourtsPage() {
           <Card key={court.id} className="border-2">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-lg font-bold">{court.name}</CardTitle>
-              <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${court.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-primary/20 text-primary'}`}>
-                {court.status}
-              </span>
+              <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={court.status === 'available' ? 'text-green-600 border-green-200' : 'bg-primary'}>
+                {court.status.toUpperCase()}
+              </Badge>
             </CardHeader>
             <CardContent>
               {court.status === 'occupied' ? (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Currently Playing:</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2 bg-secondary/30 rounded">Team A: ...</div>
-                    <div className="p-2 bg-secondary/30 rounded">Team B: ...</div>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase">
+                    <Users2 className="h-4 w-4" /> Live Match
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-secondary/30 rounded-lg space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Team A</p>
+                      <div className="text-xs font-bold truncate">Active Pairing</div>
+                    </div>
+                    <div className="p-3 bg-secondary/30 rounded-lg space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Team B</p>
+                      <div className="text-xs font-bold truncate">Active Pairing</div>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground italic">Ready for match</p>
+                <div className="h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-lg bg-secondary/10">
+                   <Trophy className="h-6 w-6 text-muted-foreground/30 mb-2" />
+                   <p className="text-sm text-muted-foreground italic">Ready for next match</p>
+                </div>
               )}
             </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-               <Button variant="ghost" size="sm" className="gap-2">
-                <ArrowLeftRight className="h-4 w-4" /> Swap
-              </Button>
+            <CardFooter className="flex justify-between gap-2 border-t pt-4">
+               {court.status === 'occupied' ? (
+                 <>
+                  <Button variant="outline" size="sm" onClick={() => handleCompleteMatch(court)} className="flex-1">End Match</Button>
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <ArrowLeftRight className="h-4 w-4" /> Swap
+                  </Button>
+                 </>
+               ) : (
+                 <p className="text-xs text-muted-foreground">Idle for 5m</p>
+               )}
             </CardFooter>
           </Card>
         ))}
       </div>
+
+      <Dialog open={isSwapOpen} onOpenChange={setIsSwapOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            <Label>Select replacement from available players:</Label>
+            {players?.filter(p => p.status === 'available').map(player => (
+              <Button key={player.id} variant="outline" className="w-full justify-between" onClick={() => setIsSwapOpen(false)}>
+                {player.name} <Badge>Lvl {player.skillLevel}</Badge>
+              </Button>
+            ))}
+            {players?.filter(p => p.status === 'available').length === 0 && (
+              <p className="text-center text-sm text-muted-foreground italic">No players available to swap.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

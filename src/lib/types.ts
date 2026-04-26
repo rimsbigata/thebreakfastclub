@@ -5,16 +5,18 @@ export type CourtStatus = 'available' | 'occupied';
 export interface Player {
   id: string;
   name: string;
-  skillLevel: number; // 1-7
+  skillLevel: number; // 1 to 7
   gamesPlayed: number;
-  partnerHistory: string[];
+  partnerHistory: string[]; // IDs of recent partners
   status: PlayerStatus;
   improvementScore: number;
+  wins?: number;
+  losses?: number;
 }
 
 export interface Court {
   id: string;
-  name: string;
+  name: string; // Customizable e.g. "Court 1"
   status: CourtStatus;
   currentMatchId?: string;
 }
@@ -26,6 +28,7 @@ export interface Match {
   courtId: string;
   timestamp: any;
   isCompleted: boolean;
+  winnerTeam?: 'A' | 'B';
 }
 
 export interface Fee {
