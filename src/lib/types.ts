@@ -2,6 +2,16 @@
 export type PlayerStatus = 'available' | 'playing' | 'resting';
 export type CourtStatus = 'available' | 'occupied';
 
+export const SKILL_LEVELS: Record<number, string> = {
+  1: "Novice",
+  2: "Beginner",
+  3: "Recreational",
+  4: "Intermediate",
+  5: "Advanced",
+  6: "Expert",
+  7: "Elite",
+};
+
 export interface Player {
   id: string;
   name: string;

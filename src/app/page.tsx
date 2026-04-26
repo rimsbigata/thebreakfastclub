@@ -12,6 +12,7 @@ import { Plus, Sparkles, Loader2, ArrowLeftRight, Users2, Trophy, Trash2 } from 
 import { generateMatch } from '@/ai/flows/ai-match-suggestions-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { SKILL_LEVELS } from '@/lib/types';
 
 export default function HomePage() {
   const { courts, players, addCourt, deleteCourt, startMatch, endMatch } = useClub();
@@ -185,7 +186,11 @@ export default function HomePage() {
             <Label>Select replacement from available players:</Label>
             {players.filter(p => p.status === 'available').map(player => (
               <Button key={player.id} variant="outline" className="w-full justify-between" onClick={() => setIsSwapOpen(false)}>
-                {player.name} <Badge>Lvl {player.skillLevel}</Badge>
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="font-bold">{player.name}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-tight font-black">{SKILL_LEVELS[player.skillLevel]}</span>
+                </div>
+                <Badge>Lvl {player.skillLevel}</Badge>
               </Button>
             ))}
             {players.filter(p => p.status === 'available').length === 0 && (
