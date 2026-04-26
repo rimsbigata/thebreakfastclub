@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -8,11 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Sparkles, Loader2, Users2, Trophy, Trash2, Timer, CheckCircle2 } from 'lucide-react';
+import { Plus, Sparkles, Loader2, Users2, Trophy, Trash2, Timer, CheckCircle2, Play } from 'lucide-react';
 import { generateMatch } from '@/ai/flows/ai-match-suggestions-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { SKILL_LEVELS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
@@ -40,7 +38,7 @@ function LiveTimer({ startTime }: { startTime?: string }) {
 }
 
 export default function HomePage() {
-  const { courts, players, matches, addCourt, deleteCourt, startMatch, endMatch } = useClub();
+  const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch } = useClub();
   const { toast } = useToast();
   const [loadingMatch, setLoadingMatch] = useState(false);
   const [newCourtName, setNewCourtName] = useState('');
@@ -83,7 +81,7 @@ export default function HomePage() {
           teamB: result.teamB,
           courtId: result.courtId,
         });
-        toast({ title: "Match Started!", description: `Assigned to ${result.courtName}.` });
+        toast({ title: "Match Assigned!", description: `${result.courtName} ready. Click START to begin timer.` });
       } else {
         toast({ title: "No optimal match", description: "AI couldn't find a balance with current rules." });
       }
@@ -148,14 +146,20 @@ export default function HomePage() {
             const activeMatch = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
             const teamAPlayers = activeMatch?.teamA.map(id => players.find(p => p.id === id)?.name).join(' & ');
             const teamBPlayers = activeMatch?.teamB.map(id => players.find(p => p.id === id)?.name).join(' & ');
+            const isTimerRunning = !!activeMatch?.startTime;
 
             return (
               <Card key={court.id} className="border-2 shadow-sm relative group overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-secondary/10">
                   <div className="space-y-1">
                     <CardTitle className="text-lg font-black uppercase tracking-tight">{court.name}</CardTitle>
-                    {court.status === 'occupied' && activeMatch && (
-                      <LiveTimer startTime={activeMatch.startTime} />
+                    {court.status === 'occupied' && isTimerRunning && (
+                      <LiveTimer startTime={activeMatch?.startTime} />
+                    )}
+                    {court.status === 'occupied' && !isTimerRunning && (
+                      <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-sm font-bold italic">
+                        Ready to Start
+                      </div>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -182,14 +186,16 @@ export default function HomePage() {
                         <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-2 relative">
                           <p className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</p>
                           <div className="text-sm font-bold truncate pr-12">{teamAPlayers || 'Unknown Players'}</div>
-                          <Button 
-                            variant="secondary" 
-                            size="sm" 
-                            className="absolute right-2 top-2 h-7 px-2 text-[10px] font-black uppercase gap-1"
-                            onClick={() => endMatch(court.id, 'teamA')}
-                          >
-                            <CheckCircle2 className="h-3 w-3" /> Win
-                          </Button>
+                          {isTimerRunning && (
+                            <Button 
+                              variant="secondary" 
+                              size="sm" 
+                              className="absolute right-2 top-2 h-7 px-2 text-[10px] font-black uppercase gap-1"
+                              onClick={() => endMatch(court.id, 'teamA')}
+                            >
+                              <CheckCircle2 className="h-3 w-3" /> Win
+                            </Button>
+                          )}
                         </div>
                         <div className="flex items-center justify-center -my-2">
                           <div className="bg-background px-3 py-1 border rounded-full text-[10px] font-black text-muted-foreground italic">VS</div>
@@ -197,14 +203,16 @@ export default function HomePage() {
                         <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-2 relative">
                           <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
                           <div className="text-sm font-bold truncate pr-12">{teamBPlayers || 'Unknown Players'}</div>
-                          <Button 
-                            variant="secondary" 
-                            size="sm" 
-                            className="absolute right-2 top-2 h-7 px-2 text-[10px] font-black uppercase gap-1"
-                            onClick={() => endMatch(court.id, 'teamB')}
-                          >
-                            <CheckCircle2 className="h-3 w-3" /> Win
-                          </Button>
+                          {isTimerRunning && (
+                            <Button 
+                              variant="secondary" 
+                              size="sm" 
+                              className="absolute right-2 top-2 h-7 px-2 text-[10px] font-black uppercase gap-1"
+                              onClick={() => endMatch(court.id, 'teamB')}
+                            >
+                              <CheckCircle2 className="h-3 w-3" /> Win
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -217,9 +225,23 @@ export default function HomePage() {
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2 border-t pt-4 bg-secondary/5">
                    {court.status === 'occupied' ? (
-                      <Button variant="ghost" size="sm" onClick={() => endMatch(court.id)} className="text-xs font-bold uppercase text-muted-foreground hover:text-destructive">
-                        Force End
-                      </Button>
+                      <div className="flex items-center gap-2 w-full justify-between">
+                        {!isTimerRunning ? (
+                          <Button 
+                            onClick={() => startTimer(court.id)} 
+                            className="w-full gap-2 bg-green-600 hover:bg-green-700 h-10 font-bold uppercase"
+                          >
+                            <Play className="h-4 w-4" /> Start Match
+                          </Button>
+                        ) : (
+                          <>
+                            <p className="text-[10px] font-black uppercase text-primary animate-pulse tracking-widest">Match In Progress</p>
+                            <Button variant="ghost" size="sm" onClick={() => endMatch(court.id)} className="text-xs font-bold uppercase text-muted-foreground hover:text-destructive">
+                              Force End
+                            </Button>
+                          </>
+                        )}
+                      </div>
                    ) : (
                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Court Idle</p>
                    )}

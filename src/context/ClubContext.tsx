@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -15,6 +14,7 @@ interface ClubContextType {
   addCourt: (name: string) => void;
   deleteCourt: (id: string) => void;
   startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted'>) => void;
+  startTimer: (courtId: string) => void;
   endMatch: (courtId: string, winner?: 'teamA' | 'teamB') => void;
   updateFee: (fee: Omit<Fee, 'payments'>) => void;
   togglePayment: (date: string, playerId: string) => void;
@@ -100,7 +100,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       ...matchData,
       id: matchId,
       timestamp: new Date().toISOString(),
-      startTime: new Date().toISOString(),
+      // startTime is explicitly omitted here to allow manual starting
       isCompleted: false
     };
 
@@ -115,6 +115,15 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     ));
   };
 
+  const startTimer = (courtId: string) => {
+    const court = courts.find(c => c.id === courtId);
+    if (!court || !court.currentMatchId) return;
+
+    setMatches(prev => prev.map(m => 
+      m.id === court.currentMatchId ? { ...m, startTime: new Date().toISOString() } : m
+    ));
+  };
+
   const endMatch = (courtId: string, winner?: 'teamA' | 'teamB') => {
     const court = courts.find(c => c.id === courtId);
     if (!court || !court.currentMatchId) return;
@@ -123,8 +132,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (!match) return;
 
     const endTime = new Date();
-    const startTime = match.startTime ? new Date(match.startTime) : new Date(match.timestamp);
-    const playDurationMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
+    // If startTime wasn't set (match never "started"), duration is 0
+    const startTime = match.startTime ? new Date(match.startTime) : null;
+    const playDurationMinutes = startTime ? Math.floor((endTime.getTime() - startTime.getTime()) / 60000) : 0;
 
     setMatches(prev => prev.map(m => m.id === court.currentMatchId ? { ...m, isCompleted: true, winner } : m));
     setCourts(prev => prev.map(c => c.id === courtId ? { ...c, status: 'available', currentMatchId: null } : c));
@@ -213,7 +223,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     <ClubContext.Provider value={{
       players, courts, matches, fees, paymentMethods,
       addPlayer, deletePlayer, addCourt, deleteCourt,
-      startMatch, endMatch, updateFee, togglePayment,
+      startMatch, startTimer, endMatch, updateFee, togglePayment,
       addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData
     }}>
       {children}
