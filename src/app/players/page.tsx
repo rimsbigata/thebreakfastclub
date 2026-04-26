@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award, Clock } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { SKILL_LEVELS } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 export default function PlayersPage() {
   const { players, addPlayer, deletePlayer } = useClub();
@@ -180,7 +181,7 @@ export default function PlayersPage() {
                    <div className="flex items-center gap-1 text-[9px] font-black uppercase text-muted-foreground">
                       <Clock className="h-2.5 w-2.5" /> Time Played
                    </div>
-                   <p className="text-xs font-bold">{player.totalPlayTimeMinutes} mins</p>
+                   <p className="text-xs font-bold">{player.totalPlayTimeMinutes || 0} mins</p>
                 </div>
                 <div className="text-right space-y-1">
                    <div className="text-[9px] font-black uppercase text-muted-foreground">Games</div>
