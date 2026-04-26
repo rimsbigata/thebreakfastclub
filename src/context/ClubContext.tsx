@@ -17,6 +17,7 @@ interface ClubContextType {
   startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted'>) => void;
   startTimer: (courtId: string) => void;
   endMatch: (courtId: string, winner?: 'teamA' | 'teamB') => void;
+  swapPlayer: (matchId: string, oldPlayerId: string, newPlayerId: string) => void;
   updateFee: (fee: Omit<Fee, 'payments'>) => void;
   togglePayment: (date: string, playerId: string) => void;
   addPaymentMethod: (name: string, imageData: string) => void;
@@ -40,7 +41,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       const data = localStorage.getItem('breakfast_club_data');
       if (data) {
         const parsed = JSON.parse(data);
-        // Migration/Sanitization: Ensure all required numeric fields exist
         const migratedPlayers = (parsed.players || []).map((p: any) => ({
           ...p,
           wins: typeof p.wins === 'number' ? p.wins : 0,
@@ -189,6 +189,22 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const swapPlayer = (matchId: string, oldPlayerId: string, newPlayerId: string) => {
+    setMatches(prev => prev.map(m => {
+      if (m.id !== matchId) return m;
+      const isTeamA = m.teamA.includes(oldPlayerId);
+      const teamA = isTeamA ? m.teamA.map(id => id === oldPlayerId ? newPlayerId : id) : m.teamA;
+      const teamB = !isTeamA ? m.teamB.map(id => id === oldPlayerId ? newPlayerId : id) : m.teamB;
+      return { ...m, teamA, teamB };
+    }));
+
+    setPlayers(prev => prev.map(p => {
+      if (p.id === oldPlayerId) return { ...p, status: 'available' };
+      if (p.id === newPlayerId) return { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1 };
+      return p;
+    }));
+  };
+
   const updateFee = (data: any) => {
     setFees(prev => {
       const existing = prev.find(f => f.id === data.id);
@@ -253,7 +269,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     <ClubContext.Provider value={{
       players, courts, matches, fees, paymentMethods,
       addPlayer, deletePlayer, addCourt, deleteCourt,
-      startMatch, startTimer, endMatch, updateFee, togglePayment,
+      startMatch, startTimer, endMatch, swapPlayer, updateFee, togglePayment,
       addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData
     }}>
       {children}

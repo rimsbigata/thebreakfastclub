@@ -8,11 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Users2, Trophy, Trash2, Timer, CheckCircle2, Play, UserPlus, Zap } from 'lucide-react';
+import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, UserPlus, Zap, ArrowLeftRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
+import { SKILL_LEVELS } from '@/lib/types';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -39,9 +40,10 @@ function LiveTimer({ startTime }: { startTime?: string }) {
 }
 
 export default function HomePage() {
-  const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch } = useClub();
+  const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch, swapPlayer } = useClub();
   const { toast } = useToast();
   const [newCourtName, setNewCourtName] = useState('');
+  const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
 
   const handleAddCourtAction = () => {
     if (!newCourtName) return;
@@ -72,6 +74,13 @@ export default function HomePage() {
         variant: "destructive"
       });
     }
+  };
+
+  const handleSwap = (newPlayerId: string) => {
+    if (!swapping) return;
+    swapPlayer(swapping.matchId, swapping.oldPlayerId, newPlayerId);
+    setSwapping(null);
+    toast({ title: "Player Swapped" });
   };
 
   return (
@@ -125,8 +134,8 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {courts.map(court => {
             const activeMatch = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
-            const teamAPlayers = activeMatch?.teamA.map(id => players.find(p => p.id === id)?.name).join(' & ');
-            const teamBPlayers = activeMatch?.teamB.map(id => players.find(p => p.id === id)?.name).join(' & ');
+            const teamAPlayers = activeMatch?.teamA.map(id => players.find(p => p.id === id)).filter(Boolean);
+            const teamBPlayers = activeMatch?.teamB.map(id => players.find(p => p.id === id)).filter(Boolean);
             const isTimerRunning = !!activeMatch?.startTime;
 
             return (
@@ -161,39 +170,71 @@ export default function HomePage() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  {court.status === 'occupied' ? (
+                  {court.status === 'occupied' && activeMatch ? (
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 gap-4">
-                        <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-2 relative">
-                          <p className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</p>
-                          <div className="text-sm font-bold truncate pr-12">{teamAPlayers || 'Loading...'}</div>
-                          {isTimerRunning && (
-                            <Button 
-                              variant="secondary" 
-                              size="sm" 
-                              className="absolute right-2 top-2 h-7 px-2 text-[10px] font-black uppercase gap-1"
-                              onClick={() => endMatch(court.id, 'teamA')}
-                            >
-                              <CheckCircle2 className="h-3 w-3" /> Win
-                            </Button>
-                          )}
+                        <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-3 relative">
+                          <div className="flex justify-between items-center">
+                            <p className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</p>
+                            {isTimerRunning && (
+                              <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                className="h-7 px-2 text-[10px] font-black uppercase gap-1"
+                                onClick={() => endMatch(court.id, 'teamA')}
+                              >
+                                <CheckCircle2 className="h-3 w-3" /> Win
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            {teamAPlayers?.map(p => (
+                              <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-primary/10">
+                                <span>{p?.name}</span>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                  onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
+                                >
+                                  <ArrowLeftRight className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                         <div className="flex items-center justify-center -my-2">
                           <div className="bg-background px-3 py-1 border rounded-full text-[10px] font-black text-muted-foreground italic">VS</div>
                         </div>
-                        <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-2 relative">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
-                          <div className="text-sm font-bold truncate pr-12">{teamBPlayers || 'Loading...'}</div>
-                          {isTimerRunning && (
-                            <Button 
-                              variant="secondary" 
-                              size="sm" 
-                              className="absolute right-2 top-2 h-7 px-2 text-[10px] font-black uppercase gap-1"
-                              onClick={() => endMatch(court.id, 'teamB')}
-                            >
-                              <CheckCircle2 className="h-3 w-3" /> Win
-                            </Button>
-                          )}
+                        <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-3 relative">
+                          <div className="flex justify-between items-center">
+                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
+                            {isTimerRunning && (
+                              <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                className="h-7 px-2 text-[10px] font-black uppercase gap-1"
+                                onClick={() => endMatch(court.id, 'teamB')}
+                              >
+                                <CheckCircle2 className="h-3 w-3" /> Win
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            {teamBPlayers?.map(p => (
+                              <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-muted/20">
+                                <span>{p?.name}</span>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                  onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
+                                >
+                                  <ArrowLeftRight className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -232,6 +273,35 @@ export default function HomePage() {
           })}
         </div>
       )}
+
+      <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            <Label className="text-xs text-muted-foreground">Select replacement from available players:</Label>
+            {players.filter(p => p.status === 'available').map(player => (
+              <Button 
+                key={player.id} 
+                variant="outline" 
+                className="w-full justify-between h-12" 
+                onClick={() => handleSwap(player.id)}
+              >
+                <div className="flex flex-col items-start">
+                  <span className="font-bold">{player.name}</span>
+                  <span className="text-[10px] uppercase text-muted-foreground">{player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}</span>
+                </div>
+                <Badge variant="secondary">In Queue</Badge>
+              </Button>
+            ))}
+            {players.filter(p => p.status === 'available').length === 0 && (
+              <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+                <UserPlus className="h-8 w-8 opacity-20" />
+                <p className="text-sm italic">No players available to swap.</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
