@@ -59,7 +59,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         });
         localStorage.setItem('breakfast_club_data', dataToSave);
       } catch (e) {
-        console.error("Failed to save data", e);
+        console.error("Failed to save data. You may have exceeded localStorage quota.", e);
+        // We could add more complex logic here to handle QuotaExceededError,
+        // but for now, we just catch it to prevent the app from crashing.
       }
     }
   }, [players, courts, matches, fees, paymentMethods, isLoaded]);
@@ -91,6 +93,20 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteCourt = (id: string) => {
+    // Find the court to check for active matches
+    const courtToDelete = courts.find(c => c.id === id);
+    
+    // If court was occupied, free up the players
+    if (courtToDelete?.currentMatchId) {
+      const match = matches.find(m => m.id === courtToDelete.currentMatchId);
+      if (match) {
+        const playerIds = [...match.teamA, ...match.teamB];
+        setPlayers(prev => prev.map(p => 
+          playerIds.includes(p.id) ? { ...p, status: 'available' } : p
+        ));
+      }
+    }
+    
     setCourts(prev => prev.filter(c => c.id !== id));
   };
 
@@ -100,7 +116,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       ...matchData,
       id: matchId,
       timestamp: new Date().toISOString(),
-      // startTime is explicitly omitted here to allow manual starting
       isCompleted: false
     };
 
@@ -132,7 +147,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (!match) return;
 
     const endTime = new Date();
-    // If startTime wasn't set (match never "started"), duration is 0
     const startTime = match.startTime ? new Date(match.startTime) : null;
     const playDurationMinutes = startTime ? Math.floor((endTime.getTime() - startTime.getTime()) / 60000) : 0;
 
