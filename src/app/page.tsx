@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -43,10 +44,14 @@ export default function HomePage() {
   const { toast } = useToast();
   const [newCourtName, setNewCourtName] = useState('');
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
+  const [today, setToday] = useState<string>('');
+
+  useEffect(() => {
+    setToday(new Date().toLocaleDateString());
+  }, []);
 
   const availablePlayersCount = players.filter(p => p.status === 'available').length;
   const occupiedCourtsCount = courts.filter(c => c.status === 'occupied').length;
-  const today = new Date().toLocaleDateString();
 
   const handleAddCourtAction = () => {
     if (!newCourtName) return;
@@ -158,7 +163,7 @@ export default function HomePage() {
             <div>
               <p className="text-[10px] font-black uppercase text-muted-foreground">Total Players</p>
               <p className="text-2xl font-black">{players.length}</p>
-              <p className="text-[8px] font-bold uppercase text-muted-foreground/60">{today}</p>
+              <p className="text-[8px] font-bold uppercase text-muted-foreground/60">{today || '...'}</p>
             </div>
           </CardContent>
         </Card>

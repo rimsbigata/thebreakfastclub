@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,14 +17,21 @@ import { cn } from '@/lib/utils';
 
 export default function FeesPage() {
   const { players, fees, paymentMethods, updateFee, togglePayment } = useClub();
-  const today = new Date().toISOString().split('T')[0];
+  const [today, setToday] = useState<string>('');
   
   const [shuttleFee, setShuttleFee] = useState(0);
   const [courtFee, setCourtFee] = useState(0);
   const [entranceFee, setEntranceFee] = useState(0);
   const [includeEntranceFee, setIncludeEntranceFee] = useState(true);
 
-  const currentFee = fees.find(f => f.id === today);
+  useEffect(() => {
+    setToday(new Date().toISOString().split('T')[0]);
+  }, []);
+
+  const currentFee = useMemo(() => {
+    if (!today) return null;
+    return fees.find(f => f.id === today);
+  }, [fees, today]);
 
   const perPlayerFee = useMemo(() => {
     const effectiveEntry = includeEntranceFee ? entranceFee : 0;
@@ -34,6 +41,7 @@ export default function FeesPage() {
   }, [shuttleFee, courtFee, entranceFee, includeEntranceFee, players.length]);
 
   const handleUpdateFeeAction = () => {
+    if (!today) return;
     updateFee({
       id: today,
       shuttleFee,
@@ -53,6 +61,7 @@ export default function FeesPage() {
   }, [players, currentFee]);
 
   const handleExportCSV = () => {
+    if (!today) return;
     const headers = ["Date", "Player Name", "Status", "Amount"];
     const rows = sortedPlayers.map(player => {
       const isPaid = !!currentFee?.payments?.[player.id];
@@ -145,7 +154,7 @@ export default function FeesPage() {
               <UserCheck className="h-5 w-5" /> Payment Status
             </h2>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
+              <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2" disabled={!today}>
                 <Download className="h-4 w-4" /> Export CSV
               </Button>
               <Dialog>
@@ -214,7 +223,7 @@ export default function FeesPage() {
                     </span>
                     <Checkbox 
                       checked={isPaid} 
-                      onCheckedChange={() => togglePayment(today, player.id)}
+                      onCheckedChange={() => today && togglePayment(today, player.id)}
                     />
                   </div>
                 </div>
