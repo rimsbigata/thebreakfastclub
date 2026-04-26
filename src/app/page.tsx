@@ -8,11 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Sparkles, Loader2, Users2, Trophy, Trash2, Timer, CheckCircle2, Play } from 'lucide-react';
-import { generateMatch } from '@/ai/flows/ai-match-suggestions-flow';
+import { Plus, Users2, Trophy, Trash2, Timer, CheckCircle2, Play, UserPlus, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { generateDeterministicMatch } from '@/lib/matchmaking';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -41,7 +41,6 @@ function LiveTimer({ startTime }: { startTime?: string }) {
 export default function HomePage() {
   const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch } = useClub();
   const { toast } = useToast();
-  const [loadingMatch, setLoadingMatch] = useState(false);
   const [newCourtName, setNewCourtName] = useState('');
 
   const handleAddCourtAction = () => {
@@ -50,54 +49,28 @@ export default function HomePage() {
     setNewCourtName('');
   };
 
-  const handleGenerateMatch = async () => {
+  const handleAutoMatch = () => {
     const availablePlayers = players.filter(p => p.status === 'available');
     const availableCourts = courts.filter(c => c.status === 'available');
 
-    if (availablePlayers.length < 4) {
-      toast({ title: "Insufficient players", description: "The Commissioner needs at least 4 available players.", variant: "destructive" });
-      return;
-    }
-    if (availableCourts.length === 0) {
-      toast({ title: "No courts available", description: "Wait for a match to finish first.", variant: "destructive" });
-      return;
-    }
+    const result = generateDeterministicMatch(availablePlayers, availableCourts);
 
-    setLoadingMatch(true);
-    try {
-      const result = await generateMatch({
-        availablePlayers: availablePlayers.map(p => ({
-          id: p.id,
-          name: p.name,
-          skillLevel: p.skillLevel,
-          gamesPlayed: p.gamesPlayed,
-          partnerHistory: p.partnerHistory,
-        })),
-        availableCourts: availableCourts.map(c => ({ id: c.id, name: c.name })),
+    if (result.matchCreated && result.courtId && result.teamA && result.teamB) {
+      startMatch({
+        teamA: result.teamA,
+        teamB: result.teamB,
+        courtId: result.courtId,
       });
-
-      if (result.matchCreated && result.courtId && result.teamA && result.teamB) {
-        startMatch({
-          teamA: result.teamA,
-          teamB: result.teamB,
-          courtId: result.courtId,
-        });
-        toast({ 
-          title: "Match Created!", 
-          description: result.analysis || `Assigned to ${result.courtName}.` 
-        });
-      } else {
-        toast({ 
-          title: "Matchmaking Error", 
-          description: result.error || "The Commissioner couldn't find a fair pairing.",
-          variant: "destructive"
-        });
-      }
-    } catch (e) {
-      console.error(e);
-      toast({ title: "AI Error", description: "Failed to connect to the Commissioner.", variant: "destructive" });
-    } finally {
-      setLoadingMatch(false);
+      toast({ 
+        title: "Match Created!", 
+        description: result.analysis || "Optimal pairing found based on games played and history." 
+      });
+    } else {
+      toast({ 
+        title: "Matchmaking Error", 
+        description: result.error || "Could not generate a match.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -106,20 +79,20 @@ export default function HomePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Live Courts</h1>
-          <p className="text-sm text-muted-foreground">Manage active games and AI pairings.</p>
+          <p className="text-sm text-muted-foreground">Deterministic matching and game tracking.</p>
         </div>
         <div className="flex gap-2">
           <Button 
-            onClick={handleGenerateMatch} 
-            disabled={loadingMatch || !courts.length || !players.length} 
-            className="gap-2 bg-primary"
+            onClick={handleAutoMatch} 
+            disabled={!courts.length || !players.length} 
+            className="gap-2 bg-primary font-bold shadow-lg shadow-primary/20"
           >
-            {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            AI Commissioner
+            <Zap className="h-4 w-4 fill-white" />
+            Quick Match
           </Button>
           <Dialog>
             <DialogTrigger asChild>
-              <Button size="icon"><Plus className="h-4 w-4" /></Button>
+              <Button size="icon" variant="outline"><Plus className="h-4 w-4" /></Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Add New Court</DialogTitle></DialogHeader>
