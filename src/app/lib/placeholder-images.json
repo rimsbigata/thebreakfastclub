@@ -1,0 +1,29 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "court-1",
+      "description": "Premium indoor badminton court with professional lighting",
+      "imageUrl": "https://picsum.photos/seed/court1/800/600",
+      "imageHint": "badminton court"
+    },
+    {
+      "id": "court-2",
+      "description": "Standard badminton court for casual play",
+      "imageUrl": "https://picsum.photos/seed/court2/800/600",
+      "imageHint": "shuttlecock court"
+    },
+    {
+      "id": "court-3",
+      "description": "Modern badminton facility with green mats",
+      "imageUrl": "https://picsum.photos/seed/court3/800/600",
+      "imageHint": "badminton arena"
+    },
+    {
+      "id": "player-avatar",
+      "description": "Default player avatar placeholder",
+      "imageUrl": "https://picsum.photos/seed/player/200/200",
+      "imageHint": "athlete portrait"
+    }
+  ]
+}
