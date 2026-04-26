@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -12,6 +11,7 @@ import { Banknote, QrCode, UserCheck, Calculator, AlertCircle, Plus } from 'luci
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Image from 'next/image';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 export default function FeesPage() {
   const { players, fees, paymentMethods, updateFee, togglePayment } = useClub();
@@ -37,6 +37,16 @@ export default function FeesPage() {
       entranceFee,
     });
   };
+
+  // Sort players: Pending at top, Paid at bottom
+  const sortedPlayers = useMemo(() => {
+    return [...players].sort((a, b) => {
+      const aPaid = !!currentFee?.payments?.[a.id];
+      const bPaid = !!currentFee?.payments?.[b.id];
+      if (aPaid === bPaid) return 0;
+      return aPaid ? 1 : -1;
+    });
+  }, [players, currentFee]);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
@@ -127,22 +137,38 @@ export default function FeesPage() {
             </Dialog>
           </div>
           <div className="space-y-2">
-            {players.map(player => (
-              <div key={player.id} className="flex items-center justify-between p-3 bg-card border rounded-lg shadow-sm">
-                <span className="font-medium">{player.name}</span>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-bold ${currentFee?.payments?.[player.id] ? 'text-green-600' : 'text-red-500'}`}>
-                    {currentFee?.payments?.[player.id] ? 'PAID' : 'PENDING'}
+            {sortedPlayers.map(player => {
+              const isPaid = !!currentFee?.payments?.[player.id];
+              return (
+                <div key={player.id} className={cn(
+                  "flex items-center justify-between p-3 border rounded-lg shadow-sm transition-all",
+                  isPaid ? "bg-muted/50 border-muted opacity-70" : "bg-card border-border"
+                )}>
+                  <span className={cn(
+                    "font-medium transition-all",
+                    isPaid && "line-through text-muted-foreground"
+                  )}>
+                    {player.name}
                   </span>
-                  <Checkbox 
-                    checked={!!currentFee?.payments?.[player.id]} 
-                    onCheckedChange={() => togglePayment(today, player.id)}
-                  />
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "text-[10px] font-black uppercase tracking-widest",
+                      isPaid ? "text-green-600" : "text-red-500"
+                    )}>
+                      {isPaid ? 'PAID' : 'PENDING'}
+                    </span>
+                    <Checkbox 
+                      checked={isPaid} 
+                      onCheckedChange={() => togglePayment(today, player.id)}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {players.length === 0 && (
-              <p className="text-center py-10 text-muted-foreground italic text-sm">No players registered.</p>
+              <div className="text-center py-12 border-2 border-dashed rounded-xl bg-secondary/5 text-muted-foreground italic text-sm">
+                No players registered. Go to the Players tab to add members.
+              </div>
             )}
           </div>
         </section>

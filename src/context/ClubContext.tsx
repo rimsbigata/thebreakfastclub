@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -144,13 +143,26 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const togglePayment = (date: string, playerId: string) => {
-    setFees(prev => prev.map(f => {
-      if (f.id === date) {
-        const newPayments = { ...f.payments, [playerId]: !f.payments[playerId] };
-        return { ...f, payments: newPayments };
+    setFees(prev => {
+      const existing = prev.find(f => f.id === date);
+      if (existing) {
+        return prev.map(f => {
+          if (f.id === date) {
+            const newPayments = { ...f.payments, [playerId]: !f.payments[playerId] };
+            return { ...f, payments: newPayments };
+          }
+          return f;
+        });
       }
-      return f;
-    }));
+      // Create daily record if it doesn't exist
+      return [...prev, { 
+        id: date, 
+        shuttleFee: 0, 
+        courtFee: 0, 
+        entranceFee: 0, 
+        payments: { [playerId]: true } 
+      }];
+    });
   };
 
   const addPaymentMethod = (name: string, imageData: string) => {
