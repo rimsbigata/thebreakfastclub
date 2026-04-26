@@ -48,13 +48,13 @@ export default function PlayersPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Registration Panel */}
+        {/* Registration Panel - Persistent Card */}
         <Card className="lg:col-span-1 border-primary/20 shadow-sm h-fit">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" /> Quick Register
+              <Plus className="h-5 w-5 text-primary" /> Add a Player
             </CardTitle>
-            <CardDescription>Add a new player to the club.</CardDescription>
+            <CardDescription>Add a player to the club list.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
