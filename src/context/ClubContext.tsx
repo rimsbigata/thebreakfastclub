@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Player, Court, Match, Fee, PaymentMethod } from '@/lib/types';
+import { SplashScreen } from '@/components/layout/SplashScreen';
 
 interface ClubContextType {
   players: Player[];
@@ -40,32 +41,37 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const data = localStorage.getItem('breakfast_club_data');
-      if (data) {
-        const parsed = JSON.parse(data);
-        const migratedPlayers = (parsed.players || []).map((p: any) => ({
-          ...p,
-          wins: typeof p.wins === 'number' ? p.wins : 0,
-          gamesPlayed: typeof p.gamesPlayed === 'number' ? p.gamesPlayed : 0,
-          totalPlayTimeMinutes: typeof p.totalPlayTimeMinutes === 'number' ? p.totalPlayTimeMinutes : 0,
-          improvementScore: typeof p.improvementScore === 'number' ? p.improvementScore : 0,
-          partnerHistory: p.partnerHistory || [],
-          status: p.status || 'available',
-          lastAvailableAt: p.lastAvailableAt || Date.now()
-        }));
-        
-        setPlayers(migratedPlayers);
-        setCourts(parsed.courts || []);
-        setMatches(parsed.matches || []);
-        setFees(parsed.fees || []);
-        setPaymentMethods(parsed.paymentMethods || []);
-        setClubLogoState(parsed.clubLogo || null);
+    // Artificial delay for splash screen visibility
+    const timer = setTimeout(() => {
+      try {
+        const data = localStorage.getItem('breakfast_club_data');
+        if (data) {
+          const parsed = JSON.parse(data);
+          const migratedPlayers = (parsed.players || []).map((p: any) => ({
+            ...p,
+            wins: typeof p.wins === 'number' ? p.wins : 0,
+            gamesPlayed: typeof p.gamesPlayed === 'number' ? p.gamesPlayed : 0,
+            totalPlayTimeMinutes: typeof p.totalPlayTimeMinutes === 'number' ? p.totalPlayTimeMinutes : 0,
+            improvementScore: typeof p.improvementScore === 'number' ? p.improvementScore : 0,
+            partnerHistory: p.partnerHistory || [],
+            status: p.status || 'available',
+            lastAvailableAt: p.lastAvailableAt || Date.now()
+          }));
+          
+          setPlayers(migratedPlayers);
+          setCourts(parsed.courts || []);
+          setMatches(parsed.matches || []);
+          setFees(parsed.fees || []);
+          setPaymentMethods(parsed.paymentMethods || []);
+          setClubLogoState(parsed.clubLogo || null);
+        }
+      } catch (e) {
+        console.error("Failed to load data", e);
       }
-    } catch (e) {
-      console.error("Failed to load data", e);
-    }
-    setIsLoaded(true);
+      setIsLoaded(true);
+    }, 1500); // 1.5s splash visibility
+    
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -284,6 +290,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setClubLogoState(null);
     localStorage.removeItem('breakfast_club_data');
   };
+
+  if (!isLoaded) {
+    return <SplashScreen logo={clubLogo} />;
+  }
 
   return (
     <ClubContext.Provider value={{

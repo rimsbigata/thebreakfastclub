@@ -1,0 +1,61 @@
+
+'use client';
+
+import Image from 'next/image';
+import { Loader2 } from 'lucide-react';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+
+interface SplashScreenProps {
+  logo?: string | null;
+}
+
+export function SplashScreen({ logo }: SplashScreenProps) {
+  const placeholderLogo = PlaceHolderImages.find(img => img.id === 'logo');
+  const displayLogo = logo || placeholderLogo?.imageUrl;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
+      <div className="relative mb-8 flex flex-col items-center">
+        <div className="relative h-32 w-32 rounded-full border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl animate-pulse">
+          {displayLogo ? (
+            <Image 
+              src={displayLogo} 
+              alt="Club Logo" 
+              fill 
+              className="object-cover"
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center bg-white/20">
+              <span className="text-2xl font-black">BC</span>
+            </div>
+          )}
+        </div>
+        <div className="absolute -bottom-2 bg-white text-[#f76a01] px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+          EST. 2024
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center">
+          <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-1">
+            TheBreakfastClub
+          </h1>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-80">
+            Badminton Management
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-2 mt-4">
+          <Loader2 className="h-5 w-5 animate-spin opacity-80" />
+          <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
+            Initializing System...
+          </span>
+        </div>
+      </div>
+      
+      <div className="absolute bottom-8 text-[10px] font-bold opacity-40 uppercase tracking-widest">
+        Powered by ShuttleQueue
+      </div>
+    </div>
+  );
+}
