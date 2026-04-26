@@ -36,6 +36,11 @@ export interface Fee {
   shuttleFee: number;
   courtFee: number;
   entranceFee: number;
-  qrCodeUrl?: string;
   payments: Record<string, boolean>; // playerId -> isPaid
+}
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  imageUrl: string;
 }

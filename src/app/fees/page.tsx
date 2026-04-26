@@ -4,15 +4,16 @@
 import { useMemo, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc, setDoc } from 'firebase/firestore';
-import { Player, Fee } from '@/lib/types';
+import { Player, Fee, PaymentMethod } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Banknote, QrCode, UserCheck, Calculator } from 'lucide-react';
+import { Banknote, QrCode, UserCheck, Calculator, AlertCircle, Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function FeesPage() {
   const db = useFirestore();
@@ -24,9 +25,11 @@ export default function FeesPage() {
 
   const playersRef = useMemoFirebase(() => collection(db, 'players'), [db]);
   const feeDocRef = useMemoFirebase(() => doc(db, 'fees', today), [db, today]);
+  const paymentMethodsRef = useMemoFirebase(() => collection(db, 'paymentMethods'), [db]);
 
   const { data: players } = useCollection<Player>(playersRef);
   const { data: feeData } = useCollection<Fee>(useMemoFirebase(() => collection(db, 'fees'), [db]));
+  const { data: paymentMethods } = useCollection<PaymentMethod>(paymentMethodsRef);
 
   const currentFee = feeData?.find(f => f.id === today);
 
@@ -43,7 +46,6 @@ export default function FeesPage() {
       courtFee,
       entranceFee,
       payments: currentFee?.payments || {},
-      qrCodeUrl: '/payments/qr-sample.png' // Default placeholder
     }, { merge: true });
   };
 
@@ -101,21 +103,52 @@ export default function FeesPage() {
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
-                  <QrCode className="h-4 w-4" /> QR Code
+                  <QrCode className="h-4 w-4" /> QR Codes
                 </Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Payment QR</DialogTitle></DialogHeader>
-                <div className="flex flex-col items-center gap-4 py-4">
-                  <div className="relative h-64 w-64 border-8 border-white shadow-xl rounded-xl overflow-hidden">
-                    <Image 
-                      src="https://picsum.photos/seed/qr/300/300" 
-                      alt="Payment QR" 
-                      fill 
-                      data-ai-hint="qr code"
-                    />
-                  </div>
-                  <p className="text-center text-sm text-muted-foreground font-medium">Scan to pay ₱{perPlayerFee}</p>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader><DialogTitle>Select Payment QR</DialogTitle></DialogHeader>
+                <div className="py-4 space-y-6">
+                  {paymentMethods && paymentMethods.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1">
+                      {paymentMethods.map(method => (
+                        <Card key={method.id} className="overflow-hidden">
+                          <div className="bg-muted p-2 text-center text-xs font-bold uppercase tracking-widest">{method.name}</div>
+                          <div className="relative h-64 w-full bg-white">
+                            <Image 
+                              src={method.imageUrl} 
+                              alt={method.name} 
+                              fill 
+                              className="object-contain"
+                              data-ai-hint="payment qr"
+                            />
+                          </div>
+                          <div className="p-2 text-center text-sm font-bold bg-primary/10">Pay ₱{perPlayerFee}</div>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-4 py-8 text-center">
+                      <AlertCircle className="h-12 w-12 text-muted-foreground" />
+                      <div className="space-y-1">
+                        <p className="font-bold">No QR Codes Uploaded</p>
+                        <p className="text-sm text-muted-foreground">Please upload your payment QR codes in settings first.</p>
+                      </div>
+                      <Link href="/settings">
+                        <Button className="gap-2">Go to Settings</Button>
+                      </Link>
+                    </div>
+                  )}
+                  
+                  {paymentMethods && paymentMethods.length > 0 && (
+                    <div className="flex justify-center border-t pt-4">
+                      <Link href="/settings">
+                         <Button variant="ghost" size="sm" className="gap-2">
+                           <Plus className="h-4 w-4" /> Add another QR
+                         </Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </DialogContent>
             </Dialog>
@@ -125,12 +158,12 @@ export default function FeesPage() {
               <div key={player.id} className="flex items-center justify-between p-3 bg-card border rounded-lg shadow-sm">
                 <span className="font-medium">{player.name}</span>
                 <div className="flex items-center gap-3">
-                  <span className={`text-xs font-bold ${currentFee?.payments[player.id] ? 'text-green-600' : 'text-red-500'}`}>
-                    {currentFee?.payments[player.id] ? 'PAID' : 'PENDING'}
+                  <span className={`text-xs font-bold ${currentFee?.payments?.[player.id] ? 'text-green-600' : 'text-red-500'}`}>
+                    {currentFee?.payments?.[player.id] ? 'PAID' : 'PENDING'}
                   </span>
                   <Checkbox 
-                    checked={!!currentFee?.payments[player.id]} 
-                    onCheckedChange={() => togglePayment(player.id, !!currentFee?.payments[player.id])}
+                    checked={!!currentFee?.payments?.[player.id]} 
+                    onCheckedChange={() => togglePayment(player.id, !!currentFee?.payments?.[player.id])}
                   />
                 </div>
               </div>

@@ -51,10 +51,20 @@
         "shuttleFee": { "type": "number" },
         "courtFee": { "type": "number" },
         "entranceFee": { "type": "number" },
-        "qrCodeUrl": { "type": "string" },
         "payments": { "type": "object", "additionalProperties": { "type": "boolean" } }
       },
       "required": ["id", "shuttleFee", "courtFee", "entranceFee", "payments"]
+    },
+    "PaymentMethod": {
+      "title": "Payment Method",
+      "type": "object",
+      "description": "QR Code payment methods.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "imageUrl"]
     }
   },
   "auth": {
@@ -64,6 +74,7 @@
     "/courts/{courtId}": { "schema": { "$ref": "#/entities/Court" }, "description": "Courts list" },
     "/players/{playerId}": { "schema": { "$ref": "#/entities/Player" }, "description": "Players profiles" },
     "/matches/{matchId}": { "schema": { "$ref": "#/entities/Match" }, "description": "Match history" },
-    "/fees/{dateId}": { "schema": { "$ref": "#/entities/Fee" }, "description": "Daily financial records" }
+    "/fees/{dateId}": { "schema": { "$ref": "#/entities/Fee" }, "description": "Daily financial records" },
+    "/paymentMethods/{methodId}": { "schema": { "$ref": "#/entities/PaymentMethod" }, "description": "QR payment options" }
   }
 }
