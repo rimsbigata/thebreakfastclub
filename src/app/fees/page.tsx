@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Banknote, QrCode, UserCheck, Calculator, ExternalLink } from 'lucide-react';
+import { Banknote, QrCode, UserCheck, Calculator } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Image from 'next/image';
 
@@ -84,7 +84,7 @@ export default function FeesPage() {
           </div>
           <div className="p-4 bg-primary/10 rounded-lg flex justify-between items-center">
             <span className="font-bold">Total Per Player:</span>
-            <span className="text-2xl font-black text-primary">${perPlayerFee}</span>
+            <span className="text-2xl font-black text-primary">₱{perPlayerFee}</span>
           </div>
         </CardContent>
         <CardFooter>
@@ -115,7 +115,7 @@ export default function FeesPage() {
                       data-ai-hint="qr code"
                     />
                   </div>
-                  <p className="text-center text-sm text-muted-foreground font-medium">Scan to pay ${perPlayerFee}</p>
+                  <p className="text-center text-sm text-muted-foreground font-medium">Scan to pay ₱{perPlayerFee}</p>
                 </div>
               </DialogContent>
             </Dialog>
