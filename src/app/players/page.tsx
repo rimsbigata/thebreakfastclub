@@ -46,9 +46,7 @@ export default function PlayersPage() {
       gamesPlayed: 0,
       partnerHistory: [],
       status: 'available',
-      improvementScore: 0,
-      wins: 0,
-      losses: 0
+      improvementScore: 0
     }, { merge: true });
     
     setNewName('');
@@ -109,17 +107,17 @@ export default function PlayersPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" /> Active Stats
+              <TrendingUp className="h-4 w-4" /> Stats
             </CardTitle>
           </CardHeader>
           <CardContent>
              <div className="space-y-4">
                <div className="flex justify-between items-center p-3 bg-secondary/20 rounded-lg">
-                 <span className="text-sm">Total Registered</span>
+                 <span className="text-sm">Total Players</span>
                  <span className="font-bold">{players?.length || 0}</span>
                </div>
                <div className="flex justify-between items-center p-3 bg-secondary/20 rounded-lg">
-                 <span className="text-sm">Average Skill</span>
+                 <span className="text-sm">Avg Skill</span>
                  <span className="font-bold">
                    {players?.length ? (players.reduce((acc, p) => acc + p.skillLevel, 0) / players.length).toFixed(1) : 0}
                  </span>
@@ -141,7 +139,7 @@ export default function PlayersPage() {
                 <div>
                   <p className="font-bold leading-none mb-1">{player.name}</p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                    Games: {player.gamesPlayed} | Status: {player.status}
+                    Games: {player.gamesPlayed} | {player.status}
                   </p>
                 </div>
               </div>
@@ -159,7 +157,7 @@ export default function PlayersPage() {
             </Card>
           ))}
           {players?.length === 0 && (
-            <p className="text-center py-10 text-muted-foreground italic text-sm">No players registered yet.</p>
+            <p className="text-center py-10 text-muted-foreground italic text-sm">No players registered.</p>
           )}
         </div>
       </div>

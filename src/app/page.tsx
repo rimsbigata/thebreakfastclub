@@ -38,6 +38,7 @@ export default function HomePage() {
       id: courtId,
       name: `Court ${newCourtName}`,
       status: 'available',
+      currentMatchId: null,
     }, { merge: true });
     
     setNewCourtName('');
@@ -45,10 +46,8 @@ export default function HomePage() {
 
   const handleDeleteCourt = (docId: string) => {
     if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this court?")) return;
-    
     const courtRef = doc(db, 'courts', docId);
     deleteDocumentNonBlocking(courtRef);
-    
     toast({ title: "Court Deleted" });
   };
 
@@ -80,17 +79,16 @@ export default function HomePage() {
 
       if (result.matchFound && result.courtId) {
         const matchId = Math.random().toString(36).substring(7);
-        const matchData = {
+        const matchRef = doc(db, 'matches', matchId);
+        
+        setDocumentNonBlocking(matchRef, {
           id: matchId,
           teamA: result.teamA,
           teamB: result.teamB,
           courtId: result.courtId,
           timestamp: new Date().toISOString(),
           isCompleted: false,
-        };
-        
-        const matchRef = doc(db, 'matches', matchId);
-        setDocumentNonBlocking(matchRef, matchData, { merge: true });
+        }, { merge: true });
 
         const courtDocRef = doc(db, 'courts', result.courtId);
         updateDocumentNonBlocking(courtDocRef, { status: 'occupied', currentMatchId: matchId });
@@ -130,11 +128,11 @@ export default function HomePage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
+    <div className="container mx-auto px-4 py-8 space-y-6 pb-24">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Courts</h1>
-          <p className="text-sm text-muted-foreground">Manage real-time play and AI matching.</p>
+          <p className="text-sm text-muted-foreground">Real-time play and AI matchmaking.</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -187,10 +185,7 @@ export default function HomePage() {
                     variant="ghost" 
                     size="icon" 
                     className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteCourt(court.id);
-                    }}
+                    onClick={() => handleDeleteCourt(court.id)}
                   >
                     <Trash2 className="h-4 w-4 transition-colors group-hover:text-white" />
                   </Button>

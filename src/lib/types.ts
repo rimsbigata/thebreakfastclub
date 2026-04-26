@@ -10,15 +10,13 @@ export interface Player {
   partnerHistory: string[]; // IDs of recent partners
   status: PlayerStatus;
   improvementScore: number;
-  wins?: number;
-  losses?: number;
 }
 
 export interface Court {
   id: string;
-  name: string; // Customizable e.g. "Court 1"
+  name: string; // Customizable e.g. "Court 1" or "Court A"
   status: CourtStatus;
-  currentMatchId?: string;
+  currentMatchId?: string | null;
 }
 
 export interface Match {
@@ -26,17 +24,17 @@ export interface Match {
   teamA: string[]; // Player IDs
   teamB: string[]; // Player IDs
   courtId: string;
-  timestamp: any;
+  timestamp: string; // ISO string for client-side
   isCompleted: boolean;
-  winnerTeam?: 'A' | 'B';
 }
 
 export interface Fee {
-  id: string; // YYYY-MM-DD
+  id: string; // Date string document ID (e.g., "2026-04-26")
   shuttleFee: number;
   courtFee: number;
   entranceFee: number;
-  payments: Record<string, boolean>; // playerId -> isPaid
+  qrCodeUrl?: string; // Link to Firebase Storage
+  payments: Record<string, boolean>; // playerId -> paid status
 }
 
 export interface PaymentMethod {

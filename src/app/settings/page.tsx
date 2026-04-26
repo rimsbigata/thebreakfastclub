@@ -36,7 +36,7 @@ export default function SettingsPage() {
 
   const handleAddPaymentMethod = async () => {
     if (!newMethodName || !selectedFile) {
-      toast({ title: "Missing details", description: "Please provide a name and select an image.", variant: "destructive" });
+      toast({ title: "Missing details", description: "Name and image required.", variant: "destructive" });
       return;
     }
 
@@ -59,10 +59,10 @@ export default function SettingsPage() {
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       
-      toast({ title: "QR Added", description: `${newMethodName} payment method created.` });
+      toast({ title: "QR Uploaded" });
     } catch (error) {
       console.error(error);
-      toast({ title: "Upload failed", description: "Could not upload the QR code image.", variant: "destructive" });
+      toast({ title: "Upload failed", variant: "destructive" });
     } finally {
       setUploading(false);
     }
@@ -84,7 +84,7 @@ export default function SettingsPage() {
       courtsSnap.forEach(c => batch.update(c.ref, { status: 'available', currentMatchId: null }));
       
       await batch.commit();
-      toast({ title: "Daily Reset Complete", description: "Board cleared for a new day." });
+      toast({ title: "Daily Reset Done" });
     } catch (e) {
       console.error(e);
       toast({ title: "Reset Failed", variant: "destructive" });
@@ -92,7 +92,7 @@ export default function SettingsPage() {
   };
 
   const handleWipeData = async () => {
-    if (!confirm("Are you SURE? This will permanently delete ALL data in the club.")) return;
+    if (!confirm("This will PERMANENTLY delete ALL club data. Continue?")) return;
     
     setIsWiping(true);
     try {
@@ -103,10 +103,10 @@ export default function SettingsPage() {
         snap.forEach(d => batch.delete(d.ref));
         await batch.commit();
       }
-      toast({ title: "Factory Reset Complete", description: "All database collections purged." });
+      toast({ title: "Club Purged" });
     } catch (e) {
       console.error(e);
-      toast({ title: "Wipe Failed", variant: "destructive" });
+      toast({ title: "Purge Failed", variant: "destructive" });
     } finally {
       setIsWiping(false);
     }
@@ -124,41 +124,41 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <QrCode className="h-5 w-5" /> Payment QR Codes
+              <QrCode className="h-5 w-5" /> Payment QR
             </CardTitle>
-            <CardDescription>Upload and manage QR codes for player payments.</CardDescription>
+            <CardDescription>Manage scan-to-pay codes.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Account Name (e.g. GCash, Maya)</Label>
-                <Input placeholder="e.g. GCash" value={newMethodName} onChange={e => setNewMethodName(e.target.value)} />
+                <Label>Account (e.g. GCash)</Label>
+                <Input placeholder="GCash" value={newMethodName} onChange={e => setNewMethodName(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>QR Code Image</Label>
-                <Input type="file" accept="image/*" onChange={handleFileChange} ref={fileInputRef} className="cursor-pointer" />
+                <Label>Image</Label>
+                <Input type="file" accept="image/*" onChange={handleFileChange} ref={fileInputRef} />
               </div>
             </div>
-            <Button onClick={handleAddPaymentMethod} disabled={uploading} className="w-full gap-2">
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              {uploading ? 'Uploading...' : 'Add Payment Method'}
+            <Button onClick={handleAddPaymentMethod} disabled={uploading} className="w-full">
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              {uploading ? 'Uploading...' : 'Add QR Code'}
             </Button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
               {paymentMethods?.map(method => (
-                <div key={method.id} className="relative group border rounded-lg p-4 bg-secondary/10 flex flex-col items-center gap-2">
+                <div key={method.id} className="relative group border rounded-lg p-3 bg-secondary/10 flex flex-col items-center">
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1 right-1 h-6 w-6"
                     onClick={() => handleDeleteMethod(method.id)}
                   >
                     <X className="h-4 w-4 text-destructive" />
                   </Button>
-                  <div className="relative h-32 w-32 border bg-white rounded-md overflow-hidden">
+                  <div className="relative h-24 w-24 border bg-white rounded-md overflow-hidden mb-2">
                     <Image src={method.imageUrl} alt={method.name} fill className="object-contain" />
                   </div>
-                  <span className="font-bold text-sm">{method.name}</span>
+                  <span className="font-bold text-xs">{method.name}</span>
                 </div>
               ))}
             </div>
@@ -166,28 +166,20 @@ export default function SettingsPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Daily Maintenance</CardTitle>
-            <CardDescription>Reset game counts and clear the board for a new day.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={handleResetMatches} variant="outline" className="w-full gap-2 border-primary text-primary hover:bg-primary hover:text-white">
+          <CardHeader><CardTitle>Maintenance</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            <Button onClick={handleResetMatches} variant="outline" className="w-full gap-2 border-primary text-primary">
               <RefreshCcw className="h-4 w-4" /> Reset Daily Board
             </Button>
           </CardContent>
         </Card>
 
         <Card className="border-destructive">
-          <CardHeader>
-            <CardTitle className="text-destructive flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" /> Danger Zone
-            </CardTitle>
-            <CardDescription>Actions here cannot be undone.</CardDescription>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-destructive">Danger Zone</CardTitle></CardHeader>
           <CardContent>
             <Button onClick={handleWipeData} disabled={isWiping} variant="destructive" className="w-full gap-2">
               {isWiping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              {isWiping ? 'Wiping Data...' : 'Reset All Club Data'}
+              Wipe All Data
             </Button>
           </CardContent>
         </Card>

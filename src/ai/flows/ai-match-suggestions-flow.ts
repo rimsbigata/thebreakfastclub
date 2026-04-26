@@ -44,18 +44,25 @@ const matchSuggestionPrompt = ai.definePrompt({
   output: { schema: MatchSuggestionOutputSchema },
   prompt: `Act as a Badminton Tournament Director. Generate a balanced doubles match (2 vs 2).
 
-Inputs:
+Inputs Provided:
 Players: {{#each availablePlayers}} - {{name}} (ID: {{id}}, Skill: {{skillLevel}}, Played: {{gamesPlayed}}, History: {{partnerHistory}}) {{/each}}
 Courts: {{#each availableCourts}} - {{name}} (ID: {{id}}) {{/each}}
 
 Rules:
 1. Balance teams: The sum of skillLevels for Team A should be roughly equal to Team B.
-2. Avoid repeats: Check 'partnerHistory'—do not pair two players as partners if they appear in each other's history recently.
+2. Avoid repeats: Check 'partnerHistory'—do not pair two players who have played together recently.
 3. Fairness: Prioritize players with the lowest 'gamesPlayed' count.
 4. Court Assignment: Assign the match to the first available court.
-5. Format: Output JSON matching the schema.
 
-If fewer than 4 players or no courts are available, set matchFound to false.`,
+Output Format (JSON Only):
+{
+  "matchFound": true,
+  "courtName": "Court A",
+  "courtId": "ID",
+  "teamA": ["playerID1", "playerID2"],
+  "teamB": ["playerID3", "playerID4"],
+  "justification": "Explanation of why this match was chosen"
+}`,
 });
 
 export async function generateMatch(input: MatchSuggestionInput): Promise<MatchSuggestionOutput> {
