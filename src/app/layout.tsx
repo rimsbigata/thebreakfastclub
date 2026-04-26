@@ -8,8 +8,8 @@ import { ClubProvider } from '@/context/ClubContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 
 export const metadata: Metadata = {
-  title: 'TheBreakfastClub | Badminton Management',
-  description: 'AI-powered badminton court queuing and matching for TheBreakfastClub.',
+  title: 'TheBreakfastClub | Badminton Club',
+  description: 'Badminton court queuing and matching for TheBreakfastClub.',
 };
 
 export default function RootLayout({
