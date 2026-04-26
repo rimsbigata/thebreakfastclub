@@ -41,7 +41,7 @@ export default function CourtsPage() {
   };
 
   const handleDeleteCourt = (id: string) => {
-    if (!confirm("Are you sure you want to delete this court?")) return;
+    if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this court?")) return;
     const courtRef = doc(db, 'courts', id);
     deleteDocumentNonBlocking(courtRef);
     toast({ title: "Court Deleted" });
@@ -160,7 +160,7 @@ export default function CourtsPage() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => handleDeleteCourt(court.id)}
                 >
                   <Trash2 className="h-4 w-4" />
