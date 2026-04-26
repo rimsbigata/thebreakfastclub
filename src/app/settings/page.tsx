@@ -1,22 +1,22 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RefreshCcw, Trash2, QrCode, Plus, X, Loader2 } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Plus, X, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
 export default function SettingsPage() {
   const { paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData } = useClub();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newMethodName, setNewMethodName] = useState('');
-  const [uploading, setUploading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -24,10 +24,23 @@ export default function SettingsPage() {
       reader.onloadend = () => {
         addPaymentMethod(newMethodName || 'Unnamed QR', reader.result as string);
         setNewMethodName('');
-        toast({ title: "QR Uploaded Locally" });
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        toast({ title: "QR Method Added", description: `${newMethodName || 'New QR'} has been saved.` });
       };
       reader.readAsDataURL(e.target.files[0]);
     }
+  };
+
+  const triggerFileUpload = () => {
+    if (!newMethodName) {
+      toast({ 
+        title: "Name required", 
+        description: "Please enter a name (e.g. GCash) before uploading.",
+        variant: "destructive" 
+      });
+      return;
+    }
+    fileInputRef.current?.click();
   };
 
   const handleResetAction = () => {
@@ -36,7 +49,7 @@ export default function SettingsPage() {
   };
 
   const handleWipeAction = () => {
-    if (confirm("Delete EVERYTHING?")) {
+    if (typeof window !== 'undefined' && window.confirm("Delete EVERYTHING? This cannot be undone.")) {
       wipeAllData();
       toast({ title: "All data wiped" });
     }
@@ -50,39 +63,55 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <QrCode className="h-5 w-5" /> Payment QR
+              <QrCode className="h-5 w-5" /> Payment QR Methods
             </CardTitle>
-            <CardDescription>Manage scan-to-pay codes.</CardDescription>
+            <CardDescription>Manage your scan-to-pay codes for player fees.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Account (e.g. GCash)</Label>
-                <Input placeholder="GCash" value={newMethodName} onChange={e => setNewMethodName(e.target.value)} />
+          <CardContent className="space-y-6">
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
+              <div className="flex-1 space-y-2">
+                <Label>Account Name</Label>
+                <Input 
+                  placeholder="e.g. GCash, Maya, Bank Transfer" 
+                  value={newMethodName} 
+                  onChange={e => setNewMethodName(e.target.value)} 
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Image</Label>
-                <Input type="file" accept="image/*" onChange={handleFileChange} />
-              </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleFileChange} 
+              />
+              <Button onClick={triggerFileUpload} className="gap-2">
+                <Upload className="h-4 w-4" /> Add Payment Method
+              </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
               {paymentMethods.map(method => (
-                <div key={method.id} className="relative group border rounded-lg p-3 bg-secondary/10 flex flex-col items-center">
+                <div key={method.id} className="relative group border rounded-xl p-4 bg-secondary/10 flex flex-col items-center">
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="absolute top-1 right-1 h-6 w-6"
+                    className="absolute top-2 right-2 h-7 w-7 bg-background/80 hover:bg-destructive hover:text-white"
                     onClick={() => deletePaymentMethod(method.id)}
                   >
-                    <X className="h-4 w-4 text-destructive" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                  <div className="relative h-24 w-24 border bg-white rounded-md overflow-hidden mb-2">
-                    <Image src={method.imageUrl} alt={method.name} fill className="object-contain" />
+                  <div className="relative h-32 w-32 border bg-white rounded-lg overflow-hidden mb-3 shadow-inner">
+                    <Image src={method.imageUrl} alt={method.name} fill className="object-contain p-2" />
                   </div>
-                  <span className="font-bold text-xs">{method.name}</span>
+                  <span className="font-bold text-sm uppercase tracking-tight">{method.name}</span>
                 </div>
               ))}
+              {paymentMethods.length === 0 && (
+                <div className="col-span-full py-12 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-secondary/5">
+                  <QrCode className="h-10 w-10 mb-2 opacity-10" />
+                  <p className="text-sm">No payment methods configured.</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -90,17 +119,17 @@ export default function SettingsPage() {
         <Card>
           <CardHeader><CardTitle>Maintenance</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            <Button onClick={handleResetAction} variant="outline" className="w-full gap-2 border-primary text-primary">
-              <RefreshCcw className="h-4 w-4" /> Reset Daily Board
+            <Button onClick={handleResetAction} variant="outline" className="w-full gap-2 border-primary text-primary hover:bg-primary/5">
+              <RefreshCcw className="h-4 w-4" /> Reset Daily Board (Clear Matches & Reset Stats)
             </Button>
           </CardContent>
         </Card>
 
-        <Card className="border-destructive">
+        <Card className="border-destructive/50 bg-destructive/5">
           <CardHeader><CardTitle className="text-destructive">Danger Zone</CardTitle></CardHeader>
           <CardContent>
             <Button onClick={handleWipeAction} variant="destructive" className="w-full gap-2">
-              <Trash2 className="h-4 w-4" /> Wipe All Data
+              <Trash2 className="h-4 w-4" /> Wipe All Club Data (Factory Reset)
             </Button>
           </CardContent>
         </Card>
