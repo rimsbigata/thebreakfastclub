@@ -3,45 +3,79 @@
 
 import { useClub } from '@/context/ClubContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trophy, TrendingUp, AlertCircle, Medal } from 'lucide-react';
+import { Trophy, TrendingUp, Medal, Star, Target } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 export default function RankingsPage() {
   const { players } = useClub();
 
-  const topPlayers = [...players].sort((a, b) => b.skillLevel - a.skillLevel).slice(0, 10);
-  const improvedPlayers = [...players].sort((a, b) => b.improvementScore - a.improvementScore).slice(0, 10);
+  // Daily Win Rate Ranking: wins / gamesPlayed
+  const winRateRankings = [...players]
+    .filter(p => p.gamesPlayed > 0)
+    .map(p => ({
+      ...p,
+      winRate: (p.wins / p.gamesPlayed) * 100
+    }))
+    .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins);
+
+  // Top Ranked by Skill Level (for reference)
+  const topSkillRankings = [...players].sort((a, b) => b.skillLevel - a.skillLevel).slice(0, 5);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
       <header>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Trophy className="h-6 w-6 text-yellow-500" /> Rankings
+          <Trophy className="h-6 w-6 text-yellow-500" /> Daily Rankings
         </h1>
-        <p className="text-sm text-muted-foreground">Club leaderboards and performance trends.</p>
+        <p className="text-sm text-muted-foreground">Based on daily wins over games played.</p>
       </header>
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         <section className="space-y-4">
           <div className="flex items-center gap-2 font-bold text-lg">
-            <Medal className="h-5 w-5 text-primary" /> Top Ranked
+            <Medal className="h-5 w-5 text-primary" /> Daily Win Rate Leaderboard
           </div>
-          <div className="grid gap-3">
-            {topPlayers.map((player, i) => (
-              <Card key={player.id} className={i === 0 ? "border-yellow-500 border-2 shadow-lg" : ""}>
+          <div className="grid gap-4">
+            {winRateRankings.map((player, i) => (
+              <Card key={player.id} className={cn(
+                "transition-all",
+                i === 0 ? "border-yellow-500 border-2 shadow-lg bg-yellow-50/10" : "border-border"
+              )}>
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4">
-                    <span className="font-black text-2xl text-muted-foreground/30">#{i + 1}</span>
+                    <span className={cn(
+                      "font-black text-2xl w-8",
+                      i === 0 ? "text-yellow-500" : "text-muted-foreground/30"
+                    )}>
+                      {i + 1}
+                    </span>
                     <div>
-                      <p className="font-bold">{player.name}</p>
-                      <p className="text-xs text-muted-foreground">Skill Level: {player.skillLevel}</p>
+                      <p className="font-bold flex items-center gap-2">
+                        {player.name}
+                        {i === 0 && <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {player.wins} Wins / {player.gamesPlayed} Games
+                      </p>
                     </div>
                   </div>
-                  {i === 0 && <Trophy className="h-6 w-6 text-yellow-500" />}
+                  <div className="text-right">
+                    <div className="text-xl font-black text-primary">
+                      {player.winRate.toFixed(0)}%
+                    </div>
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-tighter">Win Rate</p>
+                  </div>
                 </CardContent>
               </Card>
             ))}
+            {winRateRankings.length === 0 && (
+              <div className="text-center py-20 border-2 border-dashed rounded-xl bg-secondary/5 text-muted-foreground">
+                <Target className="h-10 w-10 mx-auto mb-2 opacity-10" />
+                <p className="text-sm italic">No matches completed yet today.</p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -49,28 +83,22 @@ export default function RankingsPage() {
 
         <section className="space-y-4">
           <div className="flex items-center gap-2 font-bold text-lg">
-            <TrendingUp className="h-5 w-5 text-green-500" /> Most Improved
+            <TrendingUp className="h-5 w-5 text-green-500" /> Skill Elites
           </div>
-          <div className="grid gap-3">
-            {improvedPlayers.filter(p => p.improvementScore > 0).map((player, i) => (
-              <Card key={player.id}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {topSkillRankings.map((player) => (
+              <Card key={player.id} className="bg-secondary/10 border-none">
                 <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-full">
-                      <TrendingUp className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-bold">{player.name}</p>
-                      <p className="text-xs text-muted-foreground">Score: +{player.improvementScore}</p>
-                    </div>
+                  <div>
+                    <p className="font-bold text-sm">{player.name}</p>
+                    <p className="text-[10px] uppercase font-black text-muted-foreground">Level {player.skillLevel}</p>
                   </div>
-                  <Badge variant="outline" className="text-green-600 border-green-200">Improved</Badge>
+                  <Badge variant="outline" className="text-[10px] border-primary/20 bg-background">
+                    {player.improvementScore} pts
+                  </Badge>
                 </CardContent>
               </Card>
             ))}
-            {players.length === 0 && (
-               <p className="text-center text-sm text-muted-foreground italic py-10">No data available.</p>
-            )}
           </div>
         </section>
       </div>

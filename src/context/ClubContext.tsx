@@ -10,7 +10,7 @@ interface ClubContextType {
   matches: Match[];
   fees: Fee[];
   paymentMethods: PaymentMethod[];
-  addPlayer: (player: Omit<Player, 'id' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes'>) => void;
+  addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes'>) => void;
   deletePlayer: (id: string) => void;
   addCourt: (name: string) => void;
   deleteCourt: (id: string) => void;
@@ -69,6 +69,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const newPlayer: Player = {
       ...data,
       id: Math.random().toString(36).substring(7),
+      wins: 0,
       gamesPlayed: 0,
       partnerHistory: [],
       status: 'available',
@@ -160,15 +161,17 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       const newHistory = partnerId ? [partnerId, ...p.partnerHistory].slice(0, 5) : p.partnerHistory;
 
       let impChange = 0;
+      let wonMatch = false;
       if (winner) {
-        const isWinner = (winner === 'teamA' && match.teamA.includes(p.id)) || 
-                         (winner === 'teamB' && match.teamB.includes(p.id));
-        impChange = isWinner ? 5 : -2;
+        wonMatch = (winner === 'teamA' && match.teamA.includes(p.id)) || 
+                   (winner === 'teamB' && match.teamB.includes(p.id));
+        impChange = wonMatch ? 5 : -2;
       }
 
       return { 
         ...p, 
         status: 'available', 
+        wins: wonMatch ? p.wins + 1 : p.wins,
         partnerHistory: newHistory,
         improvementScore: Math.max(0, p.improvementScore + impChange),
         totalPlayTimeMinutes: p.totalPlayTimeMinutes + playDurationMinutes
@@ -223,7 +226,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const resetDailyBoard = () => {
     setMatches([]);
-    setPlayers(prev => prev.map(p => ({ ...p, status: 'available', gamesPlayed: 0, totalPlayTimeMinutes: 0, partnerHistory: [] })));
+    setPlayers(prev => prev.map(p => ({ ...p, status: 'available', wins: 0, gamesPlayed: 0, totalPlayTimeMinutes: 0, partnerHistory: [] })));
     setCourts(prev => prev.map(c => ({ ...c, status: 'available', currentMatchId: null })));
   };
 

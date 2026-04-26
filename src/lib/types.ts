@@ -16,6 +16,7 @@ export interface Player {
   id: string;
   name: string;
   skillLevel: number; // 1 to 7
+  wins: number;
   gamesPlayed: number;
   partnerHistory: string[]; // IDs of recent partners
   status: PlayerStatus;
