@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Court, Player } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Sparkles, Loader2, ArrowLeftRight, Users2, Trophy } from 'lucide-react';
+import { Plus, Sparkles, Loader2, ArrowLeftRight, Users2, Trophy, Trash2 } from 'lucide-react';
 import { generateMatch } from '@/ai/flows/ai-match-suggestions-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,6 @@ export default function HomePage() {
   const [loadingMatch, setLoadingMatch] = useState(false);
   const [newCourtName, setNewCourtName] = useState('');
   const [isSwapOpen, setIsSwapOpen] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState<{ courtId: string, team: 'A' | 'B', index: number } | null>(null);
 
   const courtsRef = useMemoFirebase(() => collection(db, 'courts'), [db]);
   const playersRef = useMemoFirebase(() => collection(db, 'players'), [db]);
@@ -35,10 +34,17 @@ export default function HomePage() {
     const courtId = Math.random().toString(36).substring(7);
     addDocumentNonBlocking(courtsRef, {
       id: courtId,
-      name: newCourtName,
+      name: `Court ${newCourtName}`,
       status: 'available',
     });
     setNewCourtName('');
+  };
+
+  const handleDeleteCourt = (id: string) => {
+    if (!confirm("Are you sure you want to delete this court?")) return;
+    const courtRef = doc(db, 'courts', id);
+    deleteDocumentNonBlocking(courtRef);
+    toast({ title: "Court Deleted" });
   };
 
   const handleGenerateMatch = async () => {
@@ -50,7 +56,7 @@ export default function HomePage() {
       return;
     }
     if (availableCourts.length === 0) {
-      toast({ title: "No courts", description: "All courts are occupied.", variant: "destructive" });
+      toast({ title: "No courts", description: "All courts are occupied or none exist.", variant: "destructive" });
       return;
     }
 
@@ -123,7 +129,11 @@ export default function HomePage() {
           <p className="text-sm text-muted-foreground">Manage real-time play and AI matching.</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleGenerateMatch} disabled={loadingMatch} className="gap-2 bg-primary">
+          <Button 
+            onClick={handleGenerateMatch} 
+            disabled={loadingMatch || !courts?.length || !players?.length} 
+            className="gap-2 bg-primary"
+          >
             {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             AI Match
           </Button>
@@ -135,8 +145,15 @@ export default function HomePage() {
               <DialogHeader><DialogTitle>Add New Court</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Court Name</Label>
-                  <Input placeholder="e.g. Court A" value={newCourtName} onChange={e => setNewCourtName(e.target.value)} />
+                  <Label>Court Identifier</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-muted-foreground bg-secondary px-3 py-2 rounded-md">Court</span>
+                    <Input 
+                      placeholder="e.g. 1, A, or Blue" 
+                      value={newCourtName} 
+                      onChange={e => setNewCourtName(e.target.value)} 
+                    />
+                  </div>
                 </div>
                 <Button className="w-full" onClick={handleAddCourt}>Create Court</Button>
               </div>
@@ -145,54 +162,72 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {courts?.map(court => (
-          <Card key={court.id} className="border-2 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-bold">{court.name}</CardTitle>
-              <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={court.status === 'available' ? 'text-green-600 border-green-200' : 'bg-primary'}>
-                {court.status.toUpperCase()}
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              {court.status === 'occupied' ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                    <Users2 className="h-3 w-3" /> Live Match
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-secondary/30 rounded-lg border border-dashed border-primary/20">
-                      <p className="text-[10px] font-black uppercase text-primary/60 mb-1">Team A</p>
-                      <div className="text-xs font-bold">In Play</div>
-                    </div>
-                    <div className="p-3 bg-secondary/30 rounded-lg border border-dashed border-primary/20">
-                      <p className="text-[10px] font-black uppercase text-primary/60 mb-1">Team B</p>
-                      <div className="text-xs font-bold">In Play</div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-lg bg-secondary/10">
-                   <Trophy className="h-6 w-6 text-muted-foreground/30 mb-2" />
-                   <p className="text-sm text-muted-foreground italic">Ready for next match</p>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-between gap-2 border-t pt-4">
-               {court.status === 'occupied' ? (
-                 <>
-                  <Button variant="outline" size="sm" onClick={() => handleCompleteMatch(court)} className="flex-1">End Match</Button>
-                  <Button variant="ghost" size="sm" onClick={() => setIsSwapOpen(true)} className="gap-2">
-                    <ArrowLeftRight className="h-4 w-4" /> Swap
+      {!courts?.length ? (
+        <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl bg-card/50">
+          <Trophy className="h-12 w-12 text-muted-foreground/20 mb-4" />
+          <p className="text-lg font-bold text-muted-foreground">No courts registered</p>
+          <p className="text-sm text-muted-foreground mb-6">Click the + button to add your first court.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {courts?.map(court => (
+            <Card key={court.id} className="border-2 shadow-sm relative group">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-lg font-bold">{court.name}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleDeleteCourt(court.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                 </>
-               ) : (
-                 <p className="text-xs text-muted-foreground">Available for assignment</p>
-               )}
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+                  <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={court.status === 'available' ? 'text-green-600 border-green-200' : 'bg-primary'}>
+                    {court.status.toUpperCase()}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {court.status === 'occupied' ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                      <Users2 className="h-3 w-3" /> Live Match
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-secondary/30 rounded-lg border border-dashed border-primary/20">
+                        <p className="text-[10px] font-black uppercase text-primary/60 mb-1">Team A</p>
+                        <div className="text-xs font-bold">In Play</div>
+                      </div>
+                      <div className="p-3 bg-secondary/30 rounded-lg border border-dashed border-primary/20">
+                        <p className="text-[10px] font-black uppercase text-primary/60 mb-1">Team B</p>
+                        <div className="text-xs font-bold">In Play</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-lg bg-secondary/10">
+                     <Trophy className="h-6 w-6 text-muted-foreground/30 mb-2" />
+                     <p className="text-sm text-muted-foreground italic">Ready for next match</p>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="flex justify-between gap-2 border-t pt-4">
+                 {court.status === 'occupied' ? (
+                   <>
+                    <Button variant="outline" size="sm" onClick={() => handleCompleteMatch(court)} className="flex-1">End Match</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setIsSwapOpen(true)} className="gap-2">
+                      <ArrowLeftRight className="h-4 w-4" /> Swap
+                    </Button>
+                   </>
+                 ) : (
+                   <p className="text-xs text-muted-foreground">Available for assignment</p>
+                 )}
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Dialog open={isSwapOpen} onOpenChange={setIsSwapOpen}>
         <DialogContent>
