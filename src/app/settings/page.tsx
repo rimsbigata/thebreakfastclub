@@ -3,16 +3,19 @@
 
 import { useState, useRef } from 'react';
 import { useClub } from '@/context/ClubContext';
+import { useTheme } from '@/context/ThemeContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Image as ImageIcon, Sun, Moon, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
 export default function SettingsPage() {
   const { paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, clubLogo } = useClub();
+  const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -106,6 +109,32 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-black uppercase tracking-tight">Settings</h1>
 
       <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5" /> Appearance
+            </CardTitle>
+            <CardDescription>Customize the look and feel of your app.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-xl border border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  {theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                </div>
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-tight">Dark Mode</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black">Switch between light and dark themes</p>
+                </div>
+              </div>
+              <Switch 
+                checked={theme === 'dark'} 
+                onCheckedChange={toggleTheme} 
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
