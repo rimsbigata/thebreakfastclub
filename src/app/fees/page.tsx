@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Banknote, QrCode, UserCheck, Calculator, AlertCircle, Plus } from 'lucide-react';
+import { Banknote, QrCode, UserCheck, Calculator, AlertCircle, Download } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -47,6 +48,29 @@ export default function FeesPage() {
       return aPaid ? 1 : -1;
     });
   }, [players, currentFee]);
+
+  const handleExportCSV = () => {
+    const headers = ["Date", "Player Name", "Status", "Amount"];
+    const rows = sortedPlayers.map(player => {
+      const isPaid = !!currentFee?.payments?.[player.id];
+      return [
+        today,
+        `"${player.name.replace(/"/g, '""')}"`,
+        isPaid ? "Paid" : "Pending",
+        perPlayerFee
+      ];
+    });
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `TheBreakfastClub_Fees_${today}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
@@ -94,47 +118,52 @@ export default function FeesPage() {
             <h2 className="text-lg font-bold flex items-center gap-2">
               <UserCheck className="h-5 w-5" /> Payment Status
             </h2>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <QrCode className="h-4 w-4" /> QR Codes
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader><DialogTitle>Select Payment QR</DialogTitle></DialogHeader>
-                <div className="py-4 space-y-6">
-                  {paymentMethods.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1">
-                      {paymentMethods.map(method => (
-                        <Card key={method.id} className="overflow-hidden">
-                          <div className="bg-muted p-2 text-center text-xs font-bold uppercase tracking-widest">{method.name}</div>
-                          <div className="relative h-64 w-full bg-white">
-                            <Image 
-                              src={method.imageUrl} 
-                              alt={method.name} 
-                              fill 
-                              className="object-contain"
-                            />
-                          </div>
-                          <div className="p-2 text-center text-sm font-bold bg-primary/10">Pay ₱{perPlayerFee}</div>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-4 py-8 text-center">
-                      <AlertCircle className="h-12 w-12 text-muted-foreground" />
-                      <div className="space-y-1">
-                        <p className="font-bold">No QR Codes Uploaded</p>
-                        <p className="text-sm text-muted-foreground">Please upload your payment QR codes in settings first.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
+                <Download className="h-4 w-4" /> Export CSV
+              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <QrCode className="h-4 w-4" /> QR Codes
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader><DialogTitle>Select Payment QR</DialogTitle></DialogHeader>
+                  <div className="py-4 space-y-6">
+                    {paymentMethods.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1">
+                        {paymentMethods.map(method => (
+                          <Card key={method.id} className="overflow-hidden">
+                            <div className="bg-muted p-2 text-center text-xs font-bold uppercase tracking-widest">{method.name}</div>
+                            <div className="relative h-64 w-full bg-white">
+                              <Image 
+                                src={method.imageUrl} 
+                                alt={method.name} 
+                                fill 
+                                className="object-contain"
+                              />
+                            </div>
+                            <div className="p-2 text-center text-sm font-bold bg-primary/10">Pay ₱{perPlayerFee}</div>
+                          </Card>
+                        ))}
                       </div>
-                      <Link href="/settings">
-                        <Button className="gap-2">Go to Settings</Button>
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
+                    ) : (
+                      <div className="flex flex-col items-center gap-4 py-8 text-center">
+                        <AlertCircle className="h-12 w-12 text-muted-foreground" />
+                        <div className="space-y-1">
+                          <p className="font-bold">No QR Codes Uploaded</p>
+                          <p className="text-sm text-muted-foreground">Please upload your payment QR codes in settings first.</p>
+                        </div>
+                        <Link href="/settings">
+                          <Button className="gap-2">Go to Settings</Button>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
           <div className="space-y-2">
             {sortedPlayers.map(player => {
