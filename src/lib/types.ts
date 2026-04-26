@@ -20,6 +20,7 @@ export interface Player {
   partnerHistory: string[]; // IDs of recent partners
   status: PlayerStatus;
   improvementScore: number;
+  totalPlayTimeMinutes: number;
 }
 
 export interface Court {
@@ -34,8 +35,10 @@ export interface Match {
   teamA: string[]; // Player IDs
   teamB: string[]; // Player IDs
   courtId: string;
-  timestamp: string; // ISO string for client-side
+  timestamp: string; // ISO string for creation
+  startTime?: string; // ISO string when play actually begins
   isCompleted: boolean;
+  winner?: 'teamA' | 'teamB' | null;
 }
 
 export interface Fee {

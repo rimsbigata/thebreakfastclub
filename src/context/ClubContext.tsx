@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -9,12 +10,12 @@ interface ClubContextType {
   matches: Match[];
   fees: Fee[];
   paymentMethods: PaymentMethod[];
-  addPlayer: (player: Omit<Player, 'id' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore'>) => void;
+  addPlayer: (player: Omit<Player, 'id' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes'>) => void;
   deletePlayer: (id: string) => void;
   addCourt: (name: string) => void;
   deleteCourt: (id: string) => void;
   startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted'>) => void;
-  endMatch: (courtId: string) => void;
+  endMatch: (courtId: string, winner?: 'teamA' | 'teamB') => void;
   updateFee: (fee: Omit<Fee, 'payments'>) => void;
   togglePayment: (date: string, playerId: string) => void;
   addPaymentMethod: (name: string, imageData: string) => void;
@@ -33,7 +34,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load from LocalStorage
   useEffect(() => {
     try {
       const data = localStorage.getItem('breakfast_club_data');
@@ -46,12 +46,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         setPaymentMethods(parsed.paymentMethods || []);
       }
     } catch (e) {
-      console.error("Failed to load data from localStorage", e);
+      console.error("Failed to load data", e);
     }
     setIsLoaded(true);
   }, []);
 
-  // Save to LocalStorage with error handling for quota
   useEffect(() => {
     if (isLoaded) {
       try {
@@ -60,11 +59,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         });
         localStorage.setItem('breakfast_club_data', dataToSave);
       } catch (e) {
-        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-          console.error("Storage quota exceeded! Try deleting old matches or using smaller QR images.");
-        } else {
-          console.error("Failed to save to localStorage", e);
-        }
+        console.error("Failed to save data", e);
       }
     }
   }, [players, courts, matches, fees, paymentMethods, isLoaded]);
@@ -76,7 +71,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       gamesPlayed: 0,
       partnerHistory: [],
       status: 'available',
-      improvementScore: 0
+      improvementScore: 0,
+      totalPlayTimeMinutes: 0
     };
     setPlayers(prev => [...prev, newPlayer]);
   };
@@ -104,6 +100,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       ...matchData,
       id: matchId,
       timestamp: new Date().toISOString(),
+      startTime: new Date().toISOString(),
       isCompleted: false
     };
 
@@ -118,18 +115,38 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     ));
   };
 
-  const endMatch = (courtId: string) => {
+  const endMatch = (courtId: string, winner?: 'teamA' | 'teamB') => {
     const court = courts.find(c => c.id === courtId);
     if (!court || !court.currentMatchId) return;
 
     const match = matches.find(m => m.id === court.currentMatchId);
     if (!match) return;
 
-    setMatches(prev => prev.map(m => m.id === court.currentMatchId ? { ...m, isCompleted: true } : m));
+    const endTime = new Date();
+    const startTime = match.startTime ? new Date(match.startTime) : new Date(match.timestamp);
+    const playDurationMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
+
+    setMatches(prev => prev.map(m => m.id === court.currentMatchId ? { ...m, isCompleted: true, winner } : m));
     setCourts(prev => prev.map(c => c.id === courtId ? { ...c, status: 'available', currentMatchId: null } : c));
-    setPlayers(prev => prev.map(p => 
-      [...match.teamA, ...match.teamB].includes(p.id) ? { ...p, status: 'available' } : p
-    ));
+    
+    setPlayers(prev => prev.map(p => {
+      const isPart = [...match.teamA, ...match.teamB].includes(p.id);
+      if (!isPart) return p;
+
+      let impChange = 0;
+      if (winner) {
+        const isWinner = (winner === 'teamA' && match.teamA.includes(p.id)) || 
+                         (winner === 'teamB' && match.teamB.includes(p.id));
+        impChange = isWinner ? 5 : -2;
+      }
+
+      return { 
+        ...p, 
+        status: 'available', 
+        improvementScore: Math.max(0, p.improvementScore + impChange),
+        totalPlayTimeMinutes: p.totalPlayTimeMinutes + playDurationMinutes
+      };
+    }));
   };
 
   const updateFee = (data: any) => {
@@ -154,7 +171,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
           return f;
         });
       }
-      // Create daily record if it doesn't exist
       return [...prev, { 
         id: date, 
         shuttleFee: 0, 
@@ -180,7 +196,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const resetDailyBoard = () => {
     setMatches([]);
-    setPlayers(prev => prev.map(p => ({ ...p, status: 'available', gamesPlayed: 0 })));
+    setPlayers(prev => prev.map(p => ({ ...p, status: 'available', gamesPlayed: 0, totalPlayTimeMinutes: 0 })));
     setCourts(prev => prev.map(c => ({ ...c, status: 'available', currentMatchId: null })));
   };
 

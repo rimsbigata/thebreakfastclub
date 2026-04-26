@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award } from 'lucide-react';
+import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award, Clock } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { SKILL_LEVELS } from '@/lib/types';
 
@@ -48,7 +48,6 @@ export default function PlayersPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Registration Panel - Persistent Card */}
         <Card className="lg:col-span-1 border-primary/20 shadow-sm h-fit">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -88,7 +87,6 @@ export default function PlayersPage() {
           </CardContent>
         </Card>
 
-        {/* Analytics Section */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardHeader className="pb-2">
@@ -151,23 +149,21 @@ export default function PlayersPage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {players.map(player => (
-            <Card key={player.id} className="flex items-center justify-between p-4 group hover:border-primary/40 transition-colors shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/5">
-                  <User className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-bold leading-none mb-1 text-sm">{player.name}</p>
-                  <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-tighter">
-                    Played: {player.gamesPlayed} | {player.status}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col items-end">
-                  <Badge variant="outline" className="text-[9px] px-1.5 h-4 font-bold border-primary/20">
-                    {player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}
-                  </Badge>
+            <Card key={player.id} className="flex flex-col p-4 group hover:border-primary/40 transition-colors shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/5">
+                    <User className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-bold leading-none mb-1 text-sm">{player.name}</p>
+                    <p className={cn(
+                      "text-[9px] uppercase font-bold tracking-tighter",
+                      player.status === 'playing' ? 'text-primary' : 'text-muted-foreground'
+                    )}>
+                      {player.status}
+                    </p>
+                  </div>
                 </div>
                 <Button 
                   variant="ghost" 
@@ -177,6 +173,22 @@ export default function PlayersPage() {
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
+              </div>
+              
+              <div className="flex items-center justify-between border-t pt-3">
+                <div className="space-y-1">
+                   <div className="flex items-center gap-1 text-[9px] font-black uppercase text-muted-foreground">
+                      <Clock className="h-2.5 w-2.5" /> Time Played
+                   </div>
+                   <p className="text-xs font-bold">{player.totalPlayTimeMinutes} mins</p>
+                </div>
+                <div className="text-right space-y-1">
+                   <div className="text-[9px] font-black uppercase text-muted-foreground">Games</div>
+                   <p className="text-xs font-bold">{player.gamesPlayed}</p>
+                </div>
+                <Badge variant="outline" className="text-[9px] px-1.5 h-4 font-bold border-primary/20">
+                  {player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}
+                </Badge>
               </div>
             </Card>
           ))}

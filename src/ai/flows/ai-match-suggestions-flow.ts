@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview AI Matchmaking flow for TheBreakfastClub.
+ * @fileOverview Fast AI Matchmaking flow for TheBreakfastClub.
  * Suggests a balanced 2v2 doubles match based on skill, history, and fairness.
  */
 
@@ -42,27 +42,17 @@ const matchSuggestionPrompt = ai.definePrompt({
   name: 'matchSuggestionPrompt',
   input: { schema: MatchSuggestionInputSchema },
   output: { schema: MatchSuggestionOutputSchema },
-  prompt: `Act as a Badminton Tournament Director. Generate a balanced doubles match (2 vs 2).
+  prompt: `Fast Mode: Balanced 2v2 doubles match generator.
 
-Inputs Provided:
-Players: {{#each availablePlayers}} - {{name}} (ID: {{id}}, Skill: {{skillLevel}}, Played: {{gamesPlayed}}, History: {{partnerHistory}}) {{/each}}
+Players: {{#each availablePlayers}} - {{name}} (ID: {{id}}, Skill: {{skillLevel}}, Played: {{gamesPlayed}}) {{/each}}
 Courts: {{#each availableCourts}} - {{name}} (ID: {{id}}) {{/each}}
 
 Rules:
-1. Balance teams: The sum of skillLevels for Team A should be roughly equal to Team B.
-2. Avoid repeats: Check 'partnerHistory'—do not pair two players who have played together recently.
-3. Fairness: Prioritize players with the lowest 'gamesPlayed' count.
-4. Court Assignment: Assign the match to the first available court.
+1. Team skills must be nearly equal.
+2. Prioritize players with fewest 'gamesPlayed'.
+3. Assign to the first available court.
 
-Output Format (JSON Only):
-{
-  "matchFound": true,
-  "courtName": "Court A",
-  "courtId": "ID",
-  "teamA": ["playerID1", "playerID2"],
-  "teamB": ["playerID3", "playerID4"],
-  "justification": "Explanation of why this match was chosen"
-}`,
+Output JSON only.`,
 });
 
 export async function generateMatch(input: MatchSuggestionInput): Promise<MatchSuggestionOutput> {
