@@ -1,124 +1,102 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
-import { Navbar } from '@/components/layout/Navbar';
-import { CourtStats } from '@/components/dashboard/CourtStats';
-import { QueueCard } from '@/components/queue/QueueCard';
-import { MatchSuggester } from '@/components/match/MatchSuggester';
+import { useMemo } from 'react';
+import { useCollection } from '@/firebase';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Users, Timer, DoorOpen, Activity, Trophy } from 'lucide-react';
 import { Player, Court } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 
-const INITIAL_PLAYERS: Record<string, Player> = {
-  'p1': { id: 'p1', name: 'James Wilson', skillLevel: 'Advanced', playStyle: 'Aggressive', gamesPlayed: 120 },
-  'p2': { id: 'p2', name: 'Sarah Chen', skillLevel: 'Intermediate', playStyle: 'Defensive', gamesPlayed: 85 },
-  'p3': { id: 'p3', name: 'Mike Johnson', skillLevel: 'Pro', playStyle: 'Tactical', gamesPlayed: 340 },
-  'p4': { id: 'p4', name: 'Emma Davis', skillLevel: 'Beginner', playStyle: 'All-Rounder', gamesPlayed: 12 },
-  'p5': { id: 'p5', name: 'Alex Wong', skillLevel: 'Intermediate', playStyle: 'Aggressive', gamesPlayed: 92 },
-  'p6': { id: 'p6', name: 'Lisa Taylor', skillLevel: 'Advanced', playStyle: 'Tactical', gamesPlayed: 110 },
-  'p7': { id: 'p7', name: 'Tom H.', skillLevel: 'Intermediate', playStyle: 'Defensive', gamesPlayed: 45 },
-  'p8': { id: 'p8', name: 'Rachel Z.', skillLevel: 'Advanced', playStyle: 'All-Rounder', gamesPlayed: 156 },
-};
-
-const INITIAL_COURTS: Court[] = [
-  { id: 'c1', name: 'Court A (Premium)', status: 'Busy', queue: ['p7', 'p8'], currentPlayers: ['p1', 'p2', 'p5', 'p6'], estimatedWaitMinutes: 15 },
-  { id: 'c2', name: 'Court B', status: 'Available', queue: [], currentPlayers: [], estimatedWaitMinutes: 0 },
-  { id: 'c3', name: 'Court C', status: 'Busy', queue: ['p4'], currentPlayers: ['p3'], estimatedWaitMinutes: 10 },
-  { id: 'c4', name: 'Court D', status: 'Maintenance', queue: [], currentPlayers: [], estimatedWaitMinutes: 0 },
-];
-
 export default function Home() {
-  const [courts, setCourts] = useState(INITIAL_COURTS);
-  const [players] = useState(INITIAL_PLAYERS);
-  const { toast } = useToast();
+  const db = useFirestore();
+  
+  const playersRef = useMemoFirebase(() => collection(db, 'players'), [db]);
+  const courtsRef = useMemoFirebase(() => collection(db, 'courts'), [db]);
+  
+  const { data: players } = useCollection<Player>(playersRef);
+  const { data: courts } = useCollection<Court>(courtsRef);
 
-  const handleJoinQueue = (courtId: string) => {
-    // Logic for the current user to join
-    const court = courts.find(c => c.id === courtId);
-    if (!court) return;
-    
-    if (court.status === 'Maintenance') {
-      toast({
-        title: "Court Unavailable",
-        description: "This court is currently under maintenance.",
-        variant: "destructive"
-      });
-      return;
-    }
+  const stats = useMemo(() => {
+    const totalPlayers = players?.length || 0;
+    const availableCourts = courts?.filter(c => c.status === 'available').length || 0;
+    const playingNow = players?.filter(p => p.status === 'playing').length || 0;
+    const avgGames = players?.length ? (players.reduce((acc, p) => acc + p.gamesPlayed, 0) / players.length).toFixed(1) : 0;
 
-    toast({
-      title: "Joined Queue!",
-      description: `You are now in line for ${court.name}. We'll notify you when it's your turn.`,
-    });
-  };
-
-  const allQueuedPlayers = useMemo(() => {
-    const ids = new Set(courts.flatMap(c => c.queue));
-    return Array.from(ids).map(id => players[id]).filter(Boolean);
-  }, [courts, players]);
+    return [
+      { label: 'Active Players', value: totalPlayers, icon: Users, color: 'text-blue-500' },
+      { label: 'Available Courts', value: availableCourts, icon: DoorOpen, color: 'text-green-500' },
+      { label: 'Playing Now', value: playingNow, icon: Activity, color: 'text-orange-500' },
+      { label: 'Avg Games', value: avgGames, icon: Trophy, color: 'text-yellow-500' },
+    ];
+  }, [players, courts]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Live Dashboard</h1>
-          <p className="text-muted-foreground">Manage court queues and matches in real-time.</p>
-        </header>
-
-        <CourtStats />
-
-        <Separator />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold">Available Courts</h2>
-              <div className="flex gap-2">
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span className="h-2 w-2 rounded-full bg-green-500" /> Available
-                </span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span className="h-2 w-2 rounded-full bg-primary" /> Busy
-                </span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {courts.map(court => (
-                <QueueCard 
-                  key={court.id} 
-                  court={court} 
-                  players={players}
-                  onJoin={handleJoinQueue}
-                />
-              ))}
-            </div>
-          </div>
-
-          <aside className="space-y-6">
-            <h2 className="text-xl font-bold">Optimization Tools</h2>
-            <MatchSuggester playersInQueue={allQueuedPlayers} />
-            
-            <div className="p-4 rounded-xl bg-secondary/30 border space-y-3">
-              <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Queue Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <button className="p-3 bg-background hover:bg-background/80 transition-colors border rounded-lg text-xs font-semibold">Join Random</button>
-                <button className="p-3 bg-background hover:bg-background/80 transition-colors border rounded-lg text-xs font-semibold">Team Creator</button>
-                <button className="p-3 bg-background hover:bg-background/80 transition-colors border rounded-lg text-xs font-semibold">Instant Game</button>
-                <button className="p-3 bg-background hover:bg-background/80 transition-colors border rounded-lg text-xs font-semibold">Help/Guide</button>
-              </div>
-            </div>
-          </aside>
+    <main className="container mx-auto px-4 py-8 space-y-8">
+      <header className="space-y-2 flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">TheBreakfastClub</h1>
+          <p className="text-muted-foreground">Admin Control Panel</p>
         </div>
-      </main>
-      
-      <footer className="border-t py-6 bg-secondary/10 mt-auto">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          &copy; 2024 ShuttleQueue. All rights reserved. Built for champions.
+        <div className="hidden md:flex gap-4 mb-1">
+          {/* Desktop nav would go here if needed */}
         </div>
-      </footer>
-    </div>
+      </header>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat, i) => (
+          <Card key={i}>
+            <CardContent className="flex flex-col items-center justify-center p-6 text-center">
+              <stat.icon className={`h-8 w-8 mb-2 ${stat.color}`} />
+              <p className="text-sm text-muted-foreground">{stat.label}</p>
+              <h3 className="text-2xl font-bold">{stat.value}</h3>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Separator />
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold">Quick Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Court Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {courts?.map(court => (
+                  <div key={court.id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/20 border">
+                    <span className="font-medium">{court.name}</span>
+                    <span className={`text-xs px-2 py-1 rounded-full font-bold uppercase ${court.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-primary/20 text-primary'}`}>
+                      {court.status}
+                    </span>
+                  </div>
+                )) || <p className="text-sm text-muted-foreground italic">No courts found.</p>}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Queue Highlights</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {players?.filter(p => p.status === 'available').slice(0, 5).map(player => (
+                  <div key={player.id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/20 border">
+                    <span className="font-medium">{player.name}</span>
+                    <span className="text-xs text-muted-foreground">Level {player.skillLevel}</span>
+                  </div>
+                )) || <p className="text-sm text-muted-foreground italic">No players waiting.</p>}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+    </main>
   );
 }

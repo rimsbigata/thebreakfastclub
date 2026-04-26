@@ -1,255 +1,69 @@
+
 {
   "entities": {
     "Court": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Court",
       "type": "object",
-      "description": "Represents a badminton court with its status and current match assignment.",
+      "description": "Represents a badminton court.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Court entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "Customizable name of the court (e.g., \"Court 1\", \"Court A\")."
-        },
-        "status": {
-          "type": "string",
-          "description": "Current operational status of the court.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "currentMatchId": {
-          "type": "string",
-          "description": "Reference to the unique identifier of the Match currently being played on this court. (Relationship: Court 1:1 Match)"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "occupied"] },
+        "currentMatchId": { "type": "string" }
       },
-      "required": [
-        "id",
-        "name",
-        "status"
-      ]
+      "required": ["id", "name", "status"]
     },
     "Player": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Player",
       "type": "object",
-      "description": "Represents a player with their skill level, game history, and current status for matchmaking.",
+      "description": "Represents a player with skill and history.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Player entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The full name of the player."
-        },
-        "skillLevel": {
-          "type": "number",
-          "description": "Player's skill level, rated on a scale from 1 (Novice) to 7 (Elite)."
-        },
-        "gamesPlayed": {
-          "type": "number",
-          "description": "Number of games played by the player, typically reset daily for fairness calculations."
-        },
-        "partnerHistory": {
-          "type": "array",
-          "description": "An array of player IDs representing recent partners this player has teamed with. Used by AI to avoid repeat pairings. (Relationship: Player N:N Player)",
-          "items": {
-            "type": "string"
-          }
-        },
-        "status": {
-          "type": "string",
-          "description": "Current availability status of the player.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "improvementScore": {
-          "type": "number",
-          "description": "A calculated score reflecting the player's recent performance and improvement based on win/loss trends."
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "skillLevel": { "type": "number", "description": "1 to 7" },
+        "gamesPlayed": { "type": "number" },
+        "partnerHistory": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["available", "playing", "resting"] },
+        "improvementScore": { "type": "number" }
       },
-      "required": [
-        "id",
-        "name",
-        "skillLevel",
-        "gamesPlayed",
-        "partnerHistory",
-        "status",
-        "improvementScore"
-      ]
+      "required": ["id", "name", "skillLevel", "gamesPlayed", "partnerHistory", "status", "improvementScore"]
     },
     "Match": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Match",
       "type": "object",
-      "description": "Represents a badminton match played between two teams on a specific court.",
+      "description": "A 2v2 doubles match.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Match entity."
-        },
-        "teamA": {
-          "type": "array",
-          "description": "An array of player IDs comprising Team A for this match. (Relationship: Player N:N Match)",
-          "items": {
-            "type": "string"
-          }
-        },
-        "teamB": {
-          "type": "array",
-          "description": "An array of player IDs comprising Team B for this match. (Relationship: Player N:N Match)",
-          "items": {
-            "type": "string"
-          }
-        },
-        "courtId": {
-          "type": "string",
-          "description": "Reference to the unique identifier of the Court where this match is played. (Relationship: Court 1:N Match)"
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "The date and time when the match was created or started.",
-          "format": "date-time"
-        },
-        "isCompleted": {
-          "type": "boolean",
-          "description": "A flag indicating whether the match has been finished."
-        }
+        "id": { "type": "string" },
+        "teamA": { "type": "array", "items": { "type": "string" } },
+        "teamB": { "type": "array", "items": { "type": "string" } },
+        "courtId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "isCompleted": { "type": "boolean" }
       },
-      "required": [
-        "id",
-        "teamA",
-        "teamB",
-        "courtId",
-        "timestamp",
-        "isCompleted"
-      ]
+      "required": ["id", "teamA", "teamB", "courtId", "timestamp", "isCompleted"]
     },
     "Fee": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Fee",
       "type": "object",
-      "description": "Records daily fee collections and player payment statuses for financial tracking.",
+      "description": "Daily fee records.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Fee entity, typically formatted as a date (e.g., 'YYYY-MM-DD') to represent daily fee records."
-        },
-        "shuttleFee": {
-          "type": "number",
-          "description": "The total fee collected for shuttlecocks for this specific day."
-        },
-        "courtFee": {
-          "type": "number",
-          "description": "The total fee collected for court usage for this specific day."
-        },
-        "entranceFee": {
-          "type": "number",
-          "description": "The total entrance fee collected for players for this specific day."
-        },
-        "qrCodeUrl": {
-          "type": "string",
-          "description": "The URL linking to the payment QR code image, typically hosted in Firebase Storage.",
-          "format": "uri"
-        },
-        "payments": {
-          "type": "array",
-          "description": "An array representing the payment status for each player for the day. Each item is an object with 'playerId' and 'isPaid'.",
-          "items": {
-            "type": "string"
-          }
-        }
+        "id": { "type": "string", "description": "YYYY-MM-DD" },
+        "shuttleFee": { "type": "number" },
+        "courtFee": { "type": "number" },
+        "entranceFee": { "type": "number" },
+        "qrCodeUrl": { "type": "string" },
+        "payments": { "type": "object", "additionalProperties": { "type": "boolean" } }
       },
-      "required": [
-        "id",
-        "shuttleFee",
-        "courtFee",
-        "entranceFee",
-        "qrCodeUrl",
-        "payments"
-      ]
+      "required": ["id", "shuttleFee", "courtFee", "entranceFee", "payments"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["anonymous"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/courts/{courtId}",
-        "definition": {
-          "entityName": "Court",
-          "schema": {
-            "$ref": "#/backend/entities/Court"
-          },
-          "description": "Collection for storing details and current status of each badminton court. All documents within this collection are managed by the administrator.",
-          "params": [
-            {
-              "name": "courtId",
-              "description": "The unique identifier for a specific court."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/players/{playerId}",
-        "definition": {
-          "entityName": "Player",
-          "schema": {
-            "$ref": "#/backend/entities/Player"
-          },
-          "description": "Collection for storing player profiles, skill levels, game statistics, and current availability status. All documents are managed by the administrator.",
-          "params": [
-            {
-              "name": "playerId",
-              "description": "The unique identifier for a specific player."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/matches/{matchId}",
-        "definition": {
-          "entityName": "Match",
-          "schema": {
-            "$ref": "#/backend/entities/Match"
-          },
-          "description": "Collection for recording details of past or ongoing badminton matches, including team compositions, assigned court, and completion status. All documents are managed by the administrator.",
-          "params": [
-            {
-              "name": "matchId",
-              "description": "The unique identifier for a specific match."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/fees/{dateId}",
-        "definition": {
-          "entityName": "Fee",
-          "schema": {
-            "$ref": "#/backend/entities/Fee"
-          },
-          "description": "Collection for tracking daily fee collections (shuttle, court, entrance) and player payment statuses. The `payments` field stores an array of player IDs who have paid for that specific day. All documents are managed by the administrator.",
-          "params": [
-            {
-              "name": "dateId",
-              "description": "The unique identifier for a daily fee record, typically formatted as 'YYYY-MM-DD'."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure for TheBreakfastClub is designed for simplicity, scalability, and robust debuggability, adhering strictly to the provided design principles and mandates, especially considering the 'single-admin local access' model. The structure utilizes four distinct top-level collections: /courts for court management, /players for player profiles and statistics, /matches for recording game outcomes, and /fees for daily financial tracking.Authorization Independence is achieved by treating all application data as being under the purview of a single administrator. Given that there is no multi-user, multi-role system described, and all data is intended for administrative access, complex hierarchical authorization dependencies are eliminated. Access to any document in any collection will be granted based on a global check against the administrator's `request.auth.uid` (which will be a specific UID known to the system), rather than relying on `get()` operations to check parent document attributes. This design inherently avoids the atomic operation issues associated with hierarchical rules and simplifies debugging.Support for Querying All Public Documents (QAPs) is ensured through strict Structural Segregation. Each collection (`/courts`, `/players`, `/matches`, `/fees`) holds documents that share a homogeneous security posture, meaning all documents within a given collection have the same access requirements (i.e., admin-only). There is no mixing of public and private data within the same collection. For example, the `/players` collection contains all player profiles, all equally accessible by the admin. This allows the administrator to perform `list` operations across any collection without the need for security rules to filter results, which is a key anti-pattern to avoid. If the administrator is authorized, they can read all documents in the collection, making queries efficient and rules straightforward to write and debug.The data models feature explicit state fields (e.g., `Court.status`, `Player.status`) and predictable schema patterns. The `Fee.payments` field, as per the provided entity schema, is designed as an array of player IDs, indicating which players have completed their payments for a given day."
+    "/courts/{courtId}": { "schema": { "$ref": "#/entities/Court" }, "description": "Courts list" },
+    "/players/{playerId}": { "schema": { "$ref": "#/entities/Player" }, "description": "Players profiles" },
+    "/matches/{matchId}": { "schema": { "$ref": "#/entities/Match" }, "description": "Match history" },
+    "/fees/{dateId}": { "schema": { "$ref": "#/entities/Fee" }, "description": "Daily financial records" }
   }
 }

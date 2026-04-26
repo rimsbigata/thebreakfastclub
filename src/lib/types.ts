@@ -1,21 +1,38 @@
 
-export type SkillLevel = 'Beginner' | 'Intermediate' | 'Advanced' | 'Pro';
-export type PlayStyle = 'Aggressive' | 'Defensive' | 'All-Rounder' | 'Tactical';
+export type PlayerStatus = 'available' | 'playing' | 'resting';
+export type CourtStatus = 'available' | 'occupied';
 
 export interface Player {
   id: string;
   name: string;
-  skillLevel: SkillLevel;
-  playStyle: PlayStyle;
+  skillLevel: number; // 1-7
   gamesPlayed: number;
-  avatarUrl?: string;
+  partnerHistory: string[];
+  status: PlayerStatus;
+  improvementScore: number;
 }
 
 export interface Court {
   id: string;
   name: string;
-  status: 'Available' | 'Busy' | 'Maintenance';
-  queue: string[]; // Array of player IDs
-  currentPlayers: string[]; // Players currently on court
-  estimatedWaitMinutes: number;
+  status: CourtStatus;
+  currentMatchId?: string;
+}
+
+export interface Match {
+  id: string;
+  teamA: string[]; // Player IDs
+  teamB: string[]; // Player IDs
+  courtId: string;
+  timestamp: any;
+  isCompleted: boolean;
+}
+
+export interface Fee {
+  id: string; // YYYY-MM-DD
+  shuttleFee: number;
+  courtFee: number;
+  entranceFee: number;
+  qrCodeUrl?: string;
+  payments: Record<string, boolean>; // playerId -> isPaid
 }
