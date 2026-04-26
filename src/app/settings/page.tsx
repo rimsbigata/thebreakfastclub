@@ -1,27 +1,71 @@
-
 "use client";
 
-import { useState } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useState, useRef } from 'react';
+import { useFirestore, useStorage, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, writeBatch, getDocs, doc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { PaymentMethod } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RefreshCcw, Trash2, AlertTriangle, QrCode, Plus, X } from 'lucide-react';
+import { RefreshCcw, Trash2, AlertTriangle, QrCode, Plus, X, Upload, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Image from 'next/image';
 
 export default function SettingsPage() {
   const db = useFirestore();
+  const storage = useStorage();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [newMethodName, setNewMethodName] = useState('');
-  const [newMethodUrl, setNewMethodUrl] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const paymentMethodsRef = useMemoFirebase(() => collection(db, 'paymentMethods'), [db]);
   const { data: paymentMethods } = useCollection<PaymentMethod>(paymentMethodsRef);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleAddPaymentMethod = async () => {
+    if (!newMethodName || !selectedFile) {
+      toast({ title: "Missing details", description: "Please provide a name and select an image.", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    const id = Math.random().toString(36).substring(7);
+
+    try {
+      // 1. Upload image to Storage
+      const storageRef = ref(storage, `payments/qr-codes/${id}-${selectedFile.name}`);
+      const uploadResult = await uploadBytes(storageRef, selectedFile);
+      const imageUrl = await getDownloadURL(uploadResult.ref);
+
+      // 2. Save metadata to Firestore
+      addDocumentNonBlocking(paymentMethodsRef, {
+        id,
+        name: newMethodName,
+        imageUrl: imageUrl
+      });
+
+      setNewMethodName('');
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      
+      toast({ title: "QR Added", description: `${newMethodName} payment method created.` });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Upload failed", description: "Could not upload the QR code image.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleResetMatches = async () => {
     try {
@@ -57,22 +101,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAddPaymentMethod = () => {
-    if (!newMethodName || !newMethodUrl) {
-      toast({ title: "Missing details", description: "Please provide both name and URL.", variant: "destructive" });
-      return;
-    }
-    const id = Math.random().toString(36).substring(7);
-    addDocumentNonBlocking(paymentMethodsRef, {
-      id,
-      name: newMethodName,
-      imageUrl: newMethodUrl
-    });
-    setNewMethodName('');
-    setNewMethodUrl('');
-    toast({ title: "QR Added", description: `${newMethodName} payment method created.` });
-  };
-
   const handleDeleteMethod = (id: string) => {
     const methodRef = doc(db, 'paymentMethods', id);
     deleteDocumentNonBlocking(methodRef);
@@ -88,7 +116,7 @@ export default function SettingsPage() {
             <CardTitle className="flex items-center gap-2">
               <QrCode className="h-5 w-5" /> Payment QR Codes
             </CardTitle>
-            <CardDescription>Manage QR codes for player payments.</CardDescription>
+            <CardDescription>Upload and manage QR codes for player payments.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -97,12 +125,21 @@ export default function SettingsPage() {
                 <Input placeholder="e.g. GCash" value={newMethodName} onChange={e => setNewMethodName(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>QR Image URL</Label>
-                <Input placeholder="https://..." value={newMethodUrl} onChange={e => setNewMethodUrl(e.target.value)} />
+                <Label>QR Code Image</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleFileChange} 
+                    ref={fileInputRef}
+                    className="cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
-            <Button onClick={handleAddPaymentMethod} className="w-full gap-2">
-              <Plus className="h-4 w-4" /> Add Payment Method
+            <Button onClick={handleAddPaymentMethod} disabled={uploading} className="w-full gap-2">
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {uploading ? 'Uploading...' : 'Add Payment Method'}
             </Button>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
