@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useRef } from 'react';
-import { useFirestore, useStorage, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useStorage, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, writeBatch, getDocs, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { PaymentMethod } from '@/lib/types';
@@ -9,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RefreshCcw, Trash2, AlertTriangle, QrCode, Plus, X, Upload, Loader2 } from 'lucide-react';
+import { RefreshCcw, Trash2, AlertTriangle, QrCode, Plus, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
@@ -22,6 +23,7 @@ export default function SettingsPage() {
   const [newMethodName, setNewMethodName] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
 
   const paymentMethodsRef = useMemoFirebase(() => collection(db, 'paymentMethods'), [db]);
   const { data: paymentMethods } = useCollection<PaymentMethod>(paymentMethodsRef);
@@ -42,17 +44,16 @@ export default function SettingsPage() {
     const id = Math.random().toString(36).substring(7);
 
     try {
-      // 1. Upload image to Storage
       const storageRef = ref(storage, `payments/qr-codes/${id}-${selectedFile.name}`);
       const uploadResult = await uploadBytes(storageRef, selectedFile);
       const imageUrl = await getDownloadURL(uploadResult.ref);
 
-      // 2. Save metadata to Firestore
-      addDocumentNonBlocking(paymentMethodsRef, {
+      const methodRef = doc(db, 'paymentMethods', id);
+      setDocumentNonBlocking(methodRef, {
         id,
         name: newMethodName,
         imageUrl: imageUrl
-      });
+      }, { merge: true });
 
       setNewMethodName('');
       setSelectedFile(null);
@@ -70,40 +71,49 @@ export default function SettingsPage() {
   const handleResetMatches = async () => {
     try {
       const batch = writeBatch(db);
+      
       const playersSnap = await getDocs(collection(db, 'players'));
       playersSnap.forEach(p => {
         batch.update(p.ref, { status: 'available', gamesPlayed: 0 });
       });
+      
       const matchesSnap = await getDocs(collection(db, 'matches'));
       matchesSnap.forEach(m => batch.delete(m.ref));
+      
       const courtsSnap = await getDocs(collection(db, 'courts'));
       courtsSnap.forEach(c => batch.update(c.ref, { status: 'available', currentMatchId: null }));
+      
       await batch.commit();
-      toast({ title: "Daily Reset Complete", description: "Matches cleared and games reset to zero." });
+      toast({ title: "Daily Reset Complete", description: "Board cleared for a new day." });
     } catch (e) {
+      console.error(e);
       toast({ title: "Reset Failed", variant: "destructive" });
     }
   };
 
   const handleWipeData = async () => {
-    if (!confirm("Are you SURE? This will delete ALL data in the club.")) return;
+    if (!confirm("Are you SURE? This will permanently delete ALL data in the club.")) return;
+    
+    setIsWiping(true);
     try {
-      const batch = writeBatch(db);
       const collections = ['players', 'courts', 'matches', 'fees', 'paymentMethods'];
       for (const colName of collections) {
         const snap = await getDocs(collection(db, colName));
+        const batch = writeBatch(db);
         snap.forEach(d => batch.delete(d.ref));
+        await batch.commit();
       }
-      await batch.commit();
-      toast({ title: "Factory Reset Complete", description: "All data purged." });
+      toast({ title: "Factory Reset Complete", description: "All database collections purged." });
     } catch (e) {
+      console.error(e);
       toast({ title: "Wipe Failed", variant: "destructive" });
+    } finally {
+      setIsWiping(false);
     }
   };
 
   const handleDeleteMethod = (id: string) => {
-    const methodRef = doc(db, 'paymentMethods', id);
-    deleteDocumentNonBlocking(methodRef);
+    deleteDocumentNonBlocking(doc(db, 'paymentMethods', id));
   };
 
   return (
@@ -126,15 +136,7 @@ export default function SettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>QR Code Image</Label>
-                <div className="flex gap-2">
-                  <Input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={handleFileChange} 
-                    ref={fileInputRef}
-                    className="cursor-pointer"
-                  />
-                </div>
+                <Input type="file" accept="image/*" onChange={handleFileChange} ref={fileInputRef} className="cursor-pointer" />
               </div>
             </div>
             <Button onClick={handleAddPaymentMethod} disabled={uploading} className="w-full gap-2">
@@ -154,7 +156,7 @@ export default function SettingsPage() {
                     <X className="h-4 w-4 text-destructive" />
                   </Button>
                   <div className="relative h-32 w-32 border bg-white rounded-md overflow-hidden">
-                    <Image src={method.imageUrl} alt={method.name} fill className="object-contain" data-ai-hint="payment qr" />
+                    <Image src={method.imageUrl} alt={method.name} fill className="object-contain" />
                   </div>
                   <span className="font-bold text-sm">{method.name}</span>
                 </div>
@@ -183,8 +185,9 @@ export default function SettingsPage() {
             <CardDescription>Actions here cannot be undone.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={handleWipeData} variant="destructive" className="w-full gap-2">
-              <Trash2 className="h-4 w-4" /> Reset All Club Data
+            <Button onClick={handleWipeData} disabled={isWiping} variant="destructive" className="w-full gap-2">
+              {isWiping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {isWiping ? 'Wiping Data...' : 'Reset All Club Data'}
             </Button>
           </CardContent>
         </Card>

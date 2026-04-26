@@ -34,8 +34,6 @@ export default function HomePage() {
     const courtId = Math.random().toString(36).substring(7);
     const courtRef = doc(db, 'courts', courtId);
     
-    // Using setDocumentNonBlocking to sync document ID with the 'id' field
-    // This ensures consistency and satisfies security rules
     setDocumentNonBlocking(courtRef, {
       id: courtId,
       name: `Court ${newCourtName}`,
@@ -48,7 +46,6 @@ export default function HomePage() {
   const handleDeleteCourt = (docId: string) => {
     if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this court?")) return;
     
-    // Explicitly targeting the document by ID for deletion
     const courtRef = doc(db, 'courts', docId);
     deleteDocumentNonBlocking(courtRef);
     
@@ -195,7 +192,7 @@ export default function HomePage() {
                       handleDeleteCourt(court.id);
                     }}
                   >
-                    <Trash2 className="h-4 w-4 transition-colors" />
+                    <Trash2 className="h-4 w-4 transition-colors group-hover:text-white" />
                   </Button>
                   <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={court.status === 'available' ? 'text-green-600 border-green-200' : 'bg-primary'}>
                     {court.status.toUpperCase()}

@@ -1,69 +1,18 @@
 /**
- * TheBreakfastClub - Firestore Security Rules
+ * TheBreakfastClub - Simplified Security Rules
  * 
  * Core Philosophy:
- * This ruleset implements a flexible access model for "TheBreakfastClub" 
- * badminton management application. The security model is built for a 
- * single-admin local access paradigm where data operations are permitted 
- * by default to facilitate local prototyping.
- *
- * Data Structure:
- * The database is organized into four top-level collections:
- * - /courts: Stores badminton court configurations and real-time status.
- * - /players: Contains player profiles, skill levels, and performance statistics.
- * - /matches: Records game details, including teams and court assignments.
- * - /fees: Tracks daily financial records and player payment statuses.
+ * This ruleset implements a fully permissive model for a local-only 
+ * admin prototype. Authentication is ignored to facilitate rapid 
+ * development and testing in a controlled environment.
  */
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --- GLOBAL HELPER FUNCTIONS ---
-
-    /**
-     * @description Identifies if the user is the administrator.
-     * For this local-only prototype, we permit access to facilitate "disabled auth" experience.
-     */
-    function isAdmin() {
-      return true; 
-    }
-
-    /**
-     * @description Ensures the target document exists for state-changing operations.
-     */
-    function isExisting() {
-      return resource != null;
-    }
-
-    // --- COLLECTION RULES ---
-
-    match /courts/{courtId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && request.resource.data.id == courtId;
-      allow update: if isAdmin() && request.resource.data.id == resource.data.id;
-      allow delete: if isAdmin();
-    }
-
-    match /players/{playerId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && request.resource.data.id == playerId;
-      allow update: if isAdmin() && request.resource.data.id == resource.data.id;
-      allow delete: if isAdmin();
-    }
-
-    match /matches/{matchId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && request.resource.data.id == matchId;
-      allow update: if isAdmin() && request.resource.data.id == resource.data.id;
-      allow delete: if isAdmin();
-    }
-
-    match /fees/{dateId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && request.resource.data.id == dateId;
-      allow update: if isAdmin() && request.resource.data.id == resource.data.id;
-      allow delete: if isAdmin();
+    // Permit all reads and writes for local prototyping
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }
