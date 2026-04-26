@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -60,8 +61,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('breakfast_club_data', dataToSave);
       } catch (e) {
         console.error("Failed to save data. You may have exceeded localStorage quota.", e);
-        // We could add more complex logic here to handle QuotaExceededError,
-        // but for now, we just catch it to prevent the app from crashing.
       }
     }
   }, [players, courts, matches, fees, paymentMethods, isLoaded]);
@@ -93,10 +92,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteCourt = (id: string) => {
-    // Find the court to check for active matches
     const courtToDelete = courts.find(c => c.id === id);
-    
-    // If court was occupied, free up the players
     if (courtToDelete?.currentMatchId) {
       const match = matches.find(m => m.id === courtToDelete.currentMatchId);
       if (match) {
@@ -106,7 +102,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         ));
       }
     }
-    
     setCourts(prev => prev.filter(c => c.id !== id));
   };
 
@@ -157,6 +152,13 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       const isPart = [...match.teamA, ...match.teamB].includes(p.id);
       if (!isPart) return p;
 
+      // Update partner history (add partner ID to start of array)
+      const partnerId = match.teamA.includes(p.id) 
+        ? match.teamA.find(id => id !== p.id) 
+        : match.teamB.find(id => id !== p.id);
+      
+      const newHistory = partnerId ? [partnerId, ...p.partnerHistory].slice(0, 5) : p.partnerHistory;
+
       let impChange = 0;
       if (winner) {
         const isWinner = (winner === 'teamA' && match.teamA.includes(p.id)) || 
@@ -167,6 +169,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       return { 
         ...p, 
         status: 'available', 
+        partnerHistory: newHistory,
         improvementScore: Math.max(0, p.improvementScore + impChange),
         totalPlayTimeMinutes: p.totalPlayTimeMinutes + playDurationMinutes
       };
@@ -220,7 +223,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const resetDailyBoard = () => {
     setMatches([]);
-    setPlayers(prev => prev.map(p => ({ ...p, status: 'available', gamesPlayed: 0, totalPlayTimeMinutes: 0 })));
+    setPlayers(prev => prev.map(p => ({ ...p, status: 'available', gamesPlayed: 0, totalPlayTimeMinutes: 0, partnerHistory: [] })));
     setCourts(prev => prev.map(c => ({ ...c, status: 'available', currentMatchId: null })));
   };
 

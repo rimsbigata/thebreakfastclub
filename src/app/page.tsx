@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -54,11 +55,11 @@ export default function HomePage() {
     const availableCourts = courts.filter(c => c.status === 'available');
 
     if (availablePlayers.length < 4) {
-      toast({ title: "Not enough players", description: "Need at least 4 available players.", variant: "destructive" });
+      toast({ title: "Insufficient players", description: "The Commissioner needs at least 4 available players.", variant: "destructive" });
       return;
     }
     if (availableCourts.length === 0) {
-      toast({ title: "No courts", description: "All courts are occupied or none exist.", variant: "destructive" });
+      toast({ title: "No courts available", description: "Wait for a match to finish first.", variant: "destructive" });
       return;
     }
 
@@ -75,19 +76,26 @@ export default function HomePage() {
         availableCourts: availableCourts.map(c => ({ id: c.id, name: c.name })),
       });
 
-      if (result.matchFound && result.courtId) {
+      if (result.matchCreated && result.courtId && result.teamA && result.teamB) {
         startMatch({
           teamA: result.teamA,
           teamB: result.teamB,
           courtId: result.courtId,
         });
-        toast({ title: "Match Assigned!", description: `${result.courtName} ready. Click START to begin timer.` });
+        toast({ 
+          title: "Match Created!", 
+          description: result.analysis || `Assigned to ${result.courtName}.` 
+        });
       } else {
-        toast({ title: "No optimal match", description: "AI couldn't find a balance with current rules." });
+        toast({ 
+          title: "Matchmaking Error", 
+          description: result.error || "The Commissioner couldn't find a fair pairing.",
+          variant: "destructive"
+        });
       }
     } catch (e) {
       console.error(e);
-      toast({ title: "AI Error", description: "Failed to generate match logic.", variant: "destructive" });
+      toast({ title: "AI Error", description: "Failed to connect to the Commissioner.", variant: "destructive" });
     } finally {
       setLoadingMatch(false);
     }
@@ -97,8 +105,8 @@ export default function HomePage() {
     <div className="container mx-auto px-4 py-8 space-y-6 pb-24">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Courts</h1>
-          <p className="text-sm text-muted-foreground">Real-time play and AI matchmaking.</p>
+          <h1 className="text-2xl font-bold">Live Courts</h1>
+          <p className="text-sm text-muted-foreground">Manage active games and AI pairings.</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -107,7 +115,7 @@ export default function HomePage() {
             className="gap-2 bg-primary"
           >
             {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            AI Match
+            AI Commissioner
           </Button>
           <Dialog>
             <DialogTrigger asChild>
@@ -138,7 +146,7 @@ export default function HomePage() {
         <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl bg-card/50">
           <Trophy className="h-12 w-12 text-muted-foreground/20 mb-4" />
           <p className="text-lg font-bold text-muted-foreground">No courts registered</p>
-          <p className="text-sm text-muted-foreground mb-6">Click the + button to add your first court.</p>
+          <p className="text-sm text-muted-foreground mb-6">Add a court to start matchmaking.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -185,7 +193,7 @@ export default function HomePage() {
                       <div className="grid grid-cols-1 gap-4">
                         <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-2 relative">
                           <p className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</p>
-                          <div className="text-sm font-bold truncate pr-12">{teamAPlayers || 'Unknown Players'}</div>
+                          <div className="text-sm font-bold truncate pr-12">{teamAPlayers || 'Loading...'}</div>
                           {isTimerRunning && (
                             <Button 
                               variant="secondary" 
@@ -202,7 +210,7 @@ export default function HomePage() {
                         </div>
                         <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-2 relative">
                           <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
-                          <div className="text-sm font-bold truncate pr-12">{teamBPlayers || 'Unknown Players'}</div>
+                          <div className="text-sm font-bold truncate pr-12">{teamBPlayers || 'Loading...'}</div>
                           {isTimerRunning && (
                             <Button 
                               variant="secondary" 
