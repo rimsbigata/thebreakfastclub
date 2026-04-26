@@ -1,10 +1,8 @@
 
-"use client";
+'use client';
 
 import { useState } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { Court, Player } from '@/lib/types';
+import { useClub } from '@/context/ClubContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -16,40 +14,27 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
 export default function CourtsPage() {
-  const db = useFirestore();
+  const { courts, players, addCourt, deleteCourt, startMatch, endMatch } = useClub();
   const { toast } = useToast();
   const [loadingMatch, setLoadingMatch] = useState(false);
   const [newCourtName, setNewCourtName] = useState('');
   const [isSwapOpen, setIsSwapOpen] = useState(false);
 
-  const courtsRef = useMemoFirebase(() => collection(db, 'courts'), [db]);
-  const playersRef = useMemoFirebase(() => collection(db, 'players'), [db]);
-  const matchesRef = useMemoFirebase(() => collection(db, 'matches'), [db]);
-  
-  const { data: courts } = useCollection<Court>(courtsRef);
-  const { data: players } = useCollection<Player>(playersRef);
-
   const handleAddCourt = () => {
     if (!newCourtName) return;
-    const courtId = Math.random().toString(36).substring(7);
-    addDocumentNonBlocking(courtsRef, {
-      id: courtId,
-      name: `Court ${newCourtName}`,
-      status: 'available',
-    });
+    addCourt(newCourtName);
     setNewCourtName('');
   };
 
-  const handleDeleteCourt = (id: string) => {
+  const handleDeleteCourtAction = (id: string) => {
     if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this court?")) return;
-    const courtRef = doc(db, 'courts', id);
-    deleteDocumentNonBlocking(courtRef);
+    deleteCourt(id);
     toast({ title: "Court Deleted" });
   };
 
   const handleGenerateMatch = async () => {
-    const availablePlayers = players?.filter(p => p.status === 'available') || [];
-    const availableCourts = courts?.filter(c => c.status === 'available') || [];
+    const availablePlayers = players.filter(p => p.status === 'available');
+    const availableCourts = courts.filter(c => c.status === 'available');
 
     if (availablePlayers.length < 4) {
       toast({ title: "Not enough players", description: "Need at least 4 available players.", variant: "destructive" });
@@ -74,24 +59,11 @@ export default function CourtsPage() {
       });
 
       if (result.matchFound && result.courtId) {
-        const matchId = Math.random().toString(36).substring(7);
-        addDocumentNonBlocking(matchesRef, {
-          id: matchId,
+        startMatch({
           teamA: result.teamA,
           teamB: result.teamB,
           courtId: result.courtId,
-          timestamp: new Date().toISOString(),
-          isCompleted: false,
         });
-
-        const courtDocRef = doc(db, 'courts', result.courtId);
-        updateDocumentNonBlocking(courtDocRef, { status: 'occupied', currentMatchId: matchId });
-
-        [...result.teamA, ...result.teamB].forEach(pid => {
-          const pRef = doc(db, 'players', pid);
-          updateDocumentNonBlocking(pRef, { status: 'playing', gamesPlayed: (players?.find(p => p.id === pid)?.gamesPlayed || 0) + 1 });
-        });
-
         toast({ title: "Match Started!", description: `Assigned to ${result.courtName}.` });
       } else {
         toast({ title: "No optimal match", description: "AI couldn't find a balance with current rules." });
@@ -104,25 +76,12 @@ export default function CourtsPage() {
     }
   };
 
-  const handleCompleteMatch = (court: Court) => {
-    if (!court.currentMatchId) return;
-    const courtRef = doc(db, 'courts', court.id);
-    const matchRef = doc(db, 'matches', court.currentMatchId);
-
-    updateDocumentNonBlocking(matchRef, { isCompleted: true });
-    updateDocumentNonBlocking(courtRef, { status: 'available', currentMatchId: null });
-
-    players?.filter(p => p.status === 'playing').forEach(p => {
-       updateDocumentNonBlocking(doc(db, 'players', p.id), { status: 'available' });
-    });
-  };
-
   return (
     <div className="container mx-auto px-4 py-8 space-y-6 pb-24">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Courts</h1>
         <div className="flex gap-2">
-          <Button onClick={handleGenerateMatch} disabled={loadingMatch || !courts?.length} className="gap-2 bg-primary">
+          <Button onClick={handleGenerateMatch} disabled={loadingMatch || !courts.length} className="gap-2 bg-primary">
             {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             AI Match
           </Button>
@@ -152,7 +111,7 @@ export default function CourtsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {courts?.map(court => (
+        {courts.map(court => (
           <Card key={court.id} className="border-2 shadow-sm relative group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-lg font-bold">{court.name}</CardTitle>
@@ -161,9 +120,9 @@ export default function CourtsPage() {
                   variant="ghost" 
                   size="icon" 
                   className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => handleDeleteCourt(court.id)}
+                  onClick={() => handleDeleteCourtAction(court.id)}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4 group-hover:text-white" />
                 </Button>
                 <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={court.status === 'available' ? 'text-green-600 border-green-200' : 'bg-primary'}>
                   {court.status.toUpperCase()}
@@ -197,8 +156,8 @@ export default function CourtsPage() {
             <CardFooter className="flex justify-between gap-2 border-t pt-4">
                {court.status === 'occupied' ? (
                  <>
-                  <Button variant="outline" size="sm" onClick={() => handleCompleteMatch(court)} className="flex-1">End Match</Button>
-                  <Button variant="ghost" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" onClick={() => endMatch(court.id)} className="flex-1">End Match</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setIsSwapOpen(true)} className="gap-2">
                     <ArrowLeftRight className="h-4 w-4" /> Swap
                   </Button>
                  </>
@@ -215,12 +174,12 @@ export default function CourtsPage() {
           <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             <Label>Select replacement from available players:</Label>
-            {players?.filter(p => p.status === 'available').map(player => (
+            {players.filter(p => p.status === 'available').map(player => (
               <Button key={player.id} variant="outline" className="w-full justify-between" onClick={() => setIsSwapOpen(false)}>
                 {player.name} <Badge>Lvl {player.skillLevel}</Badge>
               </Button>
             ))}
-            {players?.filter(p => p.status === 'available').length === 0 && (
+            {players.filter(p => p.status === 'available').length === 0 && (
               <p className="text-center text-sm text-muted-foreground italic">No players available to swap.</p>
             )}
           </div>

@@ -1,5 +1,5 @@
 
-"use client";
+'use client';
 
 import { useState, useRef } from 'react';
 import { useClub } from '@/context/ClubContext';
@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RefreshCcw, Trash2, QrCode, Plus, X, Upload } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
@@ -17,17 +17,55 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newMethodName, setNewMethodName] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      setIsUploading(true);
+      const file = e.target.files[0];
       const reader = new FileReader();
+      
       reader.onloadend = () => {
-        addPaymentMethod(newMethodName || 'Unnamed QR', reader.result as string);
-        setNewMethodName('');
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        toast({ title: "QR Method Added", description: `${newMethodName || 'New QR'} has been saved.` });
+        const img = new (window as any).Image();
+        img.onload = () => {
+          // Canvas for resizing to keep localStorage usage small
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 400; // Resize to max 400px width/height
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Convert to JPEG with compression to save a lot of space
+          const compressedData = canvas.toDataURL('image/jpeg', 0.7);
+
+          addPaymentMethod(newMethodName || 'Unnamed QR', compressedData);
+          setNewMethodName('');
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          setIsUploading(false);
+          toast({ 
+            title: "QR Method Added", 
+            description: `${newMethodName || 'New QR'} has been saved and optimized.` 
+          });
+        };
+        img.src = reader.result;
       };
-      reader.readAsDataURL(e.target.files[0]);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -84,8 +122,9 @@ export default function SettingsPage() {
                 accept="image/*" 
                 onChange={handleFileChange} 
               />
-              <Button onClick={triggerFileUpload} className="gap-2">
-                <Upload className="h-4 w-4" /> Add Payment Method
+              <Button onClick={triggerFileUpload} disabled={isUploading} className="gap-2">
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                Add Payment Method
               </Button>
             </div>
 

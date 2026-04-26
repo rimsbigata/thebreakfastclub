@@ -36,24 +36,37 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   // Load from LocalStorage
   useEffect(() => {
-    const data = localStorage.getItem('breakfast_club_data');
-    if (data) {
-      const parsed = JSON.parse(data);
-      setPlayers(parsed.players || []);
-      setCourts(parsed.courts || []);
-      setMatches(parsed.matches || []);
-      setFees(parsed.fees || []);
-      setPaymentMethods(parsed.paymentMethods || []);
+    try {
+      const data = localStorage.getItem('breakfast_club_data');
+      if (data) {
+        const parsed = JSON.parse(data);
+        setPlayers(parsed.players || []);
+        setCourts(parsed.courts || []);
+        setMatches(parsed.matches || []);
+        setFees(parsed.fees || []);
+        setPaymentMethods(parsed.paymentMethods || []);
+      }
+    } catch (e) {
+      console.error("Failed to load data from localStorage", e);
     }
     setIsLoaded(true);
   }, []);
 
-  // Save to LocalStorage
+  // Save to LocalStorage with error handling for quota
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem('breakfast_club_data', JSON.stringify({
-        players, courts, matches, fees, paymentMethods
-      }));
+      try {
+        const dataToSave = JSON.stringify({
+          players, courts, matches, fees, paymentMethods
+        });
+        localStorage.setItem('breakfast_club_data', dataToSave);
+      } catch (e) {
+        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+          console.error("Storage quota exceeded! Try deleting old matches or using smaller QR images.");
+        } else {
+          console.error("Failed to save to localStorage", e);
+        }
+      }
     }
   }, [players, courts, matches, fees, paymentMethods, isLoaded]);
 
