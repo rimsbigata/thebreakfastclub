@@ -1,25 +1,17 @@
 
 "use client";
 
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
-import { Player } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useClub } from '@/context/ClubContext';
+import { Card, CardContent } from '@/components/ui/card';
 import { Trophy, TrendingUp, AlertCircle, Medal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
 export default function RankingsPage() {
-  const db = useFirestore();
+  const { players } = useClub();
 
-  const topPlayersRef = useMemoFirebase(() => 
-    query(collection(db, 'players'), orderBy('skillLevel', 'desc'), limit(10)), [db]);
-  
-  const improvedPlayersRef = useMemoFirebase(() => 
-    query(collection(db, 'players'), orderBy('improvementScore', 'desc'), limit(10)), [db]);
-
-  const { data: topPlayers } = useCollection<Player>(topPlayersRef);
-  const { data: improvedPlayers } = useCollection<Player>(improvedPlayersRef);
+  const topPlayers = [...players].sort((a, b) => b.skillLevel - a.skillLevel).slice(0, 10);
+  const improvedPlayers = [...players].sort((a, b) => b.improvementScore - a.improvementScore).slice(0, 10);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
@@ -36,7 +28,7 @@ export default function RankingsPage() {
             <Medal className="h-5 w-5 text-primary" /> Top Ranked
           </div>
           <div className="grid gap-3">
-            {topPlayers?.map((player, i) => (
+            {topPlayers.map((player, i) => (
               <Card key={player.id} className={i === 0 ? "border-yellow-500 border-2 shadow-lg" : ""}>
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4">
@@ -60,7 +52,7 @@ export default function RankingsPage() {
             <TrendingUp className="h-5 w-5 text-green-500" /> Most Improved
           </div>
           <div className="grid gap-3">
-            {improvedPlayers?.filter(p => p.improvementScore > 0).map((player, i) => (
+            {improvedPlayers.filter(p => p.improvementScore > 0).map((player, i) => (
               <Card key={player.id}>
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
@@ -76,24 +68,9 @@ export default function RankingsPage() {
                 </CardContent>
               </Card>
             ))}
-            {improvedPlayers?.filter(p => p.improvementScore < 0).length ? (
-               <div className="flex items-center gap-2 font-bold text-lg mt-8">
-                <AlertCircle className="h-5 w-5 text-red-500" /> Needs Work
-              </div>
-            ) : null}
-            {improvedPlayers?.filter(p => p.improvementScore < 0).map((player) => (
-              <Card key={player.id} className="opacity-70">
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 rounded-full">
-                      <AlertCircle className="h-4 w-4 text-red-600" />
-                    </div>
-                    <p className="font-bold">{player.name}</p>
-                  </div>
-                  <Badge variant="destructive" className="bg-red-500">Slumping</Badge>
-                </CardContent>
-              </Card>
-            ))}
+            {players.length === 0 && (
+               <p className="text-center text-sm text-muted-foreground italic py-10">No data available.</p>
+            )}
           </div>
         </section>
       </div>

@@ -2,9 +2,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { Player } from '@/lib/types';
+import { useClub } from '@/context/ClubContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,15 +13,11 @@ import { Plus, User, TrendingUp, PieChart, Users, Trash2 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 
 export default function PlayersPage() {
-  const db = useFirestore();
+  const { players, addPlayer, deletePlayer } = useClub();
   const [newName, setNewName] = useState('');
   const [newSkill, setNewSkill] = useState('3');
 
-  const playersRef = useMemoFirebase(() => collection(db, 'players'), [db]);
-  const { data: players } = useCollection<Player>(playersRef);
-
   const skillDistribution = useMemo(() => {
-    if (!players) return [];
     const dist: Record<number, number> = {};
     players.forEach(p => {
       dist[p.skillLevel] = (dist[p.skillLevel] || 0) + 1;
@@ -34,27 +28,13 @@ export default function PlayersPage() {
     }));
   }, [players]);
 
-  const handleAddPlayer = () => {
+  const handleAddPlayerAction = () => {
     if (!newName) return;
-    const id = Math.random().toString(36).substring(7);
-    const playerRef = doc(db, 'players', id);
-    
-    setDocumentNonBlocking(playerRef, {
-      id,
+    addPlayer({
       name: newName,
-      skillLevel: parseInt(newSkill),
-      gamesPlayed: 0,
-      partnerHistory: [],
-      status: 'available',
-      improvementScore: 0
-    }, { merge: true });
-    
+      skillLevel: parseInt(newSkill)
+    });
     setNewName('');
-  };
-
-  const handleDeletePlayer = (id: string) => {
-    if (typeof window !== 'undefined' && !window.confirm("Delete this player?")) return;
-    deleteDocumentNonBlocking(doc(db, 'players', id));
   };
 
   return (
@@ -80,7 +60,7 @@ export default function PlayersPage() {
                 <Label>Skill Level (1-7)</Label>
                 <Input type="number" min="1" max="7" value={newSkill} onChange={e => setNewSkill(e.target.value)} />
               </div>
-              <Button className="w-full" onClick={handleAddPlayer}>Save Player</Button>
+              <Button className="w-full" onClick={handleAddPlayerAction}>Save Player</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -114,12 +94,12 @@ export default function PlayersPage() {
              <div className="space-y-4">
                <div className="flex justify-between items-center p-3 bg-secondary/20 rounded-lg">
                  <span className="text-sm">Total Players</span>
-                 <span className="font-bold">{players?.length || 0}</span>
+                 <span className="font-bold">{players.length}</span>
                </div>
                <div className="flex justify-between items-center p-3 bg-secondary/20 rounded-lg">
                  <span className="text-sm">Avg Skill</span>
                  <span className="font-bold">
-                   {players?.length ? (players.reduce((acc, p) => acc + p.skillLevel, 0) / players.length).toFixed(1) : 0}
+                   {players.length ? (players.reduce((acc, p) => acc + p.skillLevel, 0) / players.length).toFixed(1) : 0}
                  </span>
                </div>
              </div>
@@ -130,7 +110,7 @@ export default function PlayersPage() {
       <div className="space-y-2">
         <h2 className="text-lg font-bold">Player List</h2>
         <div className="grid grid-cols-1 gap-2">
-          {players?.map(player => (
+          {players.map(player => (
             <Card key={player.id} className="flex items-center justify-between p-4 group">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -149,14 +129,14 @@ export default function PlayersPage() {
                   variant="ghost" 
                   size="icon" 
                   className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-                  onClick={() => handleDeletePlayer(player.id)}
+                  onClick={() => deletePlayer(player.id)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </Card>
           ))}
-          {players?.length === 0 && (
+          {players.length === 0 && (
             <p className="text-center py-10 text-muted-foreground italic text-sm">No players registered.</p>
           )}
         </div>
