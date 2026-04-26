@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Court, Player } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -32,18 +32,26 @@ export default function HomePage() {
   const handleAddCourt = () => {
     if (!newCourtName) return;
     const courtId = Math.random().toString(36).substring(7);
-    addDocumentNonBlocking(courtsRef, {
+    const courtRef = doc(db, 'courts', courtId);
+    
+    // Using setDocumentNonBlocking to sync document ID with the 'id' field
+    // This ensures consistency and satisfies security rules
+    setDocumentNonBlocking(courtRef, {
       id: courtId,
       name: `Court ${newCourtName}`,
       status: 'available',
-    });
+    }, { merge: true });
+    
     setNewCourtName('');
   };
 
-  const handleDeleteCourt = (id: string) => {
+  const handleDeleteCourt = (docId: string) => {
     if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this court?")) return;
-    const courtRef = doc(db, 'courts', id);
+    
+    // Explicitly targeting the document by ID for deletion
+    const courtRef = doc(db, 'courts', docId);
     deleteDocumentNonBlocking(courtRef);
+    
     toast({ title: "Court Deleted" });
   };
 
@@ -75,14 +83,17 @@ export default function HomePage() {
 
       if (result.matchFound && result.courtId) {
         const matchId = Math.random().toString(36).substring(7);
-        addDocumentNonBlocking(matchesRef, {
+        const matchData = {
           id: matchId,
           teamA: result.teamA,
           teamB: result.teamB,
           courtId: result.courtId,
           timestamp: new Date().toISOString(),
           isCompleted: false,
-        });
+        };
+        
+        const matchRef = doc(db, 'matches', matchId);
+        setDocumentNonBlocking(matchRef, matchData, { merge: true });
 
         const courtDocRef = doc(db, 'courts', result.courtId);
         updateDocumentNonBlocking(courtDocRef, { status: 'occupied', currentMatchId: matchId });
@@ -179,9 +190,12 @@ export default function HomePage() {
                     variant="ghost" 
                     size="icon" 
                     className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleDeleteCourt(court.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCourt(court.id);
+                    }}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 transition-colors" />
                   </Button>
                   <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={court.status === 'available' ? 'text-green-600 border-green-200' : 'bg-primary'}>
                     {court.status.toUpperCase()}
