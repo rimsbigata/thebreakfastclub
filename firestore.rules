@@ -2,32 +2,17 @@
  * TheBreakfastClub - Firestore Security Rules
  * 
  * Core Philosophy:
- * This ruleset implements a strict Administrative Access model designed for "TheBreakfastClub" 
- * badminton management application. The security model is built for a single-admin local access 
- * paradigm where all data operations (Courts, Players, Matches, and Fees) are restricted to 
- * the authenticated administrator. 
+ * This ruleset implements a flexible access model for "TheBreakfastClub" 
+ * badminton management application. The security model is built for a 
+ * single-admin local access paradigm where data operations are permitted 
+ * by default to facilitate local prototyping.
  *
  * Data Structure:
  * The database is organized into four top-level collections:
  * - /courts: Stores badminton court configurations and real-time status.
  * - /players: Contains player profiles, skill levels, and performance statistics.
  * - /matches: Records game details, including teams and court assignments.
- * - /fees: Tracks daily financial records and player payment statuses using date-based document IDs.
- *
- * Key Security Decisions:
- * 1. Admin-Only Posture: Based on the provided reasoning, every document in the system follows 
- *     a homogeneous security posture. Access is granted only to the authenticated administrator.
- * 2. Relational Integrity: The rules enforce that the internal 'id' field of a document 
- *     matches its Firestore document ID (path consistency) to prevent data corruption.
- * 3. Protected State Changes: All update and delete operations require the document to 
- *     exist (resource != null) before the request is processed, ensuring state robustness.
- * 4. Flexible Schema: During this prototyping phase, rules focus on authorization and 
- *     relational consistency rather than enforcing strict data types for content fields.
- *
- * Denormalization for Authorization:
- * As this is a single-admin model, complex hierarchical checks are avoided. Authorization is 
- * derived directly from the authenticated identity (request.auth). Internal IDs are 
- * denormalized onto documents to enable simple, performant path-consistency checks.
+ * - /fees: Tracks daily financial records and player payment statuses.
  */
 
 rules_version = '2';
@@ -37,84 +22,48 @@ service cloud.firestore {
     // --- GLOBAL HELPER FUNCTIONS ---
 
     /**
-     * @description Basic check to see if the user is authenticated.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
      * @description Identifies if the user is the administrator.
-     * In this local-access prototype, any authenticated user is treated as the administrator.
-     * For production, this should check for a specific UID (e.g., request.auth.uid == 'ADMIN_ID').
+     * For this local-only prototype, we permit access to facilitate "disabled auth" experience.
      */
     function isAdmin() {
-      return isSignedIn();
+      return true; 
     }
 
     /**
-     * @description Ensures the user is an admin and the target document exists for state-changing operations.
+     * @description Ensures the target document exists for state-changing operations.
      */
-    function isExistingAdmin() {
-      return isAdmin() && resource != null;
+    function isExisting() {
+      return resource != null;
     }
 
     // --- COLLECTION RULES ---
 
-    /**
-     * @description Rules for the Court collection, managing court availability and assignments.
-     * @path /courts/{courtId}
-     * @allow (create) if authenticated and data.id matches the path ID.
-     * @deny (update) if the user is unauthenticated or attempts to change the document's internal ID.
-     * @principle Validates path consistency and enforces admin-only write/read access.
-     */
     match /courts/{courtId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin() && request.resource.data.id == courtId;
-      allow update: if isExistingAdmin() && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingAdmin();
+      allow update: if isAdmin() && request.resource.data.id == resource.data.id;
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for the Player collection, managing profiles, rankings, and stats.
-     * @path /players/{playerId}
-     * @allow (get) if authenticated as an administrator.
-     * @deny (list) if the user is not signed in.
-     * @principle Restricts access to player sensitive stats and availability to the administrator.
-     */
     match /players/{playerId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin() && request.resource.data.id == playerId;
-      allow update: if isExistingAdmin() && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingAdmin();
+      allow update: if isAdmin() && request.resource.data.id == resource.data.id;
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for the Match collection, recording historical and current games.
-     * @path /matches/{matchId}
-     * @allow (create) if the match data is being submitted by an authenticated administrator.
-     * @deny (delete) if the document does not exist.
-     * @principle Protects game records and ensures matching logic is respected.
-     */
     match /matches/{matchId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin() && request.resource.data.id == matchId;
-      allow update: if isExistingAdmin() && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingAdmin();
+      allow update: if isAdmin() && request.resource.data.id == resource.data.id;
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for the Fees collection, tracking daily financial records.
-     * @path /fees/{dateId}
-     * @allow (update) if an admin is marking a player as paid.
-     * @deny (create) if the provided dateId (e.g., '2026-04-26') does not match the internal id field.
-     * @principle Ensures financial records are managed exclusively by the administrator.
-     */
     match /fees/{dateId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin() && request.resource.data.id == dateId;
-      allow update: if isExistingAdmin() && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingAdmin();
+      allow update: if isAdmin() && request.resource.data.id == resource.data.id;
+      allow delete: if isAdmin();
     }
   }
 }
