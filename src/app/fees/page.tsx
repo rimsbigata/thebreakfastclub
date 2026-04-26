@@ -98,7 +98,7 @@ export default function FeesPage() {
               <Input type="number" value={courtFee} onChange={e => setCourtFee(parseFloat(e.target.value) || 0)} />
             </div>
             <div className="space-y-2">
-              <Label>Entry</Label>
+              <Label>Entry Fee</Label>
               <Input type="number" value={entranceFee} onChange={e => setEntranceFee(parseFloat(e.target.value) || 0)} />
             </div>
           </div>
