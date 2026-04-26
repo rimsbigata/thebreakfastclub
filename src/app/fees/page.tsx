@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Banknote, QrCode, UserCheck, Calculator, AlertCircle, Download } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Image from 'next/image';
@@ -21,21 +22,23 @@ export default function FeesPage() {
   const [shuttleFee, setShuttleFee] = useState(0);
   const [courtFee, setCourtFee] = useState(0);
   const [entranceFee, setEntranceFee] = useState(0);
+  const [includeEntranceFee, setIncludeEntranceFee] = useState(true);
 
   const currentFee = fees.find(f => f.id === today);
 
   const perPlayerFee = useMemo(() => {
-    const total = shuttleFee + courtFee + entranceFee;
+    const effectiveEntry = includeEntranceFee ? entranceFee : 0;
+    const total = shuttleFee + courtFee + effectiveEntry;
     const count = players.length || 1;
     return (total / count).toFixed(2);
-  }, [shuttleFee, courtFee, entranceFee, players.length]);
+  }, [shuttleFee, courtFee, entranceFee, includeEntranceFee, players.length]);
 
   const handleUpdateFeeAction = () => {
     updateFee({
       id: today,
       shuttleFee,
       courtFee,
-      entranceFee,
+      entranceFee: includeEntranceFee ? entranceFee : 0,
     });
   };
 
@@ -88,18 +91,41 @@ export default function FeesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Shuttle</Label>
-              <Input type="number" value={shuttleFee} onChange={e => setShuttleFee(parseFloat(e.target.value) || 0)} />
+              <Label>Shuttle Fee</Label>
+              <Input 
+                type="number" 
+                value={shuttleFee} 
+                onChange={e => setShuttleFee(parseFloat(e.target.value) || 0)} 
+              />
             </div>
             <div className="space-y-2">
-              <Label>Court</Label>
-              <Input type="number" value={courtFee} onChange={e => setCourtFee(parseFloat(e.target.value) || 0)} />
+              <Label>Court Fee</Label>
+              <Input 
+                type="number" 
+                value={courtFee} 
+                onChange={e => setCourtFee(parseFloat(e.target.value) || 0)} 
+              />
             </div>
             <div className="space-y-2">
-              <Label>Entry Fee</Label>
-              <Input type="number" value={entranceFee} onChange={e => setEntranceFee(parseFloat(e.target.value) || 0)} />
+              <div className="flex items-center justify-between">
+                <Label className={cn(!includeEntranceFee && "text-muted-foreground")}>Entry Fee</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Include</span>
+                  <Switch 
+                    checked={includeEntranceFee} 
+                    onCheckedChange={setIncludeEntranceFee} 
+                  />
+                </div>
+              </div>
+              <Input 
+                type="number" 
+                value={entranceFee} 
+                disabled={!includeEntranceFee}
+                onChange={e => setEntranceFee(parseFloat(e.target.value) || 0)} 
+                className={cn(!includeEntranceFee && "bg-muted opacity-50")}
+              />
             </div>
           </div>
           <div className="p-4 bg-primary/10 rounded-lg flex justify-between items-center">
