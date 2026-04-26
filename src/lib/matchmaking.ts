@@ -13,7 +13,8 @@ export interface MatchResult {
 
 /**
  * Deterministic Matchmaking Engine
- * Social variety prioritized over perfect skill balance.
+ * Prioritizes gamesPlayed, then waiting time (FIFO).
+ * Social variety prioritized over perfect skill balance via penalties.
  */
 export function generateDeterministicMatch(
   availablePlayers: Player[],
@@ -28,9 +29,15 @@ export function generateDeterministicMatch(
   }
 
   // Phase A: Selection
-  // Sort by games played (ascending). Stable sort preserves original order (FIFO) for ties.
+  // 1. Sort by games played (ascending)
+  // 2. Sort by waiting time (earliest lastAvailableAt first) as tie-breaker
   const selectedPlayers = [...availablePlayers]
-    .sort((a, b) => (a.gamesPlayed || 0) - (b.gamesPlayed || 0))
+    .sort((a, b) => {
+      if (a.gamesPlayed !== b.gamesPlayed) {
+        return (a.gamesPlayed || 0) - (b.gamesPlayed || 0);
+      }
+      return (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0);
+    })
     .slice(0, 4);
 
   const [p1, p2, p3, p4] = selectedPlayers;

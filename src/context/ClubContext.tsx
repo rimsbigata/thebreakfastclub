@@ -10,7 +10,8 @@ interface ClubContextType {
   matches: Match[];
   fees: Fee[];
   paymentMethods: PaymentMethod[];
-  addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes'>) => void;
+  clubLogo: string | null;
+  addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes' | 'lastAvailableAt'>) => void;
   deletePlayer: (id: string) => void;
   addCourt: (name: string) => void;
   deleteCourt: (id: string) => void;
@@ -22,6 +23,7 @@ interface ClubContextType {
   togglePayment: (date: string, playerId: string) => void;
   addPaymentMethod: (name: string, imageData: string) => void;
   deletePaymentMethod: (id: string) => void;
+  setClubLogo: (imageUrl: string | null) => void;
   resetDailyBoard: () => void;
   wipeAllData: () => void;
 }
@@ -34,6 +36,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [fees, setFees] = useState<Fee[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [clubLogo, setClubLogoState] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -48,7 +51,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
           totalPlayTimeMinutes: typeof p.totalPlayTimeMinutes === 'number' ? p.totalPlayTimeMinutes : 0,
           improvementScore: typeof p.improvementScore === 'number' ? p.improvementScore : 0,
           partnerHistory: p.partnerHistory || [],
-          status: p.status || 'available'
+          status: p.status || 'available',
+          lastAvailableAt: p.lastAvailableAt || Date.now()
         }));
         
         setPlayers(migratedPlayers);
@@ -56,6 +60,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         setMatches(parsed.matches || []);
         setFees(parsed.fees || []);
         setPaymentMethods(parsed.paymentMethods || []);
+        setClubLogoState(parsed.clubLogo || null);
       }
     } catch (e) {
       console.error("Failed to load data", e);
@@ -67,14 +72,14 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (isLoaded) {
       try {
         const dataToSave = JSON.stringify({
-          players, courts, matches, fees, paymentMethods
+          players, courts, matches, fees, paymentMethods, clubLogo
         });
         localStorage.setItem('breakfast_club_data', dataToSave);
       } catch (e) {
         console.error("Failed to save data. You may have exceeded localStorage quota.", e);
       }
     }
-  }, [players, courts, matches, fees, paymentMethods, isLoaded]);
+  }, [players, courts, matches, fees, paymentMethods, clubLogo, isLoaded]);
 
   const addPlayer = (data: any) => {
     const newPlayer: Player = {
@@ -85,7 +90,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       partnerHistory: [],
       status: 'available',
       improvementScore: 0,
-      totalPlayTimeMinutes: 0
+      totalPlayTimeMinutes: 0,
+      lastAvailableAt: Date.now()
     };
     setPlayers(prev => [...prev, newPlayer]);
   };
@@ -110,7 +116,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       if (match) {
         const playerIds = [...match.teamA, ...match.teamB];
         setPlayers(prev => prev.map(p => 
-          playerIds.includes(p.id) ? { ...p, status: 'available' } : p
+          playerIds.includes(p.id) ? { ...p, status: 'available', lastAvailableAt: Date.now() } : p
         ));
       }
     }
@@ -132,7 +138,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     ));
     setPlayers(prev => prev.map(p => 
       [...matchData.teamA, ...matchData.teamB].includes(p.id) 
-        ? { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1 } 
+        ? { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1, lastAvailableAt: undefined } 
         : p
     ));
   };
@@ -181,6 +187,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       return { 
         ...p, 
         status: 'available', 
+        lastAvailableAt: Date.now(),
         wins: wonMatch ? (p.wins || 0) + 1 : (p.wins || 0),
         partnerHistory: newHistory,
         improvementScore: Math.max(0, (p.improvementScore || 0) + impChange),
@@ -199,8 +206,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }));
 
     setPlayers(prev => prev.map(p => {
-      if (p.id === oldPlayerId) return { ...p, status: 'available' };
-      if (p.id === newPlayerId) return { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1 };
+      if (p.id === oldPlayerId) return { ...p, status: 'available', lastAvailableAt: Date.now() };
+      if (p.id === newPlayerId) return { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1, lastAvailableAt: undefined };
       return p;
     }));
   };
@@ -250,9 +257,21 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setPaymentMethods(prev => prev.filter(pm => pm.id !== id));
   };
 
+  const setClubLogo = (imageUrl: string | null) => {
+    setClubLogoState(imageUrl);
+  };
+
   const resetDailyBoard = () => {
     setMatches([]);
-    setPlayers(prev => prev.map(p => ({ ...p, status: 'available', wins: 0, gamesPlayed: 0, totalPlayTimeMinutes: 0, partnerHistory: [] })));
+    setPlayers(prev => prev.map(p => ({ 
+      ...p, 
+      status: 'available', 
+      wins: 0, 
+      gamesPlayed: 0, 
+      totalPlayTimeMinutes: 0, 
+      partnerHistory: [],
+      lastAvailableAt: Date.now()
+    })));
     setCourts(prev => prev.map(c => ({ ...c, status: 'available', currentMatchId: null })));
   };
 
@@ -262,15 +281,16 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setMatches([]);
     setFees([]);
     setPaymentMethods([]);
+    setClubLogoState(null);
     localStorage.removeItem('breakfast_club_data');
   };
 
   return (
     <ClubContext.Provider value={{
-      players, courts, matches, fees, paymentMethods,
+      players, courts, matches, fees, paymentMethods, clubLogo,
       addPlayer, deletePlayer, addCourt, deleteCourt,
       startMatch, startTimer, endMatch, swapPlayer, updateFee, togglePayment,
-      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData
+      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo
     }}>
       {children}
     </ClubContext.Provider>

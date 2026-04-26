@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, UserPlus, Zap, ArrowLeftRight } from 'lucide-react';
+import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, UserPlus, Zap, ArrowLeftRight, Activity, Users, DoorOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -44,6 +44,9 @@ export default function HomePage() {
   const { toast } = useToast();
   const [newCourtName, setNewCourtName] = useState('');
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
+
+  const availablePlayersCount = players.filter(p => p.status === 'available').length;
+  const occupiedCourtsCount = courts.filter(c => c.status === 'occupied').length;
 
   const handleAddCourtAction = () => {
     if (!newCourtName) return;
@@ -84,16 +87,16 @@ export default function HomePage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6 pb-24">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Live Courts</h1>
-          <p className="text-sm text-muted-foreground">Deterministic matching and game tracking.</p>
+          <h1 className="text-2xl font-black uppercase tracking-tight">Live Courts</h1>
+          <p className="text-sm text-muted-foreground">FIFO matching with deterministic balance.</p>
         </div>
         <div className="flex gap-2">
           <Button 
             onClick={handleAutoMatch} 
-            disabled={!courts.length || !players.length} 
+            disabled={!courts.length || availablePlayersCount < 4} 
             className="gap-2 bg-primary font-bold shadow-lg shadow-primary/20"
           >
             <Zap className="h-4 w-4 fill-white" />
@@ -122,6 +125,42 @@ export default function HomePage() {
             </DialogContent>
           </Dialog>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-primary/5 border-none shadow-none">
+          <CardContent className="pt-6 flex items-center gap-4">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Activity className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">In Queue</p>
+              <p className="text-2xl font-black">{availablePlayersCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-secondary/20 border-none shadow-none">
+          <CardContent className="pt-6 flex items-center gap-4">
+            <div className="h-10 w-10 rounded-full bg-secondary/30 flex items-center justify-center text-foreground">
+              <DoorOpen className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Busy Courts</p>
+              <p className="text-2xl font-black">{occupiedCourtsCount}/{courts.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-green-50 border-none shadow-none">
+          <CardContent className="pt-6 flex items-center gap-4">
+            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Total Members</p>
+              <p className="text-2xl font-black">{players.length}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {!courts.length ? (
@@ -190,7 +229,10 @@ export default function HomePage() {
                           <div className="space-y-2">
                             {teamAPlayers?.map(p => (
                               <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-primary/10">
-                                <span>{p?.name}</span>
+                                <div className="flex flex-col">
+                                  <span>{p?.name}</span>
+                                  <span className="text-[8px] uppercase text-muted-foreground tracking-tighter">{p?.skillLevel} - {SKILL_LEVELS[p?.skillLevel!]}</span>
+                                </div>
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
@@ -204,7 +246,7 @@ export default function HomePage() {
                           </div>
                         </div>
                         <div className="flex items-center justify-center -my-2">
-                          <div className="bg-background px-3 py-1 border rounded-full text-[10px] font-black text-muted-foreground italic">VS</div>
+                          <div className="bg-background px-3 py-1 border rounded-full text-[10px] font-black text-muted-foreground italic z-10">VS</div>
                         </div>
                         <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-3 relative">
                           <div className="flex justify-between items-center">
@@ -223,7 +265,10 @@ export default function HomePage() {
                           <div className="space-y-2">
                             {teamBPlayers?.map(p => (
                               <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-muted/20">
-                                <span>{p?.name}</span>
+                                <div className="flex flex-col">
+                                  <span>{p?.name}</span>
+                                  <span className="text-[8px] uppercase text-muted-foreground tracking-tighter">{p?.skillLevel} - {SKILL_LEVELS[p?.skillLevel!]}</span>
+                                </div>
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
@@ -283,14 +328,14 @@ export default function HomePage() {
               <Button 
                 key={player.id} 
                 variant="outline" 
-                className="w-full justify-between h-12" 
+                className="w-full justify-between h-14" 
                 onClick={() => handleSwap(player.id)}
               >
                 <div className="flex flex-col items-start">
                   <span className="font-bold">{player.name}</span>
                   <span className="text-[10px] uppercase text-muted-foreground">{player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}</span>
                 </div>
-                <Badge variant="secondary">In Queue</Badge>
+                <Badge variant="secondary">Wait: {player.lastAvailableAt ? Math.floor((Date.now() - player.lastAvailableAt) / 60000) : 0}m</Badge>
               </Button>
             ))}
             {players.filter(p => p.status === 'available').length === 0 && (

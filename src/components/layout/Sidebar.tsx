@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -5,11 +6,13 @@ import { usePathname } from 'next/navigation';
 import { Search, Users, Trophy, Banknote, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { useClub } from '@/context/ClubContext';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export function Sidebar() {
   const pathname = usePathname();
-  const logo = PlaceHolderImages.find(img => img.id === 'logo');
+  const { clubLogo } = useClub();
+  const placeholderLogo = PlaceHolderImages.find(img => img.id === 'logo');
 
   const navItems = [
     { label: 'Courts', href: '/', icon: Search },
@@ -22,10 +25,17 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex flex-col w-64 border-r bg-card h-screen sticky top-0">
       <div className="p-6 flex items-center gap-3">
-        <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 border-primary">
-          {logo?.imageUrl ? (
+        <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 border-primary bg-background">
+          {clubLogo ? (
             <Image 
-              src={logo.imageUrl} 
+              src={clubLogo} 
+              alt="Club Logo" 
+              fill 
+              className="object-cover"
+            />
+          ) : placeholderLogo?.imageUrl ? (
+            <Image 
+              src={placeholderLogo.imageUrl} 
               alt="Logo" 
               fill 
               className="object-cover"
@@ -63,7 +73,7 @@ export function Sidebar() {
       
       <div className="p-4 border-t">
         <p className="text-[10px] text-center font-bold text-muted-foreground uppercase tracking-widest">
-          Club Edition v1.0
+          Club Edition v1.1
         </p>
       </div>
     </aside>

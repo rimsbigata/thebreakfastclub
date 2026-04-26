@@ -22,33 +22,34 @@ export interface Player {
   status: PlayerStatus;
   improvementScore: number;
   totalPlayTimeMinutes: number;
+  lastAvailableAt?: number; // Timestamp for FIFO queue
 }
 
 export interface Court {
   id: string;
-  name: string; // Customizable e.g. "Court 1" or "Court A"
+  name: string; 
   status: CourtStatus;
   currentMatchId?: string | null;
 }
 
 export interface Match {
   id: string;
-  teamA: string[]; // Player IDs
-  teamB: string[]; // Player IDs
+  teamA: string[]; 
+  teamB: string[]; 
   courtId: string;
-  timestamp: string; // ISO string for creation
-  startTime?: string; // ISO string when play actually begins
+  timestamp: string; 
+  startTime?: string; 
   isCompleted: boolean;
   winner?: 'teamA' | 'teamB' | null;
 }
 
 export interface Fee {
-  id: string; // Date string document ID (e.g., "2026-04-26")
+  id: string; 
   shuttleFee: number;
   courtFee: number;
   entranceFee: number;
-  qrCodeUrl?: string; // Link to Firebase Storage
-  payments: Record<string, boolean>; // playerId -> paid status
+  qrCodeUrl?: string; 
+  payments: Record<string, boolean>; 
 }
 
 export interface PaymentMethod {
