@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -155,7 +154,7 @@ export default function HomePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-green-500/10 border-none shadow-none">
+        <Card className="bg-green-500/10 dark:bg-green-500/20 border-none shadow-none">
           <CardContent className="pt-6 flex items-center gap-4">
             <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
               <Users className="h-5 w-5" />
@@ -163,7 +162,9 @@ export default function HomePage() {
             <div>
               <p className="text-[10px] font-black uppercase text-muted-foreground">Total Players</p>
               <p className="text-2xl font-black">{players.length}</p>
-              <p className="text-[8px] font-bold uppercase text-muted-foreground/60">{today || '...'}</p>
+              <p className="text-[8px] font-bold uppercase text-muted-foreground/60">
+                {today ? today : '...'}
+              </p>
             </div>
           </CardContent>
         </Card>

@@ -1,6 +1,6 @@
-
 'use client';
 
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -10,13 +10,26 @@ interface SplashScreenProps {
 }
 
 export function SplashScreen({ logo }: SplashScreenProps) {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
+        {/* Empty state to prevent hydration mismatch */}
+      </div>
+    );
+  }
+
   const placeholderLogo = PlaceHolderImages.find(img => img.id === 'logo');
   const displayLogo = logo || placeholderLogo?.imageUrl;
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
       <div className="relative mb-8 flex flex-col items-center">
-        {/* Removed rounded-full to remove the circle on the image */}
         <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl animate-pulse">
           {displayLogo ? (
             <Image 
@@ -41,7 +54,6 @@ export function SplashScreen({ logo }: SplashScreenProps) {
           <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-1">
             TheBreakfastClub
           </h1>
-          {/* Changed Management to Club */}
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-80">
             Badminton Club
           </p>
