@@ -188,7 +188,9 @@ export default function HomePage() {
               <Button key={player.id} variant="outline" className="w-full justify-between" onClick={() => setIsSwapOpen(false)}>
                 <div className="flex flex-col items-start gap-0.5">
                   <span className="font-bold">{player.name}</span>
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-tight font-black">{SKILL_LEVELS[player.skillLevel]}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-tight font-black">
+                    {player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}
+                  </span>
                 </div>
                 <Badge>Lvl {player.skillLevel}</Badge>
               </Button>

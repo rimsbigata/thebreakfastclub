@@ -54,7 +54,7 @@ export default function PlayersPage() {
             <CardTitle className="text-lg flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" /> Add a Player
             </CardTitle>
-            <CardDescription>Add a player to the club list.</CardDescription>
+            <CardDescription>Enter details to register a member.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -76,7 +76,7 @@ export default function PlayersPage() {
                 <SelectContent>
                   {Object.entries(SKILL_LEVELS).map(([val, label]) => (
                     <SelectItem key={val} value={val}>
-                      {val}: {label}
+                      {val} - {label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -166,9 +166,8 @@ export default function PlayersPage() {
               <div className="flex items-center gap-2">
                 <div className="flex flex-col items-end">
                   <Badge variant="outline" className="text-[9px] px-1.5 h-4 font-bold border-primary/20">
-                    LVL {player.skillLevel}
+                    {player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}
                   </Badge>
-                  <span className="text-[8px] font-black uppercase text-primary/70">{SKILL_LEVELS[player.skillLevel]}</span>
                 </div>
                 <Button 
                   variant="ghost" 
