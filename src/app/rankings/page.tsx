@@ -13,15 +13,21 @@ export default function RankingsPage() {
 
   // Daily Win Rate Ranking: wins / gamesPlayed
   const winRateRankings = [...players]
-    .filter(p => p.gamesPlayed > 0)
-    .map(p => ({
-      ...p,
-      winRate: (p.wins / p.gamesPlayed) * 100
-    }))
+    .filter(p => (p.gamesPlayed || 0) > 0)
+    .map(p => {
+      const wins = p.wins || 0;
+      const games = p.gamesPlayed || 1; // Default to 1 to avoid division by zero
+      return {
+        ...p,
+        wins,
+        gamesPlayed: p.gamesPlayed || 0,
+        winRate: (wins / games) * 100
+      };
+    })
     .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins);
 
   // Top Ranked by Skill Level (for reference)
-  const topSkillRankings = [...players].sort((a, b) => b.skillLevel - a.skillLevel).slice(0, 5);
+  const topSkillRankings = [...players].sort((a, b) => (b.skillLevel || 0) - (a.skillLevel || 0)).slice(0, 5);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
@@ -94,7 +100,7 @@ export default function RankingsPage() {
                     <p className="text-[10px] uppercase font-black text-muted-foreground">Level {player.skillLevel}</p>
                   </div>
                   <Badge variant="outline" className="text-[10px] border-primary/20 bg-background">
-                    {player.improvementScore} pts
+                    {player.improvementScore || 0} pts
                   </Badge>
                 </CardContent>
               </Card>

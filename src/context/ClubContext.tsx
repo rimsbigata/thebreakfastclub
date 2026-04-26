@@ -40,7 +40,18 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       const data = localStorage.getItem('breakfast_club_data');
       if (data) {
         const parsed = JSON.parse(data);
-        setPlayers(parsed.players || []);
+        // Migration/Sanitization: Ensure all required numeric fields exist
+        const migratedPlayers = (parsed.players || []).map((p: any) => ({
+          ...p,
+          wins: typeof p.wins === 'number' ? p.wins : 0,
+          gamesPlayed: typeof p.gamesPlayed === 'number' ? p.gamesPlayed : 0,
+          totalPlayTimeMinutes: typeof p.totalPlayTimeMinutes === 'number' ? p.totalPlayTimeMinutes : 0,
+          improvementScore: typeof p.improvementScore === 'number' ? p.improvementScore : 0,
+          partnerHistory: p.partnerHistory || [],
+          status: p.status || 'available'
+        }));
+        
+        setPlayers(migratedPlayers);
         setCourts(parsed.courts || []);
         setMatches(parsed.matches || []);
         setFees(parsed.fees || []);
@@ -121,7 +132,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     ));
     setPlayers(prev => prev.map(p => 
       [...matchData.teamA, ...matchData.teamB].includes(p.id) 
-        ? { ...p, status: 'playing', gamesPlayed: p.gamesPlayed + 1 } 
+        ? { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1 } 
         : p
     ));
   };
@@ -153,12 +164,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       const isPart = [...match.teamA, ...match.teamB].includes(p.id);
       if (!isPart) return p;
 
-      // Update partner history (add partner ID to start of array)
       const partnerId = match.teamA.includes(p.id) 
         ? match.teamA.find(id => id !== p.id) 
         : match.teamB.find(id => id !== p.id);
       
-      const newHistory = partnerId ? [partnerId, ...p.partnerHistory].slice(0, 5) : p.partnerHistory;
+      const newHistory = partnerId ? [partnerId, ...(p.partnerHistory || [])].slice(0, 5) : (p.partnerHistory || []);
 
       let impChange = 0;
       let wonMatch = false;
@@ -171,10 +181,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       return { 
         ...p, 
         status: 'available', 
-        wins: wonMatch ? p.wins + 1 : p.wins,
+        wins: wonMatch ? (p.wins || 0) + 1 : (p.wins || 0),
         partnerHistory: newHistory,
-        improvementScore: Math.max(0, p.improvementScore + impChange),
-        totalPlayTimeMinutes: p.totalPlayTimeMinutes + playDurationMinutes
+        improvementScore: Math.max(0, (p.improvementScore || 0) + impChange),
+        totalPlayTimeMinutes: (p.totalPlayTimeMinutes || 0) + playDurationMinutes
       };
     }));
   };
