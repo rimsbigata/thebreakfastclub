@@ -155,9 +155,9 @@ export default function HomePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-green-50 border-none shadow-none">
+        <Card className="bg-green-500/10 border-none shadow-none">
           <CardContent className="pt-6 flex items-center gap-4">
-            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+            <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
               <Users className="h-5 w-5" />
             </div>
             <div>
