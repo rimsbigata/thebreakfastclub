@@ -3,15 +3,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Trophy, Users, Banknote, Settings, Search } from 'lucide-react';
+import { Trophy, Users, Banknote, Settings, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function BottomNav() {
   const pathname = usePathname();
 
   const navItems = [
-    { label: 'Dash', href: '/', icon: LayoutDashboard },
-    { label: 'Court', href: '/courts', icon: Search },
+    { label: 'Court', href: '/', icon: Search },
     { label: 'Players', href: '/players', icon: Users },
     { label: 'Rankings', href: '/rankings', icon: Trophy },
     { label: 'Fees', href: '/fees', icon: Banknote },

@@ -2,6 +2,12 @@
 {
   "placeholderImages": [
     {
+      "id": "logo",
+      "description": "TheBreakfastClub Official Logo",
+      "imageUrl": "https://picsum.photos/seed/breakfast/200/200",
+      "imageHint": "badminton logo"
+    },
+    {
       "id": "court-1",
       "description": "Premium indoor badminton court with professional lighting",
       "imageUrl": "https://picsum.photos/seed/court1/800/600",
@@ -12,12 +18,6 @@
       "description": "Standard badminton court for casual play",
       "imageUrl": "https://picsum.photos/seed/court2/800/600",
       "imageHint": "shuttlecock court"
-    },
-    {
-      "id": "court-3",
-      "description": "Modern badminton facility with green mats",
-      "imageUrl": "https://picsum.photos/seed/court3/800/600",
-      "imageHint": "badminton arena"
     },
     {
       "id": "player-avatar",
