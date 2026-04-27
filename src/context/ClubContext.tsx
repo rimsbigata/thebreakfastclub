@@ -18,7 +18,7 @@ interface ClubContextType {
   deleteCourt: (id: string) => void;
   startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted'>) => void;
   startTimer: (courtId: string) => void;
-  endMatch: (courtId: string, winner?: 'teamA' | 'teamB') => void;
+  endMatch: (courtId: string, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => void;
   swapPlayer: (matchId: string, oldPlayerId: string, newPlayerId: string) => void;
   updateFee: (fee: Omit<Fee, 'payments'>) => void;
   togglePayment: (date: string, playerId: string) => void;
@@ -158,7 +158,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     ));
   };
 
-  const endMatch = (courtId: string, winner?: 'teamA' | 'teamB') => {
+  const endMatch = (courtId: string, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => {
     const court = courts.find(c => c.id === courtId);
     if (!court || !court.currentMatchId) return;
 
@@ -169,7 +169,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const startTime = match.startTime ? new Date(match.startTime) : null;
     const playDurationMinutes = startTime ? Math.floor((endTime.getTime() - startTime.getTime()) / 60000) : 0;
 
-    setMatches(prev => prev.map(m => m.id === court.currentMatchId ? { ...m, isCompleted: true, winner } : m));
+    setMatches(prev => prev.map(m => m.id === court.currentMatchId ? { ...m, isCompleted: true, winner, teamAScore, teamBScore } : m));
     setCourts(prev => prev.map(c => c.id === courtId ? { ...c, status: 'available', currentMatchId: null } : c));
     
     setPlayers(prev => prev.map(p => {

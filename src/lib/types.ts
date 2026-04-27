@@ -3,13 +3,13 @@ export type PlayerStatus = 'available' | 'playing' | 'resting';
 export type CourtStatus = 'available' | 'occupied';
 
 export const SKILL_LEVELS: Record<number, string> = {
-  1: "Novice",
-  2: "Beginner",
-  3: "Recreational",
-  4: "Intermediate",
-  5: "Advanced",
-  6: "Expert",
-  7: "Elite",
+  1: "Beginner",
+  2: "Advanced Beginner",
+  3: "Low Intermediate",
+  4: "Mid Intermediate",
+  5: "Upper Intermediate",
+  6: "Advanced",
+  7: "Expert",
 };
 
 export interface Player {
@@ -33,6 +33,8 @@ export interface Court {
 }
 
 export interface Match {
+  teamAScore?: number;
+  teamBScore?: number;
   id: string;
   teamA: string[]; 
   teamB: string[]; 

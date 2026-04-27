@@ -12,14 +12,17 @@ import { Plus, Zap, Loader2, ArrowLeftRight, Users2, Trophy, Trash2 } from 'luci
 import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { SKILL_LEVELS } from '@/lib/types';
 
 export default function CourtsPage() {
-  const { courts, players, addCourt, deleteCourt, startMatch, endMatch } = useClub();
+  const { courts, players, addCourt, deleteCourt, startMatch, endMatch, matches } = useClub();
   const { toast } = useToast();
   const [loadingMatch, setLoadingMatch] = useState(false);
   const [newCourtName, setNewCourtName] = useState('');
   const [isSwapOpen, setIsSwapOpen] = useState(false);
+  const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
+  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
 
   const handleAddCourt = () => {
     if (!newCourtName) return;
@@ -31,6 +34,18 @@ export default function CourtsPage() {
     if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this court?")) return;
     deleteCourt(id);
     toast({ title: "Court Deleted" });
+  };
+
+  const handleOpenScoreDialog = (courtId: string) => {
+    setSelectedCourtId(courtId);
+    setScoreDialogOpen(true);
+  };
+
+  const handleScoreSubmit = (teamAScore: number, teamBScore: number, winner: 'teamA' | 'teamB') => {
+    if (selectedCourtId) {
+      endMatch(selectedCourtId, winner, teamAScore, teamBScore);
+      toast({ title: "Match Finished!", description: `Final Score: Team A ${teamAScore} - Team B ${teamBScore}` });
+    }
   };
 
   const handleGenerateMatch = () => {
@@ -141,7 +156,7 @@ export default function CourtsPage() {
             <CardFooter className="flex justify-between gap-2 border-t pt-4">
                {court.status === 'occupied' ? (
                  <>
-                  <Button variant="outline" size="sm" onClick={() => endMatch(court.id)} className="flex-1">End Match</Button>
+                  <Button variant="outline" size="sm" onClick={() => handleOpenScoreDialog(court.id)} className="flex-1">Record Score</Button>
                   <Button variant="ghost" size="sm" onClick={() => setIsSwapOpen(true)} className="gap-2">
                     <ArrowLeftRight className="h-4 w-4" /> Swap
                   </Button>
@@ -180,6 +195,23 @@ export default function CourtsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {selectedCourtId && (() => {
+        const court = courts.find(c => c.id === selectedCourtId);
+        const match = court?.currentMatchId ? matches.find(m => m.id === court.currentMatchId) : null;
+        const teamA = match ? players.filter(p => match.teamA.includes(p.id)) : [];
+        const teamB = match ? players.filter(p => match.teamB.includes(p.id)) : [];
+        
+        return (
+          <MatchScoreDialog
+            open={scoreDialogOpen}
+            onOpenChange={setScoreDialogOpen}
+            teamA={teamA}
+            teamB={teamB}
+            onScoreSubmit={handleScoreSubmit}
+          />
+        );
+      })()}
     </div>
   );
 }
