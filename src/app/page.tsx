@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -54,7 +53,7 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 
   return (
     <Badge variant="secondary" className="gap-1 text-tiny h-5 px-1.5 font-black uppercase tracking-tighter bg-secondary border shadow-sm">
-      {mins}m
+      {mins}min
     </Badge>
   );
 }
@@ -272,10 +271,16 @@ export default function HomePage() {
       return;
     }
 
+    const courtId = winningTeam.courtId;
+    const winner = winningTeam.team;
+    
+    // Clear winningTeam dialog first to prevent modal state lock
+    setWinningTeam(null);
+    
     if (lScore === 0) {
-      setPendingMatchFinish({ courtId: winningTeam.courtId, winner: winningTeam.team, scoreA: tAScore, scoreB: tBScore });
+      setPendingMatchFinish({ courtId, winner, scoreA: tAScore, scoreB: tBScore });
     } else {
-      completeMatch(winningTeam.courtId, winningTeam.team, tAScore, tBScore);
+      completeMatch(courtId, winner, tAScore, tBScore);
     }
   };
 
@@ -492,8 +497,36 @@ export default function HomePage() {
                           <div className="flex justify-between items-center mb-1">
                             <LiveTimer startTime={match.startTime} />
                             <div className="flex gap-1">
-                               <Button size="sm" variant="outline" className="h-6 text-[8px] font-black px-1.5" onClick={() => setWinningTeam({ courtId: court.id, team: 'teamA' })}>T1 WIN</Button>
-                               <Button size="sm" variant="outline" className="h-6 text-[8px] font-black px-1.5" onClick={() => setWinningTeam({ courtId: court.id, team: 'teamB' })}>T2 WIN</Button>
+                               <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-6 text-[8px] font-black px-1.5" 
+                                  disabled={!match.startTime}
+                                  onClick={() => {
+                                    if (!match.startTime) {
+                                      toast({ title: "Match not started", description: "Start the match timer first.", variant: "destructive" });
+                                      return;
+                                    }
+                                    setWinningTeam({ courtId: court.id, team: 'teamA' });
+                                  }}
+                               >
+                                  T1 WIN
+                               </Button>
+                               <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-6 text-[8px] font-black px-1.5" 
+                                  disabled={!match.startTime}
+                                  onClick={() => {
+                                    if (!match.startTime) {
+                                      toast({ title: "Match not started", description: "Start the match timer first.", variant: "destructive" });
+                                      return;
+                                    }
+                                    setWinningTeam({ courtId: court.id, team: 'teamB' });
+                                  }}
+                               >
+                                  T2 WIN
+                               </Button>
                             </div>
                           </div>
                           <div className="grid grid-cols-1 gap-2 flex-1">
@@ -561,7 +594,9 @@ export default function HomePage() {
                             <Input 
                               type="number" min="0"
                               className={cn("h-12 text-2xl font-black text-center border-2 no-spinner", teamAScore > teamBScore ? "border-primary bg-primary/5" : "bg-card")}
-                              value={match.teamAScore || 0}
+                              value={match.teamAScore === 0 ? "" : match.teamAScore}
+                              placeholder="0"
+                              onBlur={(e) => { if (e.target.value === "") handleScoreChange(match.id, 0, match.teamBScore || 0); }}
                               onChange={(e) => handleScoreChange(match.id, parseInt(e.target.value) || 0, match.teamBScore || 0)}
                             />
                           </div>
@@ -571,7 +606,9 @@ export default function HomePage() {
                             <Input 
                               type="number" min="0"
                               className={cn("h-12 text-2xl font-black text-center border-2 no-spinner", teamBScore > teamAScore ? "border-primary bg-primary/5" : "bg-card")}
-                              value={match.teamBScore || 0}
+                              value={match.teamBScore === 0 ? "" : match.teamBScore}
+                              placeholder="0"
+                              onBlur={(e) => { if (e.target.value === "") handleScoreChange(match.id, match.teamAScore || 0, 0); }}
                               onChange={(e) => handleScoreChange(match.id, match.teamAScore || 0, parseInt(e.target.value) || 0)}
                             />
                           </div>
@@ -654,9 +691,10 @@ export default function HomePage() {
                   ref={loserScoreInputRef}
                   type="number" 
                   min="0"
-                  placeholder="Enter loser score..." 
-                  value={loserScore} 
+                  placeholder="0" 
+                  value={loserScore === "0" ? "" : loserScore} 
                   onChange={(e) => setLoserScore(e.target.value)}
+                  onBlur={(e) => { if (e.target.value === "") setLoserScore("0"); }}
                   onKeyDown={(e) => e.key === 'Enter' && handleWinSubmit()}
                   className="h-16 text-3xl font-black text-center border-2 no-spinner"
                   autoFocus
@@ -678,7 +716,13 @@ export default function HomePage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="outline" onClick={() => setPendingMatchFinish(null)} className="font-black uppercase">Edit Score</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setPendingMatchFinish(null)} 
+              className="font-black uppercase"
+            >
+              Edit Score
+            </Button>
             <AlertDialogAction 
               onClick={() => {
                 if (pendingMatchFinish) {
@@ -700,4 +744,3 @@ export default function HomePage() {
     </div>
   );
 }
-

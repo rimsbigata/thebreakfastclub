@@ -70,6 +70,14 @@
     @apply font-black; 
     font-size: clamp(18px, 2vw, 24px);
   }
+
+  /* Theme-aware primary and secondary text */
+  .text-primary-content {
+    @apply text-foreground;
+  }
+  .text-secondary-content {
+    @apply text-muted-foreground;
+  }
 }
 
 @layer utilities {
