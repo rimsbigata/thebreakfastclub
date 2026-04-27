@@ -18,12 +18,14 @@ import {
   SidebarFooter,
   SidebarSeparator
 } from '@/components/ui/sidebar';
+import { useState } from 'react';
 
 export function Sidebar() {
   const pathname = usePathname();
   const { clubLogo } = useClub();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const [imgError, setImgError] = useState(false);
 
   const navItems = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -33,27 +35,22 @@ export function Sidebar() {
     { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
+  const logoSrc = clubLogo || "/assets/image/tbclogo.png";
+
   return (
     <SidebarComponent collapsible="icon" className="border-r bg-card">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="relative h-8 w-8 shrink-0 rounded-lg overflow-hidden border-2 border-primary bg-primary/10 flex items-center justify-center">
-            {clubLogo ? (
+            {!imgError ? (
               <img 
-                src={clubLogo} 
+                src={logoSrc} 
                 alt="Club Logo" 
                 className="object-cover h-full w-full"
+                onError={() => setImgError(true)}
               />
             ) : (
-              <div className="relative h-full w-full flex items-center justify-center">
-                 <img 
-                    src="/logo.png" 
-                    alt="Logo" 
-                    className="object-cover h-full w-full absolute inset-0"
-                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                 />
-                 <Activity className="h-5 w-5 text-primary" />
-              </div>
+              <Activity className="h-5 w-5 text-primary" />
             )}
           </div>
           {!isCollapsed && (

@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { Loader2, Activity } from 'lucide-react';
 
 interface SplashScreenProps {
@@ -11,6 +10,7 @@ interface SplashScreenProps {
 
 export function SplashScreen({ logo }: SplashScreenProps) {
   const [mounted, setMounted] = useState(false);
+  const [imgError, setImgError] = useState(false);
   
   useEffect(() => {
     setMounted(true);
@@ -24,26 +24,21 @@ export function SplashScreen({ logo }: SplashScreenProps) {
     );
   }
 
+  const logoSrc = logo || "/assets/image/tbclogo.png";
+
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
       <div className="relative mb-8 flex flex-col items-center">
         <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl flex items-center justify-center">
-          {logo ? (
+          {!imgError ? (
             <img 
-              src={logo} 
+              src={logoSrc} 
               alt="Club Logo" 
               className="object-cover h-full w-full"
+              onError={() => setImgError(true)}
             />
           ) : (
-            <div className="relative h-full w-full flex items-center justify-center">
-               <img 
-                  src="/logo.png" 
-                  alt="Logo" 
-                  className="object-cover h-full w-full absolute inset-0"
-                  onError={(e) => (e.currentTarget.style.display = 'none')}
-               />
-               <Activity className="h-16 w-16 text-white opacity-80" />
-            </div>
+            <Activity className="h-16 w-16 text-white opacity-80" />
           )}
         </div>
         <div className="absolute -bottom-2 bg-white text-[#f76a01] px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
@@ -70,7 +65,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
       </div>
       
       <div className="absolute bottom-8 text-[10px] font-bold opacity-40 uppercase tracking-widest">
-        Built with ❤️ for the community
+        Built with ❤️ by rims
       </div>
     </div>
   );

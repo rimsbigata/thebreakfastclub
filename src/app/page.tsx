@@ -66,6 +66,7 @@ export default function HomePage() {
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('waiting');
@@ -139,23 +140,22 @@ export default function HomePage() {
     }
   };
 
+  const logoSrc = clubLogo || "/assets/image/tbclogo.png";
+
   return (
     <div className="flex flex-col h-screen overflow-hidden animate-in fade-in duration-700">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 border-b bg-card shrink-0">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 shrink-0 rounded-lg overflow-hidden border-2 border-primary bg-primary/10 flex items-center justify-center md:hidden">
-            {clubLogo ? (
-              <img src={clubLogo} alt="TBC Logo" className="object-cover h-full w-full" />
+            {!imgError ? (
+              <img 
+                src={logoSrc} 
+                alt="TBC Logo" 
+                className="object-cover h-full w-full" 
+                onError={() => setImgError(true)}
+              />
             ) : (
-              <div className="relative h-full w-full flex items-center justify-center">
-                 <img 
-                    src="/logo.png" 
-                    alt="Logo" 
-                    className="object-cover h-full w-full absolute inset-0"
-                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                 />
-                 <Activity className="h-5 w-5 text-primary" />
-              </div>
+              <Activity className="h-5 w-5 text-primary" />
             )}
           </div>
           <div>
