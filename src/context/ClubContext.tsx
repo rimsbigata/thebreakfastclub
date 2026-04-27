@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -11,10 +12,11 @@ interface ClubContextType {
   fees: Fee[];
   paymentMethods: PaymentMethod[];
   clubLogo: string | null;
+  courtCapacity: number;
   addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes' | 'lastAvailableAt'>) => void;
   updatePlayer: (id: string, updates: Partial<Player>) => void;
   deletePlayer: (id: string) => void;
-  addCourt: (name: string) => void;
+  addCourt: (name?: string) => string;
   deleteCourt: (id: string) => void;
   startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted'>) => void;
   startTimer: (courtId: string) => void;
@@ -29,6 +31,7 @@ interface ClubContextType {
   setClubLogo: (imageUrl: string | null) => void;
   resetDailyBoard: () => void;
   wipeAllData: () => void;
+  setCourtCapacity: (capacity: number) => void;
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -39,7 +42,8 @@ const STORAGE_KEYS = {
   MATCHES: 'tbc_matches',
   FEES: 'tbc_fees',
   PAYMENT_METHODS: 'tbc_payment_methods',
-  LOGO: 'tbc_logo'
+  LOGO: 'tbc_logo',
+  CAPACITY: 'tbc_court_capacity'
 };
 
 export function ClubProvider({ children }: { children: ReactNode }) {
@@ -49,6 +53,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [fees, setFees] = useState<Fee[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [clubLogo, setClubLogoState] = useState<string | null>(null);
+  const [courtCapacity, setCourtCapacityState] = useState<number>(4);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -64,6 +69,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setFees(load(STORAGE_KEYS.FEES, []));
     setPaymentMethods(load(STORAGE_KEYS.PAYMENT_METHODS, []));
     setClubLogoState(localStorage.getItem(STORAGE_KEYS.LOGO));
+    setCourtCapacityState(Number(load(STORAGE_KEYS.CAPACITY, 4)));
     
     const timer = setTimeout(() => {
       setIsLoaded(true);
@@ -79,9 +85,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
     localStorage.setItem(STORAGE_KEYS.FEES, JSON.stringify(fees));
     localStorage.setItem(STORAGE_KEYS.PAYMENT_METHODS, JSON.stringify(paymentMethods));
+    localStorage.setItem(STORAGE_KEYS.CAPACITY, JSON.stringify(courtCapacity));
     if (clubLogo) localStorage.setItem(STORAGE_KEYS.LOGO, clubLogo);
     else localStorage.removeItem(STORAGE_KEYS.LOGO);
-  }, [players, courts, matches, fees, paymentMethods, clubLogo, isLoaded]);
+  }, [players, courts, matches, fees, paymentMethods, clubLogo, courtCapacity, isLoaded]);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -108,14 +115,21 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setPlayers(prev => prev.filter(p => p.id !== id));
   };
 
-  const addCourt = (name: string) => {
+  const addCourt = (name?: string) => {
+    const courtNumbers = courts
+      .map(c => parseInt(c.name.replace('Court ', '')))
+      .filter(n => !isNaN(n));
+    const nextNum = courtNumbers.length > 0 ? Math.max(...courtNumbers) + 1 : 1;
+    
+    const id = generateId();
     const newCourt: Court = {
-      id: generateId(),
-      name: `Court ${name}`,
+      id,
+      name: name ? `Court ${name}` : `Court ${nextNum}`,
       status: 'available',
       currentMatchId: null
     };
     setCourts(prev => [...prev, newCourt]);
+    return id;
   };
 
   const deleteCourt = (id: string) => {
@@ -134,19 +148,38 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const startMatch = (matchData: any) => {
+    const newMatchId = generateId();
+    let targetCourtId = matchData.courtId;
+
+    // If no court specified, check if we can auto-assign based on capacity
+    if (!targetCourtId) {
+      const occupiedCount = courts.filter(c => c.status === 'occupied').length;
+      if (occupiedCount < courtCapacity) {
+        // Try to find an existing available court first
+        const availableCourt = courts.find(c => c.status === 'available');
+        if (availableCourt) {
+          targetCourtId = availableCourt.id;
+        } else if (courts.length < courtCapacity) {
+          // If no available court but under capacity, create one
+          targetCourtId = addCourt();
+        }
+      }
+    }
+
     const newMatch: Match = {
       ...matchData,
-      id: generateId(),
+      id: newMatchId,
+      courtId: targetCourtId,
       timestamp: new Date().toISOString(),
       isCompleted: false
     };
 
     setMatches(prev => [newMatch, ...prev]);
 
-    if (matchData.courtId) {
+    if (targetCourtId) {
       setCourts(prev => prev.map(c => 
-        c.id === matchData.courtId 
-          ? { ...c, status: 'occupied', currentMatchId: newMatch.id } 
+        c.id === targetCourtId 
+          ? { ...c, status: 'occupied', currentMatchId: newMatchId } 
           : c
       ));
     }
@@ -168,7 +201,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const createCourtAndAssignMatch = (matchId: string) => {
-    // Determine the next numerical court name
     const courtNumbers = courts
       .map(c => parseInt(c.name.replace('Court ', '')))
       .filter(n => !isNaN(n));
@@ -288,6 +320,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setClubLogoState(imageUrl);
   };
 
+  const setCourtCapacity = (capacity: number) => {
+    setCourtCapacityState(capacity);
+  };
+
   const resetDailyBoard = () => {
     setMatches(prev => prev.map(m => !m.isCompleted ? { ...m, isCompleted: true, winner: null } : m));
     setPlayers(prev => prev.map(p => ({
@@ -309,6 +345,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setFees([]);
     setPaymentMethods([]);
     setClubLogoState(null);
+    setCourtCapacityState(4);
     localStorage.clear();
   };
 
@@ -318,10 +355,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   return (
     <ClubContext.Provider value={{
-      players, courts, matches, fees, paymentMethods, clubLogo,
+      players, courts, matches, fees, paymentMethods, clubLogo, courtCapacity,
       addPlayer, updatePlayer, deletePlayer, addCourt, deleteCourt,
       startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch, updateFee, togglePayment,
-      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo
+      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, setCourtCapacity
     }}>
       {children}
     </ClubContext.Provider>

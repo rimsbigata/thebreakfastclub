@@ -10,7 +10,6 @@ import { useClub } from '@/context/ClubContext';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
@@ -23,10 +22,7 @@ export function Header() {
   const { courts, players, addCourt, startMatch, clubLogo } = useClub();
   const { toast } = useToast();
   
-  const [newCourtName, setNewCourtName] = useState('');
-  const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
   const [isManualOpen, setIsManualOpen] = useState(false);
-  
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('queue');
 
@@ -40,14 +36,6 @@ export function Header() {
 
   const logoSrc = clubLogo || "/assets/image/tbc_logo_loading.png";
 
-  const handleAddCourtAction = () => {
-    if (!newCourtName) return;
-    addCourt(newCourtName);
-    setNewCourtName('');
-    setIsAddCourtOpen(false);
-    toast({ title: "Court Added" });
-  };
-
   const handleQuickMatch = () => {
     const availablePlayers = players.filter(p => p.status === 'available');
     const availableCourts = courts.filter(c => c.status === 'available');
@@ -55,7 +43,7 @@ export function Header() {
     
     if (result.matchCreated && result.teamA && result.teamB) {
       startMatch({ teamA: result.teamA, teamB: result.teamB, courtId: result.courtId });
-      toast({ title: result.courtId ? "Match Created!" : "Match Queued!" });
+      toast({ title: result.courtId ? "Match Started!" : "Match Queued!" });
     } else {
       toast({ title: "Matchmaking Error", description: result.error || "Need 4 players.", variant: "destructive" });
     }
@@ -89,7 +77,7 @@ export function Header() {
             />
           </div>
           <div className="hidden sm:block">
-            <h1 className="text-sm font-black uppercase tracking-tighter leading-none">Command Center</h1>
+            <h1 className="text-sm font-black uppercase tracking-tighter leading-none text-primary">Command Center</h1>
             <p className="text-[7px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-0.5">The Breakfast Club</p>
           </div>
         </Link>
@@ -179,23 +167,17 @@ export function Header() {
           <Zap className="h-3 w-3 fill-white" /> Quick
         </Button>
 
-        <Dialog open={isAddCourtOpen} onOpenChange={setIsAddCourtOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="icon" className="h-8 w-8 border-2 hover:bg-secondary">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add New Court</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Court Identifier</Label>
-                <Input placeholder="e.g. 1, 2, Blue" value={newCourtName} onChange={e => setNewCourtName(e.target.value)} />
-              </div>
-              <Button className="w-full font-bold" onClick={handleAddCourtAction}>Save Court</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="h-8 w-8 border-2 hover:bg-secondary"
+          onClick={() => {
+            addCourt();
+            toast({ title: "Court Added" });
+          }}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
     </header>
   );
