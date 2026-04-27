@@ -31,25 +31,25 @@ export const getSkillColor = (level: number) => {
   switch (level) {
     case 1: 
       // Beginner (Beg) → #E5E7EB (light gray)
-      return "bg-[#E5E7EB] text-slate-900 border-none shadow-none";
+      return "bg-[#E5E7EB] text-slate-900 border-none";
     case 2: 
       // Advanced Beginner (Adv Beg) → #14B8A6 (teal)
-      return "bg-[#14B8A6] text-white border-none shadow-none";
+      return "bg-[#14B8A6] text-white border-none";
     case 3: 
       // Low Intermediate (Low Int) → #22C55E (green)
-      return "bg-[#22C55E] text-white border-none shadow-none";
+      return "bg-[#22C55E] text-white border-none";
     case 4: 
       // Mid Intermediate (Mid Int) → #EAB308 (yellow)
-      return "bg-[#EAB308] text-slate-900 border-none shadow-none";
+      return "bg-[#EAB308] text-slate-900 border-none";
     case 5: 
       // Upper Intermediate (Up Int) → #F97316 (orange)
-      return "bg-[#F97316] text-white border-none shadow-none";
+      return "bg-[#F97316] text-white border-none";
     case 6: 
       // Advanced (Adv) → #EF4444 (red)
-      return "bg-[#EF4444] text-white border-none shadow-none";
+      return "bg-[#EF4444] text-white border-none";
     case 7: 
       // Expert (Exp) → #8B5CF6 (purple)
-      return "bg-[#8B5CF6] text-white border-none shadow-none";
+      return "bg-[#8B5CF6] text-white border-none";
     default: 
       return "bg-muted text-muted-foreground border-none";
   }

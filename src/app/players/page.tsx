@@ -212,7 +212,7 @@ export default function PlayersPage() {
                     <div className="grid grid-cols-2 gap-1 pt-2 border-t border-dashed">
                       <div className="space-y-0.5">
                         <p className="text-[7px] font-black uppercase text-muted-foreground leading-none mb-1">Skill</p>
-                        <Badge className={cn("text-[8px] font-black uppercase px-1.5 h-4 border-none", getSkillColor(player.skillLevel))}>
+                        <Badge variant="outline" className={cn("text-[8px] font-black uppercase px-1.5 h-4", getSkillColor(player.skillLevel))}>
                           {SKILL_LEVELS_SHORT[player.skillLevel]}
                         </Badge>
                       </div>
