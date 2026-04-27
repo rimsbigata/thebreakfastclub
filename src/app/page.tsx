@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -60,7 +61,7 @@ export default function HomePage() {
   const { 
     courts, players, matches, deleteCourt, startMatch, startTimer, 
     endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch,
-    updateMatchScore, addCourt
+    updateMatchScore, addCourt, deleteMatch
   } = useClub();
   const { toast } = useToast();
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
@@ -189,6 +190,11 @@ export default function HomePage() {
     updateMatchScore(matchId, Math.max(0, scoreA), Math.max(0, scoreB));
   };
 
+  const handleDeleteMatch = (matchId: string) => {
+    deleteMatch(matchId);
+    toast({ title: "Match Removed from Queue" });
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-background overflow-hidden">
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12">
@@ -286,26 +292,52 @@ export default function HomePage() {
                   key={match.id} 
                   draggable 
                   onDragStart={(e) => onDragStartMatch(e, match.id)}
-                  className="border-2 border-orange-500/30 bg-orange-500/5 cursor-grab active:cursor-grabbing hover:border-orange-500 transition-all shadow-sm overflow-hidden"
+                  className="border-2 border-orange-500/30 bg-orange-500/5 cursor-grab active:cursor-grabbing hover:border-orange-500 transition-all shadow-sm overflow-hidden group relative"
                 >
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive hover:text-white z-10"
+                    onClick={() => handleDeleteMatch(match.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                   <div className="p-3 flex items-center justify-between gap-2">
-                    <div className="flex flex-col space-y-1.5 flex-1 min-w-0">
+                    <div className="flex flex-col space-y-1.5 flex-1 min-w-0 border-l-4 border-orange-500/20 pl-2">
+                      <span className="text-[8px] font-black uppercase text-orange-500 opacity-50">T1</span>
                       {match.teamA.map(id => {
                         const p = players.find(player => player.id === id);
                         return (
-                          <div key={id} className="flex items-center gap-1.5 min-w-0">
+                          <div key={id} className="flex items-center gap-1.5 min-w-0 group/p">
                             <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-3.5 w-3.5 opacity-0 group-hover/p:opacity-100 shrink-0" 
+                              onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}
+                            >
+                              <ArrowLeftRight className="h-2.5 w-2.5" />
+                            </Button>
                             {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                           </div>
                         );
                       })}
                     </div>
                     <div className="text-[9px] font-black opacity-30 px-1 shrink-0">VS</div>
-                    <div className="flex flex-col space-y-1.5 flex-1 min-w-0 items-end text-right">
+                    <div className="flex flex-col space-y-1.5 flex-1 min-w-0 items-end text-right border-r-4 border-orange-500/20 pr-2">
+                      <span className="text-[8px] font-black uppercase text-orange-500 opacity-50">T2</span>
                       {match.teamB.map(id => {
                         const p = players.find(player => player.id === id);
                         return (
-                          <div key={id} className="flex items-center gap-1.5 min-w-0 justify-end">
+                          <div key={id} className="flex items-center gap-1.5 min-w-0 justify-end group/p">
+                             <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-3.5 w-3.5 opacity-0 group-hover/p:opacity-100 shrink-0" 
+                              onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}
+                            >
+                              <ArrowLeftRight className="h-2.5 w-2.5" />
+                            </Button>
                             {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                             <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
                           </div>
@@ -373,7 +405,8 @@ export default function HomePage() {
                             <Trophy className="h-4 w-4 text-yellow-500 opacity-20" />
                           </div>
                           <div className="grid grid-cols-1 gap-2 flex-1">
-                            <div className={cn("p-3 rounded-lg border-l-4 space-y-1.5 transition-colors", teamAScore > teamBScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/10")}>
+                            <div className={cn("p-3 rounded-lg border-l-4 space-y-1.5 transition-colors relative", teamAScore > teamBScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/10")}>
+                              <span className="text-[8px] font-black uppercase text-primary opacity-50">Team 1 (T1)</span>
                               {match.teamA.map(id => {
                                 const p = players.find(player => player.id === id);
                                 return (
@@ -387,7 +420,8 @@ export default function HomePage() {
                                 );
                               })}
                             </div>
-                            <div className={cn("p-3 rounded-lg border-l-4 space-y-1.5 transition-colors", teamBScore > teamAScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/10")}>
+                            <div className={cn("p-3 rounded-lg border-l-4 space-y-1.5 transition-colors relative", teamBScore > teamAScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/10")}>
+                              <span className="text-[8px] font-black uppercase text-primary opacity-50">Team 2 (T2)</span>
                               {match.teamB.map(id => {
                                 const p = players.find(player => player.id === id);
                                 return (

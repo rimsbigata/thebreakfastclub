@@ -31,6 +31,7 @@ interface ClubContextType {
   setClubLogo: (imageUrl: string | null) => void;
   resetDailyBoard: () => void;
   wipeAllData: () => void;
+  deleteMatch: (matchId: string) => void;
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -130,14 +131,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const deleteCourt = (id: string) => {
     const court = courts.find(c => c.id === id);
     if (court?.currentMatchId) {
-      const match = matches.find(m => m.id === court.currentMatchId);
-      if (match) {
-        setPlayers(prev => prev.map(p => 
-          [...match.teamA, ...match.teamB].includes(p.id) 
-            ? { ...p, status: 'available', lastAvailableAt: Date.now() } 
-            : p
-        ));
-      }
+      deleteMatch(court.currentMatchId);
     }
     setCourts(prev => prev.filter(c => c.id !== id));
   };
@@ -146,7 +140,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const newMatchId = generateId();
     let targetCourtId = matchData.courtId;
 
-    // Capacity logic: If no court provided, check if any available
     if (!targetCourtId) {
       const availableCourt = courts.find(c => c.status === 'available');
       if (availableCourt) {
@@ -245,6 +238,25 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         totalPlayTimeMinutes: (p.totalPlayTimeMinutes || 0) + playDuration
       };
     }));
+  };
+
+  const deleteMatch = (matchId: string) => {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    setPlayers(prev => prev.map(p => 
+      [...match.teamA, ...match.teamB].includes(p.id)
+        ? { ...p, status: 'available', lastAvailableAt: Date.now() }
+        : p
+    ));
+
+    if (match.courtId) {
+      setCourts(prev => prev.map(c => 
+        c.id === match.courtId ? { ...c, status: 'available', currentMatchId: null } : c
+      ));
+    }
+
+    setMatches(prev => prev.filter(m => m.id !== matchId));
   };
 
   const swapPlayer = (matchId: string, oldPlayerId: string, newPlayerId: string) => {
@@ -364,7 +376,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       players, courts, matches, fees, paymentMethods, clubLogo,
       addPlayer, updatePlayer, deletePlayer, addCourt, deleteCourt,
       startMatch, startTimer, updateMatchScore, endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch, updateFee, togglePayment,
-      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo
+      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, deleteMatch
     }}>
       {children}
     </ClubContext.Provider>
