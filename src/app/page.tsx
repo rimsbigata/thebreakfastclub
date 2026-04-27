@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Trophy, Trash2, Timer, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check, ListOrdered, User } from 'lucide-react';
+import { Plus, Trophy, Trash2, Timer, Play, Zap, ArrowLeftRight, Users, DoorOpen, Hand, Check, ListOrdered, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -81,6 +81,8 @@ export default function HomePage() {
   const waitingMatches = matches.filter(m => !m.isCompleted && !m.courtId);
   const availableCourts = courts.filter(c => c.status === 'available');
 
+  const logoSrc = clubLogo || "/assets/image/tbclogo.png";
+
   if (!mounted) return null;
 
   const handleAddCourtAction = () => {
@@ -142,9 +144,14 @@ export default function HomePage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden animate-in fade-in duration-700">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 border-b bg-card shrink-0">
-        <div>
-          <h1 className="text-lg font-black uppercase tracking-tight leading-none">Command Center</h1>
-          <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Live Club Dashboard</p>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 shrink-0 rounded-lg overflow-hidden border-2 border-primary bg-white shadow-sm">
+            <img src={logoSrc} alt="Club Logo" className="object-cover h-full w-full" />
+          </div>
+          <div>
+            <h1 className="text-lg font-black uppercase tracking-tight leading-none">Command Center</h1>
+            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Live Club Dashboard</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={isAddCourtOpen} onOpenChange={setIsAddCourtOpen}>
@@ -221,7 +228,7 @@ export default function HomePage() {
       <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 bg-secondary/5">
         <div className="md:col-span-2 border-r flex flex-col h-full overflow-hidden bg-background/50">
           <div className="p-2.5 bg-card border-b flex items-center justify-between sticky top-0 z-10">
-            <h2 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><Users className="h-3 w-3 text-primary" /> The Bench</h2>
+            <h2 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">The Bench</h2>
             <Badge variant="outline" className="text-[8px] h-4 px-1">{availablePlayersCount}</Badge>
           </div>
           <ScrollArea className="flex-1">
@@ -246,7 +253,7 @@ export default function HomePage() {
 
         <div className="md:col-span-3 border-r flex flex-col h-full overflow-hidden bg-background/50">
           <div className="p-2.5 bg-card border-b flex items-center justify-between sticky top-0 z-10">
-            <h2 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><ListOrdered className="h-3 w-3 text-orange-500" /> Queue</h2>
+            <h2 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">Queue</h2>
             <Badge variant="outline" className="text-[8px] h-4 px-1 bg-orange-500/5 text-orange-600 border-orange-200">{waitingMatches.length}</Badge>
           </div>
           <ScrollArea className="flex-1">
@@ -293,7 +300,7 @@ export default function HomePage() {
 
         <div className="md:col-span-7 flex flex-col h-full overflow-hidden">
           <div className="p-2.5 bg-card border-b flex items-center justify-between sticky top-0 z-10">
-            <h2 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><DoorOpen className="h-3 w-3 text-primary" /> Active Courts</h2>
+            <h2 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">Active Courts</h2>
             <Badge variant="outline" className="text-[8px] h-4 px-1">{occupiedCourtsCount}/{courts.length}</Badge>
           </div>
           <ScrollArea className="flex-1">
