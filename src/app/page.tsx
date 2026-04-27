@@ -66,7 +66,6 @@ export default function HomePage() {
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
-  const [imgError, setImgError] = useState(false);
   
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('waiting');
@@ -140,28 +139,12 @@ export default function HomePage() {
     }
   };
 
-  const logoSrc = clubLogo || "/assets/image/tbclogo.png";
-
   return (
     <div className="flex flex-col h-screen overflow-hidden animate-in fade-in duration-700">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 border-b bg-card shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 shrink-0 rounded-lg overflow-hidden border-2 border-primary bg-primary/10 flex items-center justify-center md:hidden">
-            {!imgError ? (
-              <img 
-                src={logoSrc} 
-                alt="TBC Logo" 
-                className="object-cover h-full w-full" 
-                onError={() => setImgError(true)}
-              />
-            ) : (
-              <Activity className="h-5 w-5 text-primary" />
-            )}
-          </div>
-          <div>
-            <h1 className="text-lg font-black uppercase tracking-tight leading-none">Command Center</h1>
-            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Live Club Dashboard</p>
-          </div>
+        <div>
+          <h1 className="text-lg font-black uppercase tracking-tight leading-none">Command Center</h1>
+          <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Live Club Dashboard</p>
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={isAddCourtOpen} onOpenChange={setIsAddCourtOpen}>
@@ -334,34 +317,44 @@ export default function HomePage() {
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
                             <LiveTimer startTime={activeMatch?.startTime} />
-                            <div className="flex gap-0.5">
-                              <Badge variant="outline" className="text-[7px] font-bold uppercase animate-pulse border-primary/30 text-primary h-3.5 px-1">Live</Badge>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-4 w-4 text-muted-foreground hover:bg-primary hover:text-white"
-                                onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: activeMatch.teamA[0] })}
-                              >
-                                <ArrowLeftRight className="h-2.5 w-2.5" />
-                              </Button>
-                            </div>
+                            <Badge variant="outline" className="text-[7px] font-bold uppercase animate-pulse border-primary/30 text-primary h-3.5 px-1">Live</Badge>
                           </div>
                           <div className="space-y-1.5">
-                            <div className="p-1.5 bg-primary/5 rounded border-l-2 border-primary space-y-0.5">
+                            <div className="p-1.5 bg-primary/5 rounded border-l-2 border-primary space-y-1">
                               <p className="text-[6px] font-black uppercase text-primary tracking-widest">Team A</p>
                               {teamAPlayers?.map(p => (
-                                <div key={p?.id} className="flex justify-between text-[10px] font-bold">
-                                  <span className="truncate max-w-[70px]">{p?.name}</span>
-                                  <span className="text-[7px] text-muted-foreground opacity-60">L{p?.skillLevel}</span>
+                                <div key={p?.id} className="flex justify-between items-center group/player">
+                                  <div className="flex flex-col text-[10px] font-bold leading-none">
+                                    <span className="truncate max-w-[70px]">{p?.name}</span>
+                                    <span className="text-[6px] text-muted-foreground opacity-60">L{p?.skillLevel}</span>
+                                  </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-4 w-4 text-muted-foreground hover:bg-primary hover:text-white transition-opacity opacity-0 group-hover/player:opacity-100"
+                                    onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p?.id! })}
+                                  >
+                                    <ArrowLeftRight className="h-2 w-2" />
+                                  </Button>
                                 </div>
                               ))}
                             </div>
-                            <div className="p-1.5 bg-secondary/20 rounded border-l-2 border-muted space-y-0.5">
+                            <div className="p-1.5 bg-secondary/20 rounded border-l-2 border-muted space-y-1">
                               <p className="text-[6px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
                               {teamBPlayers?.map(p => (
-                                <div key={p?.id} className="flex justify-between text-[10px] font-bold">
-                                  <span className="truncate max-w-[70px]">{p?.name}</span>
-                                  <span className="text-[7px] text-muted-foreground opacity-60">L{p?.skillLevel}</span>
+                                <div key={p?.id} className="flex justify-between items-center group/player">
+                                  <div className="flex flex-col text-[10px] font-bold leading-none">
+                                    <span className="truncate max-w-[70px]">{p?.name}</span>
+                                    <span className="text-[6px] text-muted-foreground opacity-60">L{p?.skillLevel}</span>
+                                  </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-4 w-4 text-muted-foreground hover:bg-primary hover:text-white transition-opacity opacity-0 group-hover/player:opacity-100"
+                                    onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p?.id! })}
+                                  >
+                                    <ArrowLeftRight className="h-2 w-2" />
+                                  </Button>
                                 </div>
                               ))}
                             </div>
@@ -397,13 +390,17 @@ export default function HomePage() {
 
       <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent><DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
-          <ScrollArea className="h-[250px] p-2">
+          <div className="py-2 text-xs text-muted-foreground uppercase font-black tracking-widest mb-2">Select Replacement:</div>
+          <ScrollArea className="h-[250px] p-1">
             {availablePlayers.map(player => (
-              <Button key={player.id} variant="outline" className="w-full justify-between h-10 mb-2 px-3" onClick={() => handleSwap(player.id)}>
+              <Button key={player.id} variant="outline" className="w-full justify-between h-10 mb-2 px-3 hover:border-primary hover:bg-primary/5" onClick={() => handleSwap(player.id)}>
                 <div className="flex flex-col items-start"><span className="font-bold text-[11px]">{player.name}</span><span className="text-[8px] text-muted-foreground uppercase">Lvl {player.skillLevel}</span></div>
                 <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
               </Button>
             ))}
+            {availablePlayers.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground text-sm italic">No players available on the bench.</div>
+            )}
           </ScrollArea>
         </DialogContent>
       </Dialog>
