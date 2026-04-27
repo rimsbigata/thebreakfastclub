@@ -54,16 +54,34 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body text-[16px] leading-relaxed;
+    @apply bg-background text-foreground font-body antialiased;
+    font-size: clamp(14px, 1.2vw, 18px);
+    line-height: 1.6;
   }
-  h1 { @apply text-4xl font-black tracking-tighter; }
-  h2 { @apply text-3xl font-black tracking-tight; }
-  h3 { @apply text-2xl font-black; }
+  h1 { 
+    @apply font-black tracking-tighter; 
+    font-size: clamp(24px, 3vw, 42px);
+  }
+  h2 { 
+    @apply font-black tracking-tight; 
+    font-size: clamp(20px, 2.5vw, 32px);
+  }
+  h3 { 
+    @apply font-black; 
+    font-size: clamp(18px, 2vw, 24px);
+  }
 }
 
 @layer utilities {
-  .text-tiny { font-size: 0.85rem; }
-  .text-compact { font-size: 1rem; }
+  .text-tiny { 
+    font-size: clamp(10px, 0.8vw, 12px); 
+  }
+  .text-compact { 
+    font-size: clamp(12px, 1vw, 14px); 
+  }
+  .text-responsive {
+    font-size: clamp(14px, 1.2vw, 18px);
+  }
   
   /* Hide number input spinners */
   .no-spinner::-webkit-inner-spin-button,
