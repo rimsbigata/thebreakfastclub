@@ -9,10 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { Banknote, QrCode, UserCheck, Calculator, AlertCircle, Download } from 'lucide-react';
+import { Banknote, QrCode, UserCheck, Calculator, Download } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Image from 'next/image';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 export default function FeesPage() {
@@ -28,213 +27,134 @@ export default function FeesPage() {
     setToday(new Date().toISOString().split('T')[0]);
   }, []);
 
-  const currentFee = useMemo(() => {
-    if (!today) return null;
-    return fees.find(f => f.id === today);
-  }, [fees, today]);
+  const currentFee = useMemo(() => fees.find(f => f.id === today), [fees, today]);
 
   const perPlayerFee = useMemo(() => {
-    const effectiveEntry = includeEntranceFee ? entranceFee : 0;
-    const total = shuttleFee + courtFee + effectiveEntry;
-    const count = players.length || 1;
-    return (total / count).toFixed(2);
+    const total = shuttleFee + courtFee + (includeEntranceFee ? entranceFee : 0);
+    return (total / (players.length || 1)).toFixed(2);
   }, [shuttleFee, courtFee, entranceFee, includeEntranceFee, players.length]);
 
-  const handleUpdateFeeAction = () => {
-    if (!today) return;
-    updateFee({
-      id: today,
-      shuttleFee,
-      courtFee,
-      entranceFee: includeEntranceFee ? entranceFee : 0,
-    });
-  };
-
-  // Sort players: Pending at top, Paid at bottom
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => {
       const aPaid = !!currentFee?.payments?.[a.id];
       const bPaid = !!currentFee?.payments?.[b.id];
-      if (aPaid === bPaid) return 0;
-      return aPaid ? 1 : -1;
+      return aPaid === bPaid ? 0 : aPaid ? 1 : -1;
     });
   }, [players, currentFee]);
 
-  const handleExportCSV = () => {
-    if (!today) return;
-    const headers = ["Date", "Player Name", "Status", "Amount"];
-    const rows = sortedPlayers.map(player => {
-      const isPaid = !!currentFee?.payments?.[player.id];
-      return [
-        today,
-        `"${player.name.replace(/"/g, '""')}"`,
-        isPaid ? "Paid" : "Pending",
-        perPlayerFee
-      ];
-    });
-
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `TheBreakfastClub_Fees_${today}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
-      <header>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Banknote className="h-6 w-6 text-green-600" /> Fees
+    <div className="container mx-auto px-4 py-8 space-y-8 pb-24 max-w-5xl">
+      <header className="space-y-1">
+        <h1 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-2">
+          <Banknote className="h-8 w-8 text-green-600" /> Club Fees
         </h1>
-        <p className="text-sm text-muted-foreground">Daily financial tracking and payments.</p>
+        <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest opacity-60">Daily finance & payment tracking</p>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calculator className="h-5 w-5" /> Calculate Daily Split
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Shuttle Fee</Label>
-              <Input 
-                type="number" 
-                value={shuttleFee} 
-                onChange={e => setShuttleFee(parseFloat(e.target.value) || 0)} 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Court Fee</Label>
-              <Input 
-                type="number" 
-                value={courtFee} 
-                onChange={e => setCourtFee(parseFloat(e.target.value) || 0)} 
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className={cn(!includeEntranceFee && "text-muted-foreground")}>Entry Fee</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Include</span>
-                  <Switch 
-                    checked={includeEntranceFee} 
-                    onCheckedChange={setIncludeEntranceFee} 
-                  />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <Card className="lg:col-span-5 border-2 shadow-lg bg-card overflow-hidden">
+          <CardHeader className="bg-primary/5 border-b">
+            <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+              <Calculator className="h-5 w-5" /> Daily Split Calculator
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-6">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Shuttle Fee</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
+                  <Input type="number" className="pl-8 font-black text-lg h-12" value={shuttleFee} onChange={e => setShuttleFee(parseFloat(e.target.value) || 0)} />
                 </div>
               </div>
-              <Input 
-                type="number" 
-                value={entranceFee} 
-                disabled={!includeEntranceFee}
-                onChange={e => setEntranceFee(parseFloat(e.target.value) || 0)} 
-                className={cn(!includeEntranceFee && "bg-muted opacity-50")}
-              />
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Court Rental</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
+                  <Input type="number" className="pl-8 font-black text-lg h-12" value={courtFee} onChange={e => setCourtFee(parseFloat(e.target.value) || 0)} />
+                </div>
+              </div>
+              <div className="space-y-1.5 p-4 rounded-xl bg-secondary/50 border-2 border-dashed">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest">Entry Fee</Label>
+                  <Switch checked={includeEntranceFee} onCheckedChange={setIncludeEntranceFee} />
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
+                  <Input type="number" disabled={!includeEntranceFee} className="pl-8 font-black text-lg h-12 disabled:opacity-30" value={entranceFee} onChange={e => setEntranceFee(parseFloat(e.target.value) || 0)} />
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="p-4 bg-primary/10 rounded-lg flex justify-between items-center">
-            <span className="font-bold">Total Per Player:</span>
-            <span className="text-2xl font-black text-primary">₱{perPlayerFee}</span>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button className="w-full" onClick={handleUpdateFeeAction}>Apply Daily Fee</Button>
-        </CardFooter>
-      </Card>
+            <div className="p-6 bg-primary text-primary-foreground rounded-2xl shadow-xl shadow-primary/20 flex justify-between items-center transform hover:scale-[1.02] transition-transform">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Per Player Cost</p>
+                <h2 className="text-4xl font-black">₱{perPlayerFee}</h2>
+              </div>
+              <Banknote className="h-10 w-10 opacity-30" />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full h-12 font-black uppercase tracking-widest" onClick={() => updateFee({ id: today, shuttleFee, courtFee, entranceFee: includeEntranceFee ? entranceFee : 0 })}>
+              Apply to Today's Board
+            </Button>
+          </CardFooter>
+        </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <section className="space-y-4">
+        <section className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <UserCheck className="h-5 w-5" /> Payment Status
+            <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+              <UserCheck className="h-6 w-6 text-green-600" /> Payment Roster
             </h2>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2" disabled={!today}>
-                <Download className="h-4 w-4" /> Export CSV
-              </Button>
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <QrCode className="h-4 w-4" /> QR Codes
+                  <Button variant="outline" size="sm" className="gap-2 font-black uppercase text-[10px] border-2">
+                    <QrCode className="h-4 w-4" /> QR Methods
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
-                  <DialogHeader><DialogTitle>Select Payment QR</DialogTitle></DialogHeader>
-                  <div className="py-4 space-y-6">
-                    {paymentMethods.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1">
-                        {paymentMethods.map(method => (
-                          <Card key={method.id} className="overflow-hidden">
-                            <div className="bg-muted p-2 text-center text-xs font-bold uppercase tracking-widest">{method.name}</div>
-                            <div className="relative h-64 w-full bg-white">
-                              <Image 
-                                src={method.imageUrl} 
-                                alt={method.name} 
-                                fill 
-                                className="object-contain"
-                              />
-                            </div>
-                            <div className="p-2 text-center text-sm font-bold bg-primary/10">Pay ₱{perPlayerFee}</div>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-4 py-8 text-center">
-                        <AlertCircle className="h-12 w-12 text-muted-foreground" />
-                        <div className="space-y-1">
-                          <p className="font-bold">No QR Codes Uploaded</p>
-                          <p className="text-sm text-muted-foreground">Please upload your payment QR codes in settings first.</p>
-                        </div>
-                        <Link href="/settings">
-                          <Button className="gap-2">Go to Settings</Button>
-                        </Link>
-                      </div>
-                    )}
+                  <DialogHeader><DialogTitle>Scan to Pay</DialogTitle></DialogHeader>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+                    {paymentMethods.map(method => (
+                      <Card key={method.id} className="overflow-hidden border-2">
+                        <div className="bg-primary text-primary-foreground p-1 text-center text-[10px] font-black uppercase">{method.name}</div>
+                        <div className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill className="object-contain p-4" /></div>
+                        <div className="p-3 bg-secondary text-center text-sm font-black uppercase">Pay ₱{perPlayerFee}</div>
+                      </Card>
+                    ))}
                   </div>
                 </DialogContent>
               </Dialog>
             </div>
           </div>
-          <div className="space-y-2">
-            {sortedPlayers.map(player => {
-              const isPaid = !!currentFee?.payments?.[player.id];
-              return (
-                <div key={player.id} className={cn(
-                  "flex items-center justify-between p-3 border rounded-lg shadow-sm transition-all",
-                  isPaid ? "bg-muted/50 border-muted opacity-70" : "bg-card border-border"
-                )}>
-                  <span className={cn(
-                    "font-medium transition-all",
-                    isPaid && "line-through text-muted-foreground"
+
+          <ScrollArea className="h-[600px] rounded-2xl border-2 bg-card p-4">
+            <div className="space-y-2">
+              {sortedPlayers.map(player => {
+                const isPaid = !!currentFee?.payments?.[player.id];
+                return (
+                  <div key={player.id} className={cn(
+                    "flex items-center justify-between p-4 border-2 rounded-xl transition-all",
+                    isPaid ? "bg-green-500/5 border-green-500/20 opacity-60" : "bg-card border-border hover:border-primary/30"
                   )}>
-                    {player.name}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <span className={cn(
-                      "text-[10px] font-black uppercase tracking-widest",
-                      isPaid ? "text-green-600" : "text-red-500"
-                    )}>
-                      {isPaid ? 'PAID' : 'PENDING'}
-                    </span>
-                    <Checkbox 
-                      checked={isPaid} 
-                      onCheckedChange={() => today && togglePayment(today, player.id)}
-                    />
+                    <div className="flex items-center gap-3">
+                      <div className={cn("h-3 w-3 rounded-full", isPaid ? "bg-green-500" : "bg-red-500")} />
+                      <span className={cn("font-black text-sm", isPaid && "line-through text-muted-foreground")}>{player.name}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className={cn("text-[10px] font-black uppercase tracking-tighter", isPaid ? "text-green-600" : "text-red-500")}>
+                        {isPaid ? 'Settled' : 'Pending'}
+                      </span>
+                      <Checkbox checked={isPaid} onCheckedChange={() => togglePayment(today, player.id)} className="h-5 w-5 border-2" />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-            {players.length === 0 && (
-              <div className="text-center py-12 border-2 border-dashed rounded-xl bg-secondary/5 text-muted-foreground italic text-sm">
-                No players registered. Go to the Players tab to add members.
-              </div>
-            )}
-          </div>
+                );
+              })}
+              {players.length === 0 && (
+                <div className="py-20 text-center text-muted-foreground font-black uppercase text-xs opacity-20">No Players Found</div>
+              )}
+            </div>
+          </ScrollArea>
         </section>
       </div>
     </div>

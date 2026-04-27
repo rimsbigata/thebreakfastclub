@@ -21,7 +21,6 @@ import {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { clubLogo } = useClub();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
@@ -33,34 +32,26 @@ export function Sidebar() {
     { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  const logoSrc = clubLogo || "/assets/image/tbc_logo_loading.png";
-
   return (
-    <SidebarComponent collapsible="icon" className="border-r bg-card">
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3 overflow-hidden">
-          {/* Logo is hidden entirely when sidebar is collapsed */}
+    <SidebarComponent collapsible="icon" className="border-r bg-card shadow-2xl">
+      <SidebarHeader className="p-6">
+        <div className="flex items-center gap-4 overflow-hidden">
           {!isCollapsed && (
             <>
-              <div className="relative h-8 w-8 shrink-0 rounded-lg overflow-hidden border-2 border-primary bg-white flex items-center justify-center shadow-sm">
-                <img 
-                  src={logoSrc} 
-                  alt="Club Logo" 
-                  className="object-cover h-full w-full"
-                />
+              <img src="/assets/image/tbc_logo_loading.png" alt="Logo" className="h-10 w-10 object-contain shrink-0 animate-in zoom-in duration-300" />
+              <div className="flex flex-col">
+                <h1 className="font-black text-lg tracking-tighter text-primary truncate leading-none">THE CLUB</h1>
+                <p className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground">Est. 2025</p>
               </div>
-              <h1 className="font-black text-base tracking-tighter text-primary truncate animate-in fade-in slide-in-from-left-2 duration-300">
-                TheBreakfastClub
-              </h1>
             </>
           )}
         </div>
       </SidebarHeader>
       
-      <SidebarSeparator />
+      <SidebarSeparator className="mx-4 opacity-50" />
       
-      <SidebarContent className="px-2 py-4">
-        <SidebarMenu>
+      <SidebarContent className="px-3 py-6">
+        <SidebarMenu className="gap-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -70,15 +61,15 @@ export function Sidebar() {
                   isActive={isActive}
                   tooltip={item.label}
                   className={cn(
-                    "transition-all font-medium h-10 px-3",
+                    "transition-all font-black uppercase tracking-tight h-12 px-4 text-xs",
                     isActive 
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105" 
+                      : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
                   )}
                 >
                   <Link href={item.href}>
                     <item.icon className={cn("h-5 w-5", isActive ? "animate-pulse" : "")} />
-                    <span>{item.label}</span>
+                    <span className={cn(isCollapsed && "hidden")}>{item.label}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -87,10 +78,8 @@ export function Sidebar() {
         </SidebarMenu>
       </SidebarContent>
       
-      <SidebarSeparator />
-
-      <SidebarFooter className="p-2 flex items-center justify-center">
-        <SidebarTrigger className="h-8 w-8 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all" />
+      <SidebarFooter className="p-4 flex items-center justify-center border-t bg-secondary/10">
+        <SidebarTrigger className="h-10 w-10 text-primary hover:bg-primary hover:text-white transition-all rounded-full shadow-sm" />
       </SidebarFooter>
     </SidebarComponent>
   );
