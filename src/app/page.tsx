@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -68,6 +69,7 @@ export default function HomePage() {
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
   const [showWinButtons, setShowWinButtons] = useState<Record<string, boolean>>({});
   const [mounted, setMounted] = useState(false);
+  const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
   
   // Manual Match State
   const [isManualOpen, setIsManualOpen] = useState(false);
@@ -102,7 +104,8 @@ export default function HomePage() {
 
     addCourt(newCourtName);
     setNewCourtName('');
-    toast({ title: "Court Added" });
+    setIsAddCourtOpen(false);
+    toast({ title: "Court Added", description: `"${formattedName}" is now available.` });
   };
 
   const handleAutoMatch = () => {
@@ -176,7 +179,38 @@ export default function HomePage() {
             <p className="text-sm text-muted-foreground">Live court status and deterministic matchmaking.</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {/* Add Court Button */}
+          <Dialog open={isAddCourtOpen} onOpenChange={setIsAddCourtOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95 shadow-sm">
+                <Plus className="h-5 w-5" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Court</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Court Name / Number</Label>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="h-10 px-3 text-xs font-bold uppercase tracking-widest bg-secondary/20">Court</Badge>
+                    <Input 
+                      placeholder="e.g. 1, 2, A, B" 
+                      value={newCourtName} 
+                      onChange={e => setNewCourtName(e.target.value)} 
+                      onKeyDown={e => e.key === 'Enter' && handleAddCourtAction()}
+                    />
+                  </div>
+                </div>
+                <Button className="w-full h-11 font-bold active:scale-95 transition-transform" onClick={handleAddCourtAction}>
+                  Save Court
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2 font-bold hover:bg-secondary transition-all active:scale-95">
@@ -278,6 +312,7 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card className="bg-primary/5 border-none shadow-none transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <CardContent className="pt-6 flex items-center gap-4">
@@ -325,6 +360,7 @@ export default function HomePage() {
         </Card>
       </div>
 
+      {/* Waiting Matches Section */}
       {waitingMatches.length > 0 && (
         <section className="space-y-4 animate-in slide-in-from-top-4 duration-500">
           <div className="flex items-center gap-2">
@@ -382,13 +418,13 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* Courts Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {courts.map(court => {
           const activeMatch = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
           const teamAPlayers = activeMatch?.teamA.map(id => players.find(p => p.id === id)).filter(Boolean);
           const teamBPlayers = activeMatch?.teamB.map(id => players.find(p => p.id === id)).filter(Boolean);
           const isTimerRunning = !!activeMatch?.startTime;
-          const isManualWinMode = showWinButtons[court.id];
 
           return (
             <Card key={court.id} className="border-2 shadow-sm relative group overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary/30">
@@ -423,7 +459,7 @@ export default function HomePage() {
                       <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-3 relative">
                         <div className="flex justify-between items-center">
                           <p className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</p>
-                          {(isTimerRunning || isManualWinMode) && (
+                          {(isTimerRunning || showWinButtons[court.id]) && (
                             <Button 
                               variant="secondary" 
                               size="sm" 
@@ -459,7 +495,7 @@ export default function HomePage() {
                       <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-3 relative">
                         <div className="flex justify-between items-center">
                           <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
-                          {(isTimerRunning || isManualWinMode) && (
+                          {(isTimerRunning || showWinButtons[court.id]) && (
                             <Button 
                               variant="secondary" 
                               size="sm" 
@@ -533,10 +569,12 @@ export default function HomePage() {
         })}
       </div>
 
+      {/* Match History Section */}
       <section className="pt-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <MatchResults matches={matches} players={players} limit={5} />
       </section>
 
+      {/* Swap Player Dialog */}
       <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent className="animate-in zoom-in duration-300">
           <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
@@ -560,6 +598,7 @@ export default function HomePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Scoring Dialog */}
       {scoringCourtId && (() => {
         const court = courts.find(c => c.id === scoringCourtId);
         const match = matches.find(m => m.id === court?.currentMatchId);
