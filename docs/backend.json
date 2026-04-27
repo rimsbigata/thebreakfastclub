@@ -40,7 +40,7 @@
         "timestamp": { "type": "string", "format": "date-time" },
         "isCompleted": { "type": "boolean" }
       },
-      "required": ["id", "teamA", "teamB", "courtId", "timestamp", "isCompleted"]
+      "required": ["id", "teamA", "teamB", "timestamp", "isCompleted"]
     },
     "Fee": {
       "title": "Fee",

@@ -1,5 +1,5 @@
 
-import { Player, Court, Match } from './types';
+import { Player, Court } from './types';
 
 export interface MatchResult {
   matchCreated: boolean;
@@ -22,10 +22,6 @@ export function generateDeterministicMatch(
 ): MatchResult {
   if (availablePlayers.length < 4) {
     return { matchCreated: false, error: "Insufficient players available. Need at least 4." };
-  }
-
-  if (availableCourts.length === 0) {
-    return { matchCreated: false, error: "No courts available." };
   }
 
   // Phase A: Selection
@@ -82,12 +78,12 @@ export function generateDeterministicMatch(
 
   // Result: Lowest score wins
   const bestCombo = scoredCombos.sort((a, b) => a.score - b.score)[0];
-  const court = availableCourts[0];
+  const court = availableCourts.length > 0 ? availableCourts[0] : undefined;
 
   return {
     matchCreated: true,
-    courtId: court.id,
-    courtName: court.name,
+    courtId: court?.id,
+    courtName: court?.name,
     teamA: bestCombo.teamA.map(p => p.id),
     teamB: bestCombo.teamB.map(p => p.id),
     analysis: bestCombo.score >= 25 

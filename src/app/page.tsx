@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check } from 'lucide-react';
+import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check, ListOrdered } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -62,7 +62,7 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 }
 
 export default function HomePage() {
-  const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch, swapPlayer } = useClub();
+  const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt } = useClub();
   const { toast } = useToast();
   const [newCourtName, setNewCourtName] = useState('');
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
@@ -73,7 +73,7 @@ export default function HomePage() {
   
   // Manual Match State
   const [isManualOpen, setIsManualOpen] = useState(false);
-  const [selectedCourtId, setSelectedCourtId] = useState<string>('');
+  const [selectedCourtId, setSelectedCourtId] = useState<string>('waiting');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -83,6 +83,8 @@ export default function HomePage() {
 
   const availablePlayersCount = players.filter(p => p.status === 'available').length;
   const occupiedCourtsCount = courts.filter(c => c.status === 'occupied').length;
+  const waitingMatches = matches.filter(m => !m.isCompleted && !m.courtId);
+  const availableCourts = courts.filter(c => c.status === 'available');
 
   if (!mounted) return null;
 
@@ -109,19 +111,19 @@ export default function HomePage() {
 
   const handleAutoMatch = () => {
     const availablePlayers = players.filter(p => p.status === 'available');
-    const availableCourts = courts.filter(c => c.status === 'available');
+    const availableCourtsList = courts.filter(c => c.status === 'available');
 
-    const result = generateDeterministicMatch(availablePlayers, availableCourts);
+    const result = generateDeterministicMatch(availablePlayers, availableCourtsList);
 
-    if (result.matchCreated && result.courtId && result.teamA && result.teamB) {
+    if (result.matchCreated && result.teamA && result.teamB) {
       startMatch({
         teamA: result.teamA,
         teamB: result.teamB,
         courtId: result.courtId,
       });
       toast({ 
-        title: "Match Created!", 
-        description: result.analysis || "Optimal pairing found based on wait times and history." 
+        title: result.courtId ? "Match Created!" : "Match Queued!", 
+        description: result.analysis || (result.courtId ? "Optimal pairing found." : "No courts available, added to queue.")
       });
     } else {
       toast({ 
@@ -133,7 +135,7 @@ export default function HomePage() {
   };
 
   const handleManualMatchSubmit = () => {
-    if (!selectedCourtId || selectedPlayerIds.length !== 4) return;
+    if (selectedPlayerIds.length !== 4) return;
     
     const selectedPlayers = players.filter(p => selectedPlayerIds.includes(p.id))
       .sort((a, b) => (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0));
@@ -141,13 +143,13 @@ export default function HomePage() {
     startMatch({
       teamA: [selectedPlayers[0].id, selectedPlayers[1].id],
       teamB: [selectedPlayers[2].id, selectedPlayers[3].id],
-      courtId: selectedCourtId,
+      courtId: selectedCourtId === 'waiting' ? undefined : selectedCourtId,
     });
 
     setIsManualOpen(false);
     setSelectedPlayerIds([]);
-    setSelectedCourtId('');
-    toast({ title: "Manual Match Started" });
+    setSelectedCourtId('waiting');
+    toast({ title: selectedCourtId === 'waiting' ? "Match Added to Queue" : "Manual Match Started" });
   };
 
   const handleSwap = (newPlayerId: string) => {
@@ -195,8 +197,15 @@ export default function HomePage() {
               </DialogHeader>
               <div className="space-y-6 py-4">
                 <div className="space-y-3">
-                  <Label>1. Select Court</Label>
+                  <Label>1. Select Court (Optional)</Label>
                   <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={selectedCourtId === 'waiting' ? 'default' : 'outline'}
+                      className="h-10 px-4 transition-all"
+                      onClick={() => setSelectedCourtId('waiting')}
+                    >
+                      Wait for available
+                    </Button>
                     {courts.map(court => (
                       <Button
                         key={court.id}
@@ -257,10 +266,10 @@ export default function HomePage() {
               <DialogFooter>
                 <Button 
                   className="w-full h-12 font-bold text-lg active:scale-95 transition-transform" 
-                  disabled={!selectedCourtId || selectedPlayerIds.length !== 4}
+                  disabled={selectedPlayerIds.length !== 4}
                   onClick={handleManualMatchSubmit}
                 >
-                  Start Match
+                  {selectedCourtId === 'waiting' ? 'Add to Waiting Queue' : 'Start Match'}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -268,7 +277,7 @@ export default function HomePage() {
 
           <Button 
             onClick={handleAutoMatch} 
-            disabled={!courts.length || availablePlayersCount < 4} 
+            disabled={availablePlayersCount < 4} 
             className="gap-2 bg-primary font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95"
           >
             <Zap className="h-4 w-4 fill-white" />
@@ -299,7 +308,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card className="bg-primary/5 border-none shadow-none transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <CardContent className="pt-6 flex items-center gap-4">
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -308,6 +317,17 @@ export default function HomePage() {
             <div>
               <p className="text-[10px] font-black uppercase text-muted-foreground">In Queue</p>
               <p className="text-2xl font-black">{availablePlayersCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-500/10 border-none shadow-none transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+          <CardContent className="pt-6 flex items-center gap-4">
+            <div className="h-10 w-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-600">
+              <ListOrdered className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Waiting Matches</p>
+              <p className="text-2xl font-black">{waitingMatches.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -330,19 +350,73 @@ export default function HomePage() {
             <div>
               <p className="text-[10px] font-black uppercase text-muted-foreground">Total Players</p>
               <p className="text-2xl font-black">{players.length}</p>
-              <p className="text-[8px] font-bold uppercase text-muted-foreground/60">
-                {today}
-              </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {waitingMatches.length > 0 && (
+        <section className="space-y-4 animate-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-2">
+            <ListOrdered className="h-5 w-5 text-orange-500" />
+            <h2 className="text-lg font-black uppercase tracking-tight">Waiting Match Queue</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {waitingMatches.map(match => {
+              const teamA = match.teamA.map(id => players.find(p => p.id === id)).filter(Boolean);
+              const teamB = match.teamB.map(id => players.find(p => p.id === id)).filter(Boolean);
+              return (
+                <Card key={match.id} className="border-orange-500/20 bg-orange-500/5 shadow-sm">
+                  <CardHeader className="p-4 flex flex-row justify-between items-center">
+                    <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-200 uppercase text-[10px]">Waiting for court</Badge>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="default" className="h-7 bg-orange-500 hover:bg-orange-600 text-[10px] font-bold uppercase gap-1" disabled={availableCourts.length === 0}>
+                           Assign Court
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>Assign Court to Waiting Match</DialogTitle></DialogHeader>
+                        <div className="space-y-4 py-4">
+                           <Label>Select an Available Court</Label>
+                           <div className="flex flex-wrap gap-2">
+                              {availableCourts.map(c => (
+                                <Button key={c.id} variant="outline" className="h-12 px-6" onClick={() => {
+                                  assignMatchToCourt(match.id, c.id);
+                                  toast({ title: "Match Assigned", description: `Assigned to ${c.name}` });
+                                }}>
+                                  {c.name}
+                                </Button>
+                              ))}
+                              {availableCourts.length === 0 && <p className="text-sm text-muted-foreground italic">No courts available yet.</p>}
+                           </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 space-y-3">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                       <div className="flex flex-col">
+                          {teamA.map(p => <span key={p?.id}>{p?.name}</span>)}
+                       </div>
+                       <span className="text-muted-foreground italic">vs</span>
+                       <div className="flex flex-col text-right">
+                          {teamB.map(p => <span key={p?.id}>{p?.name}</span>)}
+                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {!courts.length ? (
         <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl bg-card/50 animate-in zoom-in duration-500">
           <Trophy className="h-12 w-12 text-muted-foreground/20 mb-4" />
           <p className="text-lg font-bold text-muted-foreground">No courts registered</p>
-          <p className="text-sm text-muted-foreground mb-6">Add a court to start matchmaking.</p>
+          <p className="text-sm text-muted-foreground mb-6">Add a court to manage matches.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

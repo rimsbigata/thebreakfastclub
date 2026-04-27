@@ -21,6 +21,7 @@ interface ClubContextType {
   startTimer: (courtId: string) => void;
   endMatch: (courtId: string, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => void;
   swapPlayer: (matchId: string, oldPlayerId: string, newPlayerId: string) => void;
+  assignMatchToCourt: (matchId: string, courtId: string) => void;
   updateFee: (fee: Omit<Fee, 'payments'>) => void;
   togglePayment: (date: string, playerId: string) => void;
   addPaymentMethod: (name: string, imageData: string) => void;
@@ -143,14 +144,23 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     };
 
     setMatches(prev => [...prev, newMatch]);
-    setCourts(prev => prev.map(c => 
-      c.id === matchData.courtId ? { ...c, status: 'occupied', currentMatchId: matchId } : c
-    ));
+    
+    if (matchData.courtId) {
+      setCourts(prev => prev.map(c => 
+        c.id === matchData.courtId ? { ...c, status: 'occupied', currentMatchId: matchId } : c
+      ));
+    }
+
     setPlayers(prev => prev.map(p => 
       [...matchData.teamA, ...matchData.teamB].includes(p.id) 
         ? { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1, lastAvailableAt: undefined } 
         : p
     ));
+  };
+
+  const assignMatchToCourt = (matchId: string, courtId: string) => {
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, courtId } : m));
+    setCourts(prev => prev.map(c => c.id === courtId ? { ...c, status: 'occupied', currentMatchId: matchId } : c));
   };
 
   const startTimer = (courtId: string) => {
@@ -303,7 +313,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     <ClubContext.Provider value={{
       players, courts, matches, fees, paymentMethods, clubLogo,
       addPlayer, updatePlayer, deletePlayer, addCourt, deleteCourt,
-      startMatch, startTimer, endMatch, swapPlayer, updateFee, togglePayment,
+      startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt, updateFee, togglePayment,
       addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo
     }}>
       {children}

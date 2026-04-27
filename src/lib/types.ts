@@ -38,7 +38,7 @@ export interface Match {
   id: string;
   teamA: string[]; 
   teamB: string[]; 
-  courtId: string;
+  courtId?: string; // Optional for waiting matches
   timestamp: string; 
   startTime?: string; 
   isCompleted: boolean;
