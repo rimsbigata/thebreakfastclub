@@ -3,10 +3,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useClub } from '@/context/ClubContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -22,6 +23,7 @@ import Image from 'next/image';
 export function Header() {
   const pathname = usePathname();
   const { courts, players, addCourt, startMatch, clubLogo } = useClub();
+  const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   
   const [isManualOpen, setIsManualOpen] = useState(false);
@@ -66,10 +68,10 @@ export function Header() {
   };
 
   return (
-    <header className="h-14 border-b bg-card flex items-center justify-between px-4 shrink-0 shadow-sm z-50">
+    <header className="h-14 border-b bg-card flex items-center justify-between px-4 shrink-0 shadow-sm z-50 transition-colors">
       <div className="flex items-center gap-4">
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="relative h-8 w-8 overflow-hidden rounded-md border shadow-sm">
+          <div className="relative h-8 w-8 overflow-hidden rounded-md border shadow-sm bg-white">
             <Image 
               src={logoSrc} 
               alt="TheBreakfastClub Logo" 
@@ -106,6 +108,15 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-2">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
+
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="gap-2 font-black uppercase text-[9px] tracking-widest h-8 border-2 hover:bg-secondary px-3">

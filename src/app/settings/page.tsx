@@ -135,6 +135,28 @@ export default function SettingsPage() {
                 </div>
                 <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
               </div>
+              
+              <div className="space-y-2 pt-2">
+                <Label className="text-[10px] font-black uppercase opacity-60">Club Logo</Label>
+                <div className="flex items-center gap-4 p-4 bg-secondary/10 rounded-xl border-2 border-dashed">
+                  <div className="relative h-16 w-16 rounded-lg border bg-white overflow-hidden shadow-sm shrink-0">
+                    <Image 
+                      src={clubLogo || "/assets/image/tbc_logo_loading.png"} 
+                      alt="Club Logo" 
+                      fill 
+                      className="object-cover p-1" 
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Upload your club's official branding</p>
+                    <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoChange} />
+                    <Button size="sm" variant="outline" className="w-full h-8 text-[9px] font-black uppercase" onClick={() => logoInputRef.current?.click()} disabled={isLogoUploading}>
+                      {isLogoUploading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
+                      Change Logo
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
