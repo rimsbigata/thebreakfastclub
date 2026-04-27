@@ -1,4 +1,3 @@
-
 import { Player, Court } from './types';
 
 export interface MatchResult {

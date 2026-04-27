@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -48,18 +47,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         const data = localStorage.getItem('breakfast_club_data');
         if (data) {
           const parsed = JSON.parse(data);
-          const migratedPlayers = (parsed.players || []).map((p: any) => ({
-            ...p,
-            wins: typeof p.wins === 'number' ? p.wins : 0,
-            gamesPlayed: typeof p.gamesPlayed === 'number' ? p.gamesPlayed : 0,
-            totalPlayTimeMinutes: typeof p.totalPlayTimeMinutes === 'number' ? p.totalPlayTimeMinutes : 0,
-            improvementScore: typeof p.improvementScore === 'number' ? p.improvementScore : 0,
-            partnerHistory: p.partnerHistory || [],
-            status: p.status || 'available',
-            lastAvailableAt: p.lastAvailableAt || Date.now()
-          }));
-          
-          setPlayers(migratedPlayers);
+          setPlayers(parsed.players || []);
           setCourts(parsed.courts || []);
           setMatches(parsed.matches || []);
           setFees(parsed.fees || []);
@@ -77,14 +65,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isLoaded) {
-      try {
-        const dataToSave = JSON.stringify({
-          players, courts, matches, fees, paymentMethods, clubLogo
-        });
-        localStorage.setItem('breakfast_club_data', dataToSave);
-      } catch (e) {
-        console.error("Failed to save data. You may have exceeded localStorage quota.", e);
-      }
+      localStorage.setItem('breakfast_club_data', JSON.stringify({
+        players, courts, matches, fees, paymentMethods, clubLogo
+      }));
     }
   }, [players, courts, matches, fees, paymentMethods, clubLogo, isLoaded]);
 
@@ -194,7 +177,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         ? match.teamA.find(id => id !== p.id) 
         : match.teamB.find(id => id !== p.id);
       
-      const newHistory = partnerId ? [partnerId, ...(p.partnerHistory || [])].slice(0, 5) : (p.partnerHistory || []);
+      const newHistory = partnerId ? [partnerId, ...p.partnerHistory].slice(0, 5) : p.partnerHistory;
 
       let impChange = 0;
       let wonMatch = false;
@@ -208,10 +191,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         ...p, 
         status: 'available', 
         lastAvailableAt: Date.now(),
-        wins: wonMatch ? (p.wins || 0) + 1 : (p.wins || 0),
+        wins: wonMatch ? p.wins + 1 : p.wins,
         partnerHistory: newHistory,
-        improvementScore: Math.max(0, (p.improvementScore || 0) + impChange),
-        totalPlayTimeMinutes: (p.totalPlayTimeMinutes || 0) + playDurationMinutes
+        improvementScore: Math.max(0, p.improvementScore + impChange),
+        totalPlayTimeMinutes: p.totalPlayTimeMinutes + playDurationMinutes
       };
     }));
   };
@@ -227,7 +210,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
     setPlayers(prev => prev.map(p => {
       if (p.id === oldPlayerId) return { ...p, status: 'available', lastAvailableAt: Date.now() };
-      if (p.id === newPlayerId) return { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1, lastAvailableAt: undefined };
+      if (p.id === newPlayerId) return { ...p, status: 'playing', gamesPlayed: p.gamesPlayed + 1, lastAvailableAt: undefined };
       return p;
     }));
   };
@@ -254,13 +237,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
           return f;
         });
       }
-      return [...prev, { 
-        id: date, 
-        shuttleFee: 0, 
-        courtFee: 0, 
-        entranceFee: 0, 
-        payments: { [playerId]: true } 
-      }];
+      return [...prev, { id: date, shuttleFee: 0, courtFee: 0, entranceFee: 0, payments: { [playerId]: true } }];
     });
   };
 
