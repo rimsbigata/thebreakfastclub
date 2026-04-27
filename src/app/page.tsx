@@ -6,6 +6,7 @@ import { useClub } from '@/context/ClubContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,6 +81,14 @@ export default function HomePage() {
   
   const [sortOption, setSortOption] = useState<string>('default');
   const loserScoreInputRef = useRef<HTMLInputElement>(null);
+
+  // Zero-score confirmation state
+  const [pendingMatchFinish, setPendingMatchFinish] = useState<{
+    courtId: string;
+    winner: 'teamA' | 'teamB';
+    scoreA: number;
+    scoreB: number;
+  } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -214,18 +223,23 @@ export default function HomePage() {
       return { valid: false, message: "Scores cannot be equal." };
     }
 
-    // Win by 2 rule (standard badminton)
     if (higher === defaultWinningScore && lower === defaultWinningScore - 1) {
       return { valid: false, message: `Must win by 2 points (e.g., ${defaultWinningScore + 1}-${defaultWinningScore - 1}).` };
     }
 
-    // If it goes past default winning score, leading by 1 is still not enough until deuce rules or cap (30)
-    // To keep it simple as per user request: "e.g. 21-20 not allowed, must be 22-20"
     if (higher > defaultWinningScore && (higher - lower) < 2) {
       return { valid: false, message: "Must win by 2 points in deuce." };
     }
 
     return { valid: true };
+  };
+
+  const completeMatch = (courtId: string, winner: 'teamA' | 'teamB', scoreA: number, scoreB: number) => {
+    endMatch(courtId, 'completed', winner, scoreA, scoreB);
+    setPendingMatchFinish(null);
+    setWinningTeam(null);
+    setLoserScore('');
+    toast({ title: "Match Completed!" });
   };
 
   const handleFinishMatch = (courtId: string, teamAScore: number, teamBScore: number) => {
@@ -236,8 +250,13 @@ export default function HomePage() {
     }
 
     const winner = teamAScore > teamBScore ? 'teamA' : 'teamB';
-    endMatch(courtId, 'completed', winner, teamAScore, teamBScore);
-    toast({ title: "Match Completed!" });
+    const loserScoreValue = winner === 'teamA' ? teamBScore : teamAScore;
+
+    if (loserScoreValue === 0) {
+      setPendingMatchFinish({ courtId, winner, scoreA: teamAScore, scoreB: teamBScore });
+    } else {
+      completeMatch(courtId, winner, teamAScore, teamBScore);
+    }
   };
 
   const handleWinSubmit = () => {
@@ -253,10 +272,11 @@ export default function HomePage() {
       return;
     }
 
-    endMatch(winningTeam.courtId, 'completed', winningTeam.team, tAScore, tBScore);
-    setWinningTeam(null);
-    setLoserScore('');
-    toast({ title: "Match Completed!" });
+    if (lScore === 0) {
+      setPendingMatchFinish({ courtId: winningTeam.courtId, winner: winningTeam.team, scoreA: tAScore, scoreB: tBScore });
+    } else {
+      completeMatch(winningTeam.courtId, winningTeam.team, tAScore, tBScore);
+    }
   };
 
   return (
@@ -648,6 +668,36 @@ export default function HomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!pendingMatchFinish} onOpenChange={(open) => !open && setPendingMatchFinish(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-black uppercase text-lg">Zero Score Confirmation</AlertDialogTitle>
+            <AlertDialogDescription className="font-bold">
+              The losing team has a score of 0. Is this correct?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setPendingMatchFinish(null)} className="font-black uppercase">Edit Score</Button>
+            <AlertDialogAction 
+              onClick={() => {
+                if (pendingMatchFinish) {
+                  completeMatch(
+                    pendingMatchFinish.courtId, 
+                    pendingMatchFinish.winner, 
+                    pendingMatchFinish.scoreA, 
+                    pendingMatchFinish.scoreB
+                  );
+                }
+              }}
+              className="bg-primary font-black uppercase"
+            >
+              Yes, Correct
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
