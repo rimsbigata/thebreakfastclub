@@ -12,6 +12,7 @@ interface ClubContextType {
   fees: Fee[];
   paymentMethods: PaymentMethod[];
   clubLogo: string | null;
+  defaultWinningScore: number;
   addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes' | 'lastAvailableAt'>) => void;
   updatePlayer: (id: string, updates: Partial<Player>) => void;
   deletePlayer: (id: string) => void;
@@ -29,6 +30,7 @@ interface ClubContextType {
   addPaymentMethod: (name: string, imageData: string) => void;
   deletePaymentMethod: (id: string) => void;
   setClubLogo: (imageUrl: string | null) => void;
+  setDefaultWinningScore: (score: number) => void;
   resetDailyBoard: () => void;
   wipeAllData: () => void;
   deleteMatch: (matchId: string) => void;
@@ -42,7 +44,8 @@ const STORAGE_KEYS = {
   MATCHES: 'tbc_matches',
   FEES: 'tbc_fees',
   PAYMENT_METHODS: 'tbc_payment_methods',
-  LOGO: 'tbc_logo'
+  LOGO: 'tbc_logo',
+  WINNING_SCORE: 'tbc_winning_score'
 };
 
 export function ClubProvider({ children }: { children: ReactNode }) {
@@ -52,6 +55,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [fees, setFees] = useState<Fee[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [clubLogo, setClubLogoState] = useState<string | null>(null);
+  const [defaultWinningScore, setDefaultWinningScoreState] = useState<number>(21);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -67,6 +71,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setFees(load(STORAGE_KEYS.FEES, []));
     setPaymentMethods(load(STORAGE_KEYS.PAYMENT_METHODS, []));
     setClubLogoState(localStorage.getItem(STORAGE_KEYS.LOGO));
+    setDefaultWinningScoreState(parseInt(localStorage.getItem(STORAGE_KEYS.WINNING_SCORE) || '21'));
     
     const timer = setTimeout(() => {
       setIsLoaded(true);
@@ -82,9 +87,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
     localStorage.setItem(STORAGE_KEYS.FEES, JSON.stringify(fees));
     localStorage.setItem(STORAGE_KEYS.PAYMENT_METHODS, JSON.stringify(paymentMethods));
+    localStorage.setItem(STORAGE_KEYS.WINNING_SCORE, defaultWinningScore.toString());
     if (clubLogo) localStorage.setItem(STORAGE_KEYS.LOGO, clubLogo);
     else localStorage.removeItem(STORAGE_KEYS.LOGO);
-  }, [players, courts, matches, fees, paymentMethods, clubLogo, isLoaded]);
+  }, [players, courts, matches, fees, paymentMethods, clubLogo, defaultWinningScore, isLoaded]);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -343,6 +349,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setClubLogoState(imageUrl);
   };
 
+  const setDefaultWinningScore = (score: number) => {
+    setDefaultWinningScoreState(score);
+  };
+
   const resetDailyBoard = () => {
     setMatches(prev => prev.map(m => !m.isCompleted ? { ...m, isCompleted: true, status: 'cancelled' } : m));
     setPlayers(prev => prev.map(p => ({
@@ -364,6 +374,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setFees([]);
     setPaymentMethods([]);
     setClubLogoState(null);
+    setDefaultWinningScoreState(21);
     localStorage.clear();
   };
 
@@ -373,10 +384,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   return (
     <ClubContext.Provider value={{
-      players, courts, matches, fees, paymentMethods, clubLogo,
+      players, courts, matches, fees, paymentMethods, clubLogo, defaultWinningScore,
       addPlayer, updatePlayer, deletePlayer, addCourt, deleteCourt,
       startMatch, startTimer, updateMatchScore, endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch, updateFee, togglePayment,
-      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, deleteMatch
+      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, deleteMatch, setDefaultWinningScore
     }}>
       {children}
     </ClubContext.Provider>

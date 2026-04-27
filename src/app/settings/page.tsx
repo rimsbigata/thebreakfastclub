@@ -9,12 +9,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
 export default function SettingsPage() {
-  const { paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, clubLogo } = useClub();
+  const { 
+    paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard, 
+    wipeAllData, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore 
+  } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -156,6 +159,27 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <Trophy className="h-4 w-4" /> Gameplay Rules
+              </CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase">Define scoring defaults.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Default Winning Score</Label>
+                <Input 
+                  type="number" 
+                  value={defaultWinningScore} 
+                  onChange={(e) => setDefaultWinningScore(parseInt(e.target.value) || 21)}
+                  className="font-black text-lg h-12"
+                />
+                <p className="text-[9px] text-muted-foreground uppercase font-bold">This score is automatically applied when marking a winner.</p>
               </div>
             </CardContent>
           </Card>
