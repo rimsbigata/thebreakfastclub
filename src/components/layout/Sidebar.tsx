@@ -94,6 +94,8 @@ export function Sidebar() {
         </SidebarMenu>
       </SidebarContent>
       
+      <SidebarSeparator />
+
       <SidebarFooter className="p-2 flex items-center justify-center">
         <SidebarTrigger className="h-8 w-8 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all" />
       </SidebarFooter>

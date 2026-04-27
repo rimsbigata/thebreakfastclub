@@ -29,14 +29,21 @@ export function SplashScreen({ logo }: SplashScreenProps) {
       <div className="relative mb-8 flex flex-col items-center">
         <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl flex items-center justify-center">
           {logo ? (
-            <Image 
+            <img 
               src={logo} 
               alt="Club Logo" 
-              fill 
-              className="object-cover"
+              className="object-cover h-full w-full"
             />
           ) : (
-            <Activity className="h-16 w-16 text-white opacity-80" />
+            <div className="relative h-full w-full flex items-center justify-center">
+               <img 
+                  src="/logo.png" 
+                  alt="Logo" 
+                  className="object-cover h-full w-full absolute inset-0"
+                  onError={(e) => (e.currentTarget.style.display = 'none')}
+               />
+               <Activity className="h-16 w-16 text-white opacity-80" />
+            </div>
           )}
         </div>
         <div className="absolute -bottom-2 bg-white text-[#f76a01] px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
