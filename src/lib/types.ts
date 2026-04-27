@@ -1,28 +1,35 @@
 
 export type PlayerStatus = 'available' | 'playing' | 'resting';
 export type CourtStatus = 'available' | 'occupied';
+export type MatchStatus = 'ongoing' | 'completed' | 'cancelled';
 
 export const SKILL_LEVELS: Record<number, string> = {
-  1: "Beginner",
-  2: "Advanced Beginner",
-  3: "Low Intermediate",
-  4: "Mid Intermediate",
-  5: "Upper Intermediate",
-  6: "Advanced",
-  7: "Expert",
+  1: "Beg",
+  2: "Adv Beg",
+  3: "Int",
+  4: "Int",
+  5: "Int",
+  6: "Adv",
+  7: "Adv",
 };
+
+export interface PlayerSnapshot {
+  id: string;
+  name: string;
+  skillLevel: number;
+}
 
 export interface Player {
   id: string;
   name: string;
-  skillLevel: number; // 1 to 7
+  skillLevel: number; 
   wins: number;
   gamesPlayed: number;
-  partnerHistory: string[]; // IDs of recent partners
+  partnerHistory: string[]; 
   status: PlayerStatus;
   improvementScore: number;
   totalPlayTimeMinutes: number;
-  lastAvailableAt?: number; // Timestamp for FIFO queue
+  lastAvailableAt?: number; 
 }
 
 export interface Court {
@@ -33,15 +40,19 @@ export interface Court {
 }
 
 export interface Match {
-  teamAScore?: number;
-  teamBScore?: number;
   id: string;
   teamA: string[]; 
   teamB: string[]; 
-  courtId?: string; // Optional for waiting matches
+  teamASnapshots?: PlayerSnapshot[];
+  teamBSnapshots?: PlayerSnapshot[];
+  teamAScore?: number;
+  teamBScore?: number;
+  courtId?: string; 
   timestamp: string; 
   startTime?: string; 
+  endTime?: string;
   isCompleted: boolean;
+  status: MatchStatus;
   winner?: 'teamA' | 'teamB' | null;
 }
 

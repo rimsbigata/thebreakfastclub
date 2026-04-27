@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Player, Court, Match, Fee, PaymentMethod } from '@/lib/types';
+import { Player, Court, Match, Fee, PaymentMethod, MatchStatus, PlayerSnapshot } from '@/lib/types';
 import { SplashScreen } from '@/components/layout/SplashScreen';
 
 interface ClubContextType {
@@ -12,15 +12,15 @@ interface ClubContextType {
   fees: Fee[];
   paymentMethods: PaymentMethod[];
   clubLogo: string | null;
-  courtCapacity: number;
   addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes' | 'lastAvailableAt'>) => void;
   updatePlayer: (id: string, updates: Partial<Player>) => void;
   deletePlayer: (id: string) => void;
   addCourt: (name?: string) => string;
   deleteCourt: (id: string) => void;
-  startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted'>) => void;
+  startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted' | 'status' | 'teamASnapshots' | 'teamBSnapshots'>) => void;
   startTimer: (courtId: string) => void;
-  endMatch: (courtId: string, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => void;
+  updateMatchScore: (matchId: string, teamAScore: number, teamBScore: number) => void;
+  endMatch: (courtId: string, status: MatchStatus, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => void;
   swapPlayer: (matchId: string, oldPlayerId: string, newPlayerId: string) => void;
   assignMatchToCourt: (matchId: string, courtId: string) => void;
   createCourtAndAssignMatch: (matchId: string) => void;
@@ -31,7 +31,6 @@ interface ClubContextType {
   setClubLogo: (imageUrl: string | null) => void;
   resetDailyBoard: () => void;
   wipeAllData: () => void;
-  setCourtCapacity: (capacity: number) => void;
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -42,8 +41,7 @@ const STORAGE_KEYS = {
   MATCHES: 'tbc_matches',
   FEES: 'tbc_fees',
   PAYMENT_METHODS: 'tbc_payment_methods',
-  LOGO: 'tbc_logo',
-  CAPACITY: 'tbc_court_capacity'
+  LOGO: 'tbc_logo'
 };
 
 export function ClubProvider({ children }: { children: ReactNode }) {
@@ -53,7 +51,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [fees, setFees] = useState<Fee[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [clubLogo, setClubLogoState] = useState<string | null>(null);
-  const [courtCapacity, setCourtCapacityState] = useState<number>(4);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -69,7 +66,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setFees(load(STORAGE_KEYS.FEES, []));
     setPaymentMethods(load(STORAGE_KEYS.PAYMENT_METHODS, []));
     setClubLogoState(localStorage.getItem(STORAGE_KEYS.LOGO));
-    setCourtCapacityState(Number(load(STORAGE_KEYS.CAPACITY, 4)));
     
     const timer = setTimeout(() => {
       setIsLoaded(true);
@@ -85,10 +81,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
     localStorage.setItem(STORAGE_KEYS.FEES, JSON.stringify(fees));
     localStorage.setItem(STORAGE_KEYS.PAYMENT_METHODS, JSON.stringify(paymentMethods));
-    localStorage.setItem(STORAGE_KEYS.CAPACITY, JSON.stringify(courtCapacity));
     if (clubLogo) localStorage.setItem(STORAGE_KEYS.LOGO, clubLogo);
     else localStorage.removeItem(STORAGE_KEYS.LOGO);
-  }, [players, courts, matches, fees, paymentMethods, clubLogo, courtCapacity, isLoaded]);
+  }, [players, courts, matches, fees, paymentMethods, clubLogo, isLoaded]);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -151,27 +146,33 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const newMatchId = generateId();
     let targetCourtId = matchData.courtId;
 
-    // If no court specified, check if we can auto-assign based on capacity
+    // Capacity logic: If no court provided, check if any available
     if (!targetCourtId) {
-      const occupiedCount = courts.filter(c => c.status === 'occupied').length;
-      if (occupiedCount < courtCapacity) {
-        // Try to find an existing available court first
-        const availableCourt = courts.find(c => c.status === 'available');
-        if (availableCourt) {
-          targetCourtId = availableCourt.id;
-        } else if (courts.length < courtCapacity) {
-          // If no available court but under capacity, create one
-          targetCourtId = addCourt();
-        }
+      const availableCourt = courts.find(c => c.status === 'available');
+      if (availableCourt) {
+        targetCourtId = availableCourt.id;
       }
     }
+
+    const teamASnapshots: PlayerSnapshot[] = matchData.teamA.map((id: string) => {
+      const p = players.find(player => player.id === id);
+      return { id, name: p?.name || 'Unknown', skillLevel: p?.skillLevel || 3 };
+    });
+
+    const teamBSnapshots: PlayerSnapshot[] = matchData.teamB.map((id: string) => {
+      const p = players.find(player => player.id === id);
+      return { id, name: p?.name || 'Unknown', skillLevel: p?.skillLevel || 3 };
+    });
 
     const newMatch: Match = {
       ...matchData,
       id: newMatchId,
       courtId: targetCourtId,
+      teamASnapshots,
+      teamBSnapshots,
       timestamp: new Date().toISOString(),
-      isCompleted: false
+      isCompleted: false,
+      status: 'ongoing'
     };
 
     setMatches(prev => [newMatch, ...prev]);
@@ -186,9 +187,93 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
     setPlayers(prev => prev.map(p => 
       [...matchData.teamA, ...matchData.teamB].includes(p.id)
-        ? { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1, lastAvailableAt: undefined }
+        ? { ...p, status: 'playing', lastAvailableAt: undefined }
         : p
     ));
+  };
+
+  const updateMatchScore = (matchId: string, teamAScore: number, teamBScore: number) => {
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, teamAScore, teamBScore } : m));
+  };
+
+  const endMatch = (courtId: string, status: MatchStatus, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => {
+    const court = courts.find(c => c.id === courtId);
+    if (!court?.currentMatchId) return;
+
+    const match = matches.find(m => m.id === court.currentMatchId);
+    if (!match) return;
+
+    const startTime = match.startTime ? new Date(match.startTime) : null;
+    const playDuration = startTime ? Math.floor((Date.now() - startTime.getTime()) / 60000) : 0;
+
+    setMatches(prev => prev.map(m => 
+      m.id === court.currentMatchId 
+        ? { ...m, isCompleted: status === 'completed', status, winner, teamAScore, teamBScore, endTime: new Date().toISOString() } 
+        : m
+    ));
+
+    setCourts(prev => prev.map(c => 
+      c.id === courtId ? { ...c, status: 'available', currentMatchId: null } : c
+    ));
+
+    setPlayers(prev => prev.map(p => {
+      if (![...match.teamA, ...match.teamB].includes(p.id)) return p;
+
+      if (status === 'cancelled') {
+        return { ...p, status: 'available', lastAvailableAt: Date.now() };
+      }
+
+      const isTeamA = match.teamA.includes(p.id);
+      const partnerId = isTeamA ? match.teamA.find(id => id !== p.id) : match.teamB.find(id => id !== p.id);
+      const newHistory = partnerId ? [partnerId, ...p.partnerHistory].slice(0, 5) : p.partnerHistory;
+      
+      let won = false;
+      if (winner) {
+        won = (winner === 'teamA' && isTeamA) || (winner === 'teamB' && !isTeamA);
+      } else if (teamAScore !== undefined && teamBScore !== undefined) {
+        won = (teamAScore > teamBScore && isTeamA) || (teamBScore > teamAScore && !isTeamA);
+      }
+
+      return {
+        ...p,
+        status: 'available',
+        lastAvailableAt: Date.now(),
+        wins: (p.wins || 0) + (won ? 1 : 0),
+        gamesPlayed: (p.gamesPlayed || 0) + 1,
+        partnerHistory: newHistory,
+        improvementScore: Math.max(0, (p.improvementScore || 0) + (won ? 5 : -2)),
+        totalPlayTimeMinutes: (p.totalPlayTimeMinutes || 0) + playDuration
+      };
+    }));
+  };
+
+  const swapPlayer = (matchId: string, oldPlayerId: string, newPlayerId: string) => {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    const p = players.find(player => player.id === newPlayerId);
+    const newSnapshot = { id: newPlayerId, name: p?.name || 'Unknown', skillLevel: p?.skillLevel || 3 };
+
+    const isTeamA = match.teamA.includes(oldPlayerId);
+    const newTeamA = isTeamA ? match.teamA.map(id => id === oldPlayerId ? newPlayerId : id) : match.teamA;
+    const newTeamB = !isTeamA ? match.teamB.map(id => id === oldPlayerId ? newPlayerId : id) : match.teamB;
+
+    const newTeamASnapshots = isTeamA ? match.teamASnapshots?.map(s => s.id === oldPlayerId ? newSnapshot : s) : match.teamASnapshots;
+    const newTeamBSnapshots = !isTeamA ? match.teamBSnapshots?.map(s => s.id === oldPlayerId ? newSnapshot : s) : match.teamBSnapshots;
+
+    setMatches(prev => prev.map(m => m.id === matchId ? { 
+      ...m, 
+      teamA: newTeamA, 
+      teamB: newTeamB, 
+      teamASnapshots: newTeamASnapshots, 
+      teamBSnapshots: newTeamBSnapshots 
+    } : m));
+    
+    setPlayers(prev => prev.map(p => {
+      if (p.id === oldPlayerId) return { ...p, status: 'available', lastAvailableAt: Date.now() };
+      if (p.id === newPlayerId) return { ...p, status: 'playing', lastAvailableAt: undefined };
+      return p;
+    }));
   };
 
   const assignMatchToCourt = (matchId: string, courtId: string) => {
@@ -201,21 +286,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const createCourtAndAssignMatch = (matchId: string) => {
-    const courtNumbers = courts
-      .map(c => parseInt(c.name.replace('Court ', '')))
-      .filter(n => !isNaN(n));
-    const nextNum = courtNumbers.length > 0 ? Math.max(...courtNumbers) + 1 : 1;
-    
-    const newCourtId = generateId();
-    const newCourt: Court = {
-      id: newCourtId,
-      name: `Court ${nextNum}`,
-      status: 'occupied',
-      currentMatchId: matchId
-    };
-
-    setCourts(prev => [...prev, newCourt]);
-    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, courtId: newCourtId } : m));
+    const newCourtId = addCourt();
+    assignMatchToCourt(matchId, newCourtId);
   };
 
   const startTimer = (courtId: string) => {
@@ -227,67 +299,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
           : m
       ));
     }
-  };
-
-  const endMatch = (courtId: string, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => {
-    const court = courts.find(c => c.id === courtId);
-    if (!court?.currentMatchId) return;
-
-    const match = matches.find(m => m.id === court.currentMatchId);
-    if (!match) return;
-
-    const startTime = match.startTime ? new Date(match.startTime) : null;
-    const playDuration = startTime ? Math.floor((Date.now() - startTime.getTime()) / 60000) : 0;
-
-    setMatches(prev => prev.map(m => 
-      m.id === court.currentMatchId 
-        ? { ...m, isCompleted: true, winner, teamAScore, teamBScore } 
-        : m
-    ));
-
-    setCourts(prev => prev.map(c => 
-      c.id === courtId ? { ...c, status: 'available', currentMatchId: null } : c
-    ));
-
-    setPlayers(prev => prev.map(p => {
-      if (![...match.teamA, ...match.teamB].includes(p.id)) return p;
-
-      const isTeamA = match.teamA.includes(p.id);
-      const partnerId = isTeamA ? match.teamA.find(id => id !== p.id) : match.teamB.find(id => id !== p.id);
-      const newHistory = partnerId ? [partnerId, ...p.partnerHistory].slice(0, 5) : p.partnerHistory;
-      
-      let won = false;
-      if (winner) {
-        won = (winner === 'teamA' && isTeamA) || (winner === 'teamB' && !isTeamA);
-      }
-
-      return {
-        ...p,
-        status: 'available',
-        lastAvailableAt: Date.now(),
-        wins: won ? (p.wins || 0) + 1 : (p.wins || 0),
-        partnerHistory: newHistory,
-        improvementScore: Math.max(0, (p.improvementScore || 0) + (won ? 5 : -2)),
-        totalPlayTimeMinutes: (p.totalPlayTimeMinutes || 0) + playDuration
-      };
-    }));
-  };
-
-  const swapPlayer = (matchId: string, oldPlayerId: string, newPlayerId: string) => {
-    const match = matches.find(m => m.id === matchId);
-    if (!match) return;
-
-    const isTeamA = match.teamA.includes(oldPlayerId);
-    const newTeamA = isTeamA ? match.teamA.map(id => id === oldPlayerId ? newPlayerId : id) : match.teamA;
-    const newTeamB = !isTeamA ? match.teamB.map(id => id === oldPlayerId ? newPlayerId : id) : match.teamB;
-
-    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, teamA: newTeamA, teamB: newTeamB } : m));
-    
-    setPlayers(prev => prev.map(p => {
-      if (p.id === oldPlayerId) return { ...p, status: 'available', lastAvailableAt: Date.now() };
-      if (p.id === newPlayerId) return { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1, lastAvailableAt: undefined };
-      return p;
-    }));
   };
 
   const updateFee = (data: any) => {
@@ -320,12 +331,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setClubLogoState(imageUrl);
   };
 
-  const setCourtCapacity = (capacity: number) => {
-    setCourtCapacityState(capacity);
-  };
-
   const resetDailyBoard = () => {
-    setMatches(prev => prev.map(m => !m.isCompleted ? { ...m, isCompleted: true, winner: null } : m));
+    setMatches(prev => prev.map(m => !m.isCompleted ? { ...m, isCompleted: true, status: 'cancelled' } : m));
     setPlayers(prev => prev.map(p => ({
       ...p,
       status: 'available',
@@ -345,7 +352,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setFees([]);
     setPaymentMethods([]);
     setClubLogoState(null);
-    setCourtCapacityState(4);
     localStorage.clear();
   };
 
@@ -355,10 +361,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   return (
     <ClubContext.Provider value={{
-      players, courts, matches, fees, paymentMethods, clubLogo, courtCapacity,
+      players, courts, matches, fees, paymentMethods, clubLogo,
       addPlayer, updatePlayer, deletePlayer, addCourt, deleteCourt,
-      startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch, updateFee, togglePayment,
-      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, setCourtCapacity
+      startMatch, startTimer, updateMatchScore, endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch, updateFee, togglePayment,
+      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo
     }}>
       {children}
     </ClubContext.Provider>
