@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered, X, CheckCircle2, Ban, Trophy } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered, X, CheckCircle2, Ban, Trophy, ListFilter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -71,6 +72,8 @@ export default function HomePage() {
   const [isQueueOver, setIsQueueOver] = useState(false);
   const [overCourtId, setOverCourtId] = useState<string | null>(null);
   const [isCourtPanelOver, setIsCourtPanelOver] = useState(false);
+  
+  const [sortOption, setSortOption] = useState<string>('default');
 
   useEffect(() => {
     setMounted(true);
@@ -81,9 +84,31 @@ export default function HomePage() {
     ...Object.values(courtDrafts).flat()
   ];
 
-  const availablePlayers = players
-    .filter(p => p.status === 'available' && !allDraftedIds.includes(p.id))
-    .sort((a, b) => (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0));
+  const sortedAvailablePlayers = useMemo(() => {
+    return players
+      .filter(p => p.status === 'available' && !allDraftedIds.includes(p.id))
+      .sort((a, b) => {
+        let result = 0;
+        switch (sortOption) {
+          case 'skill-asc':
+            result = a.skillLevel - b.skillLevel;
+            break;
+          case 'skill-desc':
+            result = b.skillLevel - a.skillLevel;
+            break;
+          case 'name-asc':
+            result = a.name.localeCompare(b.name);
+            break;
+          case 'name-desc':
+            result = b.name.localeCompare(a.name);
+            break;
+          default:
+            result = 0;
+        }
+        // Stable sort: tie-breaker is always FIFO (wait time)
+        return result || (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0);
+      });
+  }, [players, allDraftedIds, sortOption]);
   
   const waitingMatches = matches.filter(m => !m.isCompleted && !m.courtId);
 
@@ -185,15 +210,30 @@ export default function HomePage() {
         
         {/* THE BENCH */}
         <div className="md:col-span-3 border-r flex flex-col min-h-0 bg-secondary/5">
-          <div className="p-4 bg-card border-b flex items-center justify-between sticky top-0 z-10">
-            <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+          <div className="p-4 bg-card border-b flex items-center justify-between sticky top-0 z-10 gap-2">
+            <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 shrink-0">
               <User className="h-5 w-5 text-primary" /> The Bench
             </h2>
-            <Badge variant="outline" className="font-black h-6 px-3 text-sm">{availablePlayers.length}</Badge>
+            <div className="flex items-center gap-2 overflow-hidden">
+              <Select value={sortOption} onValueChange={setSortOption}>
+                <SelectTrigger className="h-8 text-[10px] font-black uppercase tracking-widest border-2 w-[120px] bg-background">
+                  <ListFilter className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default" className="text-[10px] font-bold uppercase">Default (Queue)</SelectItem>
+                  <SelectItem value="skill-asc" className="text-[10px] font-bold uppercase">Skill (Low-High)</SelectItem>
+                  <SelectItem value="skill-desc" className="text-[10px] font-bold uppercase">Skill (High-Low)</SelectItem>
+                  <SelectItem value="name-asc" className="text-[10px] font-bold uppercase">Name (A-Z)</SelectItem>
+                  <SelectItem value="name-desc" className="text-[10px] font-bold uppercase">Name (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Badge variant="outline" className="font-black h-8 px-2.5 text-xs shrink-0">{sortedAvailablePlayers.length}</Badge>
+            </div>
           </div>
           <ScrollArea className="flex-1">
             <div className="p-3 grid grid-cols-2 gap-3 pb-24">
-              {availablePlayers.map((player) => (
+              {sortedAvailablePlayers.map((player) => (
                 <Card 
                   key={player.id} 
                   draggable 
@@ -212,7 +252,7 @@ export default function HomePage() {
                   </div>
                 </Card>
               ))}
-              {availablePlayers.length === 0 && (
+              {sortedAvailablePlayers.length === 0 && (
                 <div className="col-span-2 py-32 text-center text-muted-foreground text-base font-bold italic opacity-30">The bench is empty</div>
               )}
             </div>
