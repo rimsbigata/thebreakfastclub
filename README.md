@@ -4,41 +4,46 @@ A professional-grade badminton club management application built with **Next.js 
 
 ## 🚀 Key Features
 
-### 🏟️ Live Dashboard
-- **Real-time Court Status**: Monitor active matches and available courts.
-- **Match Timers**: Track live play duration for every court.
-- **Live Player Swapping**: Replace any player in an active match with someone from the queue without stopping the game.
-- **Quick Match**: Instant matchmaking with one click.
-- **Waiting Match Queue**: Create matches even when courts are busy and assign them later.
+### 🏟️ Live Command Center
+- **Real-time Court Status**: Monitor active matches and available courts with high-visibility indicators.
+- **Automated Match Flow (Auto-Advance)**: When a match completes, the system automatically pulls the next game from the queue (#1 FIFO) onto the court.
+- **Match Timers**: Track live play duration for every court to manage session rotations.
+- **Live Player Swapping**: Replace any player in an active match with someone from the bench instantly.
+- **Tournament-Grade Scoring**: 
+  - **Live Score Tracking**: Large, tactile inputs for real-time updates.
+  - **Win-by-2 Logic**: Automatically enforces standard badminton deuce rules.
+  - **Zero-Score Safety**: Confirmation prompts to prevent accidental "0" score entries.
+  - **Winner Shortcut**: One-tap "T1 Win" or "T2 Win" buttons with automated score assignment.
 
 ### 🧠 Matchmaking Engine (Pure Logic)
-Unlike simple FIFO systems, our deterministic engine ensures fair and socially diverse games:
-- **Priority Selection**: Always picks players based on the fewest games played today, using **Bench Time** as the primary tie-breaker.
-- **Skill Balancing**: Minimizes the skill gap between teams.
-- **Social Variety (Repeat Partner Penalty)**: Strictly discourages repeat partnerships.
+Our deterministic engine ensures fair and socially diverse games:
+- **Priority Selection**: Always picks players based on the fewest games played today, using **Wait Time** as the primary tie-breaker.
+- **Skill Balancing**: Minimizes the skill gap between teams while respecting partner history.
+- **Social Variety (Repeat Partner Penalty)**:
   - **100pt Penalty** if players were partners in the immediate last game.
   - **25pt Penalty** if they were partners 2 games ago.
 
-### 🏆 Daily Rankings & Players
-- **Win Rate Leaderboard**: Rankings are calculated daily based on `Wins / Games Played`.
-- **Skill Tracking**: Player levels range from `1 - Novice` to `7 - Elite`.
-- **Roster Management**: Easily add, edit, or remove players from the club database.
+### 🏆 Player Roster & Rankings
+- **High-Contrast Skill Tiers**: 7-level system (1-Beginner to 7-Expert) with accessible, theme-aware color coding.
+- **Win Rate Leaderboard**: Rankings calculated daily and monthly based on `Wins`, `Win Rate`, and `Point Difference`.
+- **Bench Management**: Sorting options for the bench (Skill, Name, Wait Time) without breaking FIFO priority.
 
 ### 💰 Financials & Fees
 - **Daily Split Calculator**: Enter shuttle, court, and entry fees to automatically calculate the per-player split.
-- **Payment Tracking**: Mark players as "Paid" or "Pending" in real-time.
-- **QR Code Payments**: Upload your club's GCash, Maya, or Bank QR codes in Settings.
+- **Payment Tracking**: Real-time roster to mark players as "Paid" or "Pending".
+- **QR Code Payments**: Manage and display multiple QR codes (GCash, Maya, Bank) for quick club settlements.
 
-### 🎨 Customization
-- **Club Branding**: Upload your club's official logo in Settings.
-- **Appearance**: Full support for **Light Mode** and **Dark Mode**.
+### 🎨 Design & UX
+- **Responsive Fluid Typography**: Uses CSS `clamp()` to ensure perfect readability from mobile to large command center displays.
+- **Dark Mode Support**: Full theme awareness with high-contrast UI and desaturated colors for low-light court environments.
+- **Branding**: Customizable club logo and default winning scores.
 
 ## 🛠️ Tech Stack
 - **Framework**: Next.js 15 (App Router)
 - **Styling**: Tailwind CSS + ShadCN UI
-- **Storage**: Browser LocalStorage (Real-time reactive state)
+- **Storage**: Real-time LocalStorage persistence with Firebase integration.
 - **Icons**: Lucide React
-- **Animations**: Tailwind CSS Animate
+- **Animations**: Tailwind CSS Animate + Custom Transitions
 
 ---
 *Built with ❤️ for TheBreakfastClub Badminton Community.*
