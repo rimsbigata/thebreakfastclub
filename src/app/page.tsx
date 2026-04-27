@@ -9,12 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check, ListOrdered, User } from 'lucide-react';
+import { Plus, Trophy, Trash2, Timer, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check, ListOrdered, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
-import { SKILL_LEVELS } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
@@ -65,7 +64,6 @@ export default function HomePage() {
   const [newCourtName, setNewCourtName] = useState('');
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
-  const [showWinButtons, setShowWinButtons] = useState<Record<string, boolean>>({});
   const [mounted, setMounted] = useState(false);
   const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
   
@@ -143,11 +141,22 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden animate-in fade-in duration-700">
-      {/* Dashboard Header */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 border-b bg-card shrink-0">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 shrink-0 rounded-lg overflow-hidden border-2 border-primary bg-primary/10 flex items-center justify-center md:hidden">
-            {clubLogo ? <img src={clubLogo} alt="TBC Logo" className="object-cover h-full w-full" /> : <Activity className="h-5 w-5 text-primary" />}
+            {clubLogo ? (
+              <img src={clubLogo} alt="TBC Logo" className="object-cover h-full w-full" />
+            ) : (
+              <div className="relative h-full w-full flex items-center justify-center">
+                 <img 
+                    src="/logo.png" 
+                    alt="Logo" 
+                    className="object-cover h-full w-full absolute inset-0"
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                 />
+                 <Activity className="h-5 w-5 text-primary" />
+              </div>
+            )}
           </div>
           <div>
             <h1 className="text-lg font-black uppercase tracking-tight leading-none">Command Center</h1>
@@ -226,10 +235,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Main Grid Area: Side-by-Side Panels */}
       <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 bg-secondary/5">
-        
-        {/* Column 1: The Bench (Available Players) */}
         <div className="md:col-span-2 border-r flex flex-col h-full overflow-hidden bg-background/50">
           <div className="p-2.5 bg-card border-b flex items-center justify-between sticky top-0 z-10">
             <h2 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><Users className="h-3 w-3 text-primary" /> The Bench</h2>
@@ -255,7 +261,6 @@ export default function HomePage() {
           </ScrollArea>
         </div>
 
-        {/* Column 2: Match Queue (Waiting for Courts) */}
         <div className="md:col-span-3 border-r flex flex-col h-full overflow-hidden bg-background/50">
           <div className="p-2.5 bg-card border-b flex items-center justify-between sticky top-0 z-10">
             <h2 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><ListOrdered className="h-3 w-3 text-orange-500" /> Queue</h2>
@@ -303,7 +308,6 @@ export default function HomePage() {
           </ScrollArea>
         </div>
 
-        {/* Column 3: Active Courts */}
         <div className="md:col-span-7 flex flex-col h-full overflow-hidden">
           <div className="p-2.5 bg-card border-b flex items-center justify-between sticky top-0 z-10">
             <h2 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><DoorOpen className="h-3 w-3 text-primary" /> Active Courts</h2>
@@ -335,7 +339,7 @@ export default function HomePage() {
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-4 w-4 text-muted-foreground hover:text-primary"
+                                className="h-4 w-4 text-muted-foreground hover:bg-primary hover:text-white"
                                 onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: activeMatch.teamA[0] })}
                               >
                                 <ArrowLeftRight className="h-2.5 w-2.5" />
@@ -391,7 +395,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Global Dialogs */}
       <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent><DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
           <ScrollArea className="h-[250px] p-2">

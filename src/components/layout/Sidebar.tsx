@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useClub } from '@/context/ClubContext';
 import {
@@ -44,7 +45,15 @@ export function Sidebar() {
                 className="object-cover h-full w-full"
               />
             ) : (
-              <Activity className="h-5 w-5 text-primary" />
+              <div className="relative h-full w-full flex items-center justify-center">
+                 <img 
+                    src="/logo.png" 
+                    alt="Logo" 
+                    className="object-cover h-full w-full absolute inset-0"
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                 />
+                 <Activity className="h-5 w-5 text-primary" />
+              </div>
             )}
           </div>
           {!isCollapsed && (

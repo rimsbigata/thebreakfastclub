@@ -14,9 +14,6 @@ import {
   setDoc, 
   query, 
   orderBy,
-  getFirestore,
-  Firestore,
-  serverTimestamp
 } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 
@@ -61,7 +58,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!firestore) return;
 
-    // Real-time listeners for all collections
     const unsubPlayers = onSnapshot(collection(firestore, 'players'), (snapshot) => {
       setPlayers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Player)));
     });
@@ -140,7 +136,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       const match = matches.find(m => m.id === court.currentMatchId);
       if (match) {
         [...match.teamA, ...match.teamB].forEach(pid => {
-          updatePlayer(pid, { status: 'available', lastAvailableAt: Date.now() });
+          updateDoc(doc(firestore, 'players', pid), { status: 'available', lastAvailableAt: Date.now() });
         });
       }
     }
@@ -288,8 +284,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const resetDailyBoard = () => {
-    // This would typically involve cloud functions for efficiency, 
-    // but for MVP we loop through local lists to trigger updates.
     matches.filter(m => !m.isCompleted).forEach(m => {
       updateDoc(doc(firestore, 'matches', m.id), { isCompleted: true, winner: null });
     });
@@ -309,8 +303,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const wipeAllData = () => {
-    // This requires administrative access or a specific wipe pattern.
-    // In Firestore, we'd delete the documents individually.
     players.forEach(p => deleteDoc(doc(firestore, 'players', p.id)));
     courts.forEach(c => deleteDoc(doc(firestore, 'courts', c.id)));
     matches.forEach(m => deleteDoc(doc(firestore, 'matches', m.id)));
