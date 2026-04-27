@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award, Clock, Timer, AlertCircle } from 'lucide-react';
+import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award, Clock, Timer } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { SKILL_LEVELS } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -223,7 +223,7 @@ export default function PlayersPage() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all active:scale-90"
+                  className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-white hover:bg-destructive transition-all active:scale-90"
                   onClick={() => deletePlayer(player.id)}
                 >
                   <Trash2 className="h-4 w-4" />

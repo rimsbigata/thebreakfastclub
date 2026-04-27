@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check, AlertCircle } from 'lucide-react';
+import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -169,7 +169,6 @@ export default function HomePage() {
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          {/* Logo hidden on desktop, visible on mobile */}
           <div className="relative h-16 w-16 rounded-lg overflow-hidden shadow-md md:hidden border-2 border-primary">
             <Image 
               src={tbcLogo} 
@@ -408,7 +407,7 @@ export default function HomePage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-6 w-6 text-muted-foreground hover:text-primary transition-all active:scale-90"
+                                  className="h-6 w-6 text-muted-foreground hover:bg-primary hover:text-white transition-all active:scale-90"
                                   onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
                                 >
                                   <ArrowLeftRight className="h-3 w-3" />
@@ -444,7 +443,7 @@ export default function HomePage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-6 w-6 text-muted-foreground hover:text-primary transition-all active:scale-90"
+                                  className="h-6 w-6 text-muted-foreground hover:bg-primary hover:text-white transition-all active:scale-90"
                                   onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
                                 >
                                   <ArrowLeftRight className="h-3 w-3" />
