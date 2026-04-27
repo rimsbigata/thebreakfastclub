@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check, ListOrdered } from 'lucide-react';
+import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check, ListOrdered, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -80,7 +80,8 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
-  const availablePlayersCount = players.filter(p => p.status === 'available').length;
+  const availablePlayers = players.filter(p => p.status === 'available').sort((a, b) => (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0));
+  const availablePlayersCount = availablePlayers.length;
   const occupiedCourtsCount = courts.filter(c => c.status === 'occupied').length;
   const waitingMatches = matches.filter(m => !m.isCompleted && !m.courtId);
   const availableCourts = courts.filter(c => c.status === 'available');
@@ -109,10 +110,10 @@ export default function HomePage() {
   };
 
   const handleAutoMatch = () => {
-    const availablePlayers = players.filter(p => p.status === 'available');
+    const availablePlayersList = players.filter(p => p.status === 'available');
     const availableCourtsList = courts.filter(c => c.status === 'available');
 
-    const result = generateDeterministicMatch(availablePlayers, availableCourtsList);
+    const result = generateDeterministicMatch(availablePlayersList, availableCourtsList);
 
     if (result.matchCreated && result.teamA && result.teamB) {
       startMatch({
@@ -176,11 +177,11 @@ export default function HomePage() {
           </div>
           <div>
             <h1 className="text-2xl font-black uppercase tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Live court status and deterministic matchmaking.</p>
+            <p className="text-sm text-muted-foreground">Unified Club Command Center</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Add Court Button */}
+          {/* Add Court Button restored */}
           <Dialog open={isAddCourtOpen} onOpenChange={setIsAddCourtOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95 shadow-sm">
@@ -252,9 +253,7 @@ export default function HomePage() {
                     <Badge variant="outline">{availablePlayersCount} Available</Badge>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[40vh] overflow-y-auto p-1 custom-scrollbar">
-                    {players
-                      .filter(p => p.status === 'available')
-                      .sort((a, b) => (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0))
+                    {availablePlayers
                       .map(player => {
                         const isSelected = selectedPlayerIds.includes(player.id);
                         return (
@@ -320,7 +319,7 @@ export default function HomePage() {
               <Activity className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-muted-foreground">In Queue</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">The Bench</p>
               <p className="text-2xl font-black">{availablePlayersCount}</p>
             </div>
           </CardContent>
@@ -331,7 +330,7 @@ export default function HomePage() {
               <ListOrdered className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Waiting Matches</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Match Queue</p>
               <p className="text-2xl font-black">{waitingMatches.length}</p>
             </div>
           </CardContent>
@@ -353,220 +352,269 @@ export default function HomePage() {
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Total Players</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Registered</p>
               <p className="text-2xl font-black">{players.length}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Waiting Matches Section */}
-      {waitingMatches.length > 0 && (
-        <section className="space-y-4 animate-in slide-in-from-top-4 duration-500">
-          <div className="flex items-center gap-2">
-            <ListOrdered className="h-5 w-5 text-orange-500" />
-            <h2 className="text-lg font-black uppercase tracking-tight">Waiting Match Queue</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {waitingMatches.map(match => {
-              const teamA = match.teamA.map(id => players.find(p => p.id === id)).filter(Boolean);
-              const teamB = match.teamB.map(id => players.find(p => p.id === id)).filter(Boolean);
-              return (
-                <Card key={match.id} className="border-orange-500/20 bg-orange-500/5 shadow-sm">
-                  <CardHeader className="p-4 flex flex-row justify-between items-center">
-                    <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-200 uppercase text-[10px]">Waiting for court</Badge>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button size="sm" variant="default" className="h-7 bg-orange-500 hover:bg-orange-600 text-[10px] font-bold uppercase gap-1" disabled={availableCourts.length === 0}>
-                           Assign Court
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader><DialogTitle>Assign Court to Waiting Match</DialogTitle></DialogHeader>
-                        <div className="space-y-4 py-4">
-                           <Label>Select an Available Court</Label>
-                           <div className="flex flex-wrap gap-2">
-                              {availableCourts.map(c => (
-                                <Button key={c.id} variant="outline" className="h-12 px-6" onClick={() => {
-                                  assignMatchToCourt(match.id, c.id);
-                                  toast({ title: "Match Assigned", description: `Assigned to ${c.name}` });
-                                }}>
-                                  {c.name}
-                                </Button>
-                              ))}
-                              {availableCourts.length === 0 && <p className="text-sm text-muted-foreground italic">No courts available yet.</p>}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left Column: Queue & Bench */}
+        <div className="lg:col-span-4 space-y-8">
+          {/* Section: The Bench (Available Players) */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" /> The Bench
+              </h2>
+              <Badge variant="outline" className="text-[10px]">{availablePlayersCount} Waiting</Badge>
+            </div>
+            <Card className="border-2 shadow-sm">
+              <CardContent className="p-0">
+                <div className="max-h-[500px] overflow-y-auto p-4 space-y-2 custom-scrollbar">
+                  {availablePlayers.map((player, idx) => (
+                    <div 
+                      key={player.id} 
+                      className="flex items-center justify-between p-3 border rounded-lg bg-background hover:border-primary/50 transition-all animate-in slide-in-from-left-4"
+                      style={{ animationDelay: `${idx * 50}ms` }}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm">{player.name}</span>
+                        <span className="text-[8px] uppercase font-black text-muted-foreground tracking-tighter">
+                          Lvl {player.skillLevel} • {player.gamesPlayed} Games
+                        </span>
+                      </div>
+                      <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
+                    </div>
+                  ))}
+                  {availablePlayers.length === 0 && (
+                    <div className="py-12 flex flex-col items-center justify-center text-muted-foreground italic text-xs gap-2">
+                      <User className="h-8 w-8 opacity-10" />
+                      No one on the bench.
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Section: Waiting Matches */}
+          {waitingMatches.length > 0 && (
+            <section className="space-y-4 animate-in slide-in-from-left-4 duration-500">
+              <div className="flex items-center gap-2">
+                <ListOrdered className="h-5 w-5 text-orange-500" />
+                <h2 className="text-lg font-black uppercase tracking-tight">Match Queue</h2>
+              </div>
+              <div className="space-y-3">
+                {waitingMatches.map(match => {
+                  const teamA = match.teamA.map(id => players.find(p => p.id === id)).filter(Boolean);
+                  const teamB = match.teamB.map(id => players.find(p => p.id === id)).filter(Boolean);
+                  return (
+                    <Card key={match.id} className="border-orange-500/20 bg-orange-500/5 shadow-sm">
+                      <CardHeader className="p-3 flex flex-row justify-between items-center bg-orange-500/10 border-b border-orange-500/10">
+                        <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-200 uppercase text-[8px] tracking-widest">Waiting for court</Badge>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="default" className="h-6 bg-orange-500 hover:bg-orange-600 text-[9px] font-bold uppercase gap-1" disabled={availableCourts.length === 0}>
+                               Assign
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader><DialogTitle>Assign Court to Waiting Match</DialogTitle></DialogHeader>
+                            <div className="space-y-4 py-4">
+                               <Label>Select an Available Court</Label>
+                               <div className="flex flex-wrap gap-2">
+                                  {availableCourts.map(c => (
+                                    <Button key={c.id} variant="outline" className="h-12 px-6" onClick={() => {
+                                      assignMatchToCourt(match.id, c.id);
+                                      toast({ title: "Match Assigned", description: `Assigned to ${c.name}` });
+                                    }}>
+                                      {c.name}
+                                    </Button>
+                                  ))}
+                                  {availableCourts.length === 0 && <p className="text-sm text-muted-foreground italic">No courts available yet.</p>}
+                               </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </CardHeader>
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center justify-between text-[11px] font-bold">
+                           <div className="flex flex-col">
+                              {teamA.map(p => <span key={p?.id}>{p?.name}</span>)}
+                           </div>
+                           <span className="text-muted-foreground italic px-2">vs</span>
+                           <div className="flex flex-col text-right">
+                              {teamB.map(p => <span key={p?.id}>{p?.name}</span>)}
                            </div>
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 space-y-3">
-                    <div className="flex items-center justify-between text-[11px] font-bold">
-                       <div className="flex flex-col">
-                          {teamA.map(p => <span key={p?.id}>{p?.name}</span>)}
-                       </div>
-                       <span className="text-muted-foreground italic">vs</span>
-                       <div className="flex flex-col text-right">
-                          {teamB.map(p => <span key={p?.id}>{p?.name}</span>)}
-                       </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Right Column: Active Courts */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+              <DoorOpen className="h-5 w-5 text-primary" /> Active Courts
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {courts.map(court => {
+              const activeMatch = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
+              const teamAPlayers = activeMatch?.teamA.map(id => players.find(p => p.id === id)).filter(Boolean);
+              const teamBPlayers = activeMatch?.teamB.map(id => players.find(p => p.id === id)).filter(Boolean);
+              const isTimerRunning = !!activeMatch?.startTime;
+
+              return (
+                <Card key={court.id} className="border-2 shadow-sm relative group overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary/30">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-secondary/10">
+                    <div className="space-y-1">
+                      <CardTitle className="text-lg font-black uppercase tracking-tight">{court.name}</CardTitle>
+                      {court.status === 'occupied' && isTimerRunning && (
+                        <LiveTimer startTime={activeMatch?.startTime} />
+                      )}
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90"
+                        onClick={() => deleteCourt(court.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={cn(
+                        "font-black tracking-widest text-[10px]",
+                        court.status === 'available' ? 'text-green-600 border-green-200 bg-green-500/5' : 'bg-primary'
+                      )}>
+                        {court.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    {court.status === 'occupied' && activeMatch ? (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-3 relative">
+                            <div className="flex justify-between items-center">
+                              <p className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</p>
+                              {(isTimerRunning || showWinButtons[court.id]) && (
+                                <Button 
+                                  variant="secondary" 
+                                  size="sm" 
+                                  className="h-7 px-2 text-[10px] font-black uppercase gap-1 hover:bg-primary hover:text-white transition-all active:scale-95"
+                                  onClick={() => endMatch(court.id, 'teamA')}
+                                >
+                                  <CheckCircle2 className="h-3 w-3" /> Win
+                                </Button>
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              {teamAPlayers?.map(p => (
+                                <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-primary/10">
+                                  <div className="flex flex-col">
+                                    <span>{p?.name}</span>
+                                    <span className="text-[8px] uppercase text-muted-foreground tracking-tighter">{p?.skillLevel} - {SKILL_LEVELS[p?.skillLevel!]}</span>
+                                  </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 text-muted-foreground hover:bg-primary hover:text-white transition-all active:scale-90"
+                                    onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
+                                  >
+                                    <ArrowLeftRight className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-center -my-2 relative">
+                            <div className="bg-background px-3 py-1 border rounded-full text-[10px] font-black text-muted-foreground italic z-10 shadow-sm">VS</div>
+                          </div>
+                          <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-3 relative">
+                            <div className="flex justify-between items-center">
+                              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
+                              {(isTimerRunning || showWinButtons[court.id]) && (
+                                <Button 
+                                  variant="secondary" 
+                                  size="sm" 
+                                  className="h-7 px-2 text-[10px] font-black uppercase gap-1 hover:bg-primary hover:text-white transition-all active:scale-95"
+                                  onClick={() => endMatch(court.id, 'teamB')}
+                                >
+                                  <CheckCircle2 className="h-3 w-3" /> Win
+                                </Button>
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              {teamBPlayers?.map(p => (
+                                <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-muted/20">
+                                  <div className="flex flex-col">
+                                    <span>{p?.name}</span>
+                                    <span className="text-[8px] uppercase text-muted-foreground tracking-tighter">{p?.skillLevel} - {SKILL_LEVELS[p?.skillLevel!]}</span>
+                                  </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 text-muted-foreground hover:bg-primary hover:text-white transition-all active:scale-90"
+                                    onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
+                                  >
+                                    <ArrowLeftRight className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-xl bg-secondary/5 transition-all hover:bg-secondary/10">
+                         <Trophy className="h-8 w-8 text-muted-foreground/20 mb-3" />
+                         <p className="text-sm font-bold text-muted-foreground italic">Available for Matching</p>
+                      </div>
+                    )}
                   </CardContent>
+                  <CardFooter className="flex justify-end gap-2 border-t pt-4 bg-secondary/5">
+                     {court.status === 'occupied' ? (
+                        <div className="flex items-center gap-2 w-full justify-between">
+                          {!isTimerRunning ? (
+                            <Button 
+                              onClick={() => startTimer(court.id)} 
+                              className="w-full gap-2 bg-green-600 hover:bg-green-700 h-10 font-bold uppercase transition-all hover:scale-[1.02] active:scale-95 shadow-md shadow-green-500/10"
+                            >
+                              <Play className="h-4 w-4" /> Start Match
+                            </Button>
+                          ) : (
+                            <>
+                              <p className="text-[10px] font-black uppercase text-primary animate-pulse tracking-widest flex items-center gap-1">
+                                 <Activity className="h-3 w-3" /> Match In Progress
+                              </p>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setScoringCourtId(court.id)}
+                                className="text-xs font-bold uppercase transition-all hover:bg-primary hover:text-white"
+                              >
+                                End Match
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                     ) : (
+                       <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Court Idle</p>
+                     )}
+                  </CardFooter>
                 </Card>
               );
             })}
           </div>
-        </section>
-      )}
-
-      {/* Courts Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {courts.map(court => {
-          const activeMatch = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
-          const teamAPlayers = activeMatch?.teamA.map(id => players.find(p => p.id === id)).filter(Boolean);
-          const teamBPlayers = activeMatch?.teamB.map(id => players.find(p => p.id === id)).filter(Boolean);
-          const isTimerRunning = !!activeMatch?.startTime;
-
-          return (
-            <Card key={court.id} className="border-2 shadow-sm relative group overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-secondary/10">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg font-black uppercase tracking-tight">{court.name}</CardTitle>
-                  {court.status === 'occupied' && isTimerRunning && (
-                    <LiveTimer startTime={activeMatch?.startTime} />
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90"
-                    onClick={() => deleteCourt(court.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                  <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={cn(
-                    "font-black tracking-widest text-[10px]",
-                    court.status === 'available' ? 'text-green-600 border-green-200 bg-green-500/5' : 'bg-primary'
-                  )}>
-                    {court.status.toUpperCase()}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                {court.status === 'occupied' && activeMatch ? (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 gap-4">
-                      <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-3 relative">
-                        <div className="flex justify-between items-center">
-                          <p className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</p>
-                          {(isTimerRunning || showWinButtons[court.id]) && (
-                            <Button 
-                              variant="secondary" 
-                              size="sm" 
-                              className="h-7 px-2 text-[10px] font-black uppercase gap-1 hover:bg-primary hover:text-white transition-all active:scale-95"
-                              onClick={() => endMatch(court.id, 'teamA')}
-                            >
-                              <CheckCircle2 className="h-3 w-3" /> Win
-                            </Button>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          {teamAPlayers?.map(p => (
-                            <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-primary/10">
-                              <div className="flex flex-col">
-                                <span>{p?.name}</span>
-                                <span className="text-[8px] uppercase text-muted-foreground tracking-tighter">{p?.skillLevel} - {SKILL_LEVELS[p?.skillLevel!]}</span>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 text-muted-foreground hover:bg-primary hover:text-white transition-all active:scale-90"
-                                onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
-                              >
-                                <ArrowLeftRight className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-center -my-2 relative">
-                        <div className="bg-background px-3 py-1 border rounded-full text-[10px] font-black text-muted-foreground italic z-10 shadow-sm">VS</div>
-                      </div>
-                      <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-3 relative">
-                        <div className="flex justify-between items-center">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
-                          {(isTimerRunning || showWinButtons[court.id]) && (
-                            <Button 
-                              variant="secondary" 
-                              size="sm" 
-                              className="h-7 px-2 text-[10px] font-black uppercase gap-1 hover:bg-primary hover:text-white transition-all active:scale-95"
-                              onClick={() => endMatch(court.id, 'teamB')}
-                            >
-                              <CheckCircle2 className="h-3 w-3" /> Win
-                            </Button>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          {teamBPlayers?.map(p => (
-                            <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-muted/20">
-                              <div className="flex flex-col">
-                                <span>{p?.name}</span>
-                                <span className="text-[8px] uppercase text-muted-foreground tracking-tighter">{p?.skillLevel} - {SKILL_LEVELS[p?.skillLevel!]}</span>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 text-muted-foreground hover:bg-primary hover:text-white transition-all active:scale-90"
-                                onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
-                              >
-                                <ArrowLeftRight className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-xl bg-secondary/5 transition-all hover:bg-secondary/10">
-                     <Trophy className="h-8 w-8 text-muted-foreground/20 mb-3" />
-                     <p className="text-sm font-bold text-muted-foreground italic">Available for Matching</p>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="flex justify-end gap-2 border-t pt-4 bg-secondary/5">
-                 {court.status === 'occupied' ? (
-                    <div className="flex items-center gap-2 w-full justify-between">
-                      {!isTimerRunning ? (
-                        <Button 
-                          onClick={() => startTimer(court.id)} 
-                          className="w-full gap-2 bg-green-600 hover:bg-green-700 h-10 font-bold uppercase transition-all hover:scale-[1.02] active:scale-95 shadow-md shadow-green-500/10"
-                        >
-                          <Play className="h-4 w-4" /> Start Match
-                        </Button>
-                      ) : (
-                        <>
-                          <p className="text-[10px] font-black uppercase text-primary animate-pulse tracking-widest flex items-center gap-1">
-                             <Activity className="h-3 w-3" /> Match In Progress
-                          </p>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => setScoringCourtId(court.id)}
-                            className="text-xs font-bold uppercase transition-all hover:bg-primary hover:text-white"
-                          >
-                            End Match
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                 ) : (
-                   <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Court Idle</p>
-                 )}
-              </CardFooter>
-            </Card>
-          );
-        })}
+        </div>
       </div>
 
       {/* Match History Section */}
@@ -579,8 +627,8 @@ export default function HomePage() {
         <DialogContent className="animate-in zoom-in duration-300">
           <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-            <Label className="text-xs text-muted-foreground">Select replacement from available players:</Label>
-            {players.filter(p => p.status === 'available').map(player => (
+            <Label className="text-xs text-muted-foreground">Select replacement from the bench:</Label>
+            {availablePlayers.map(player => (
               <Button 
                 key={player.id} 
                 variant="outline" 
