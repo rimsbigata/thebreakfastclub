@@ -1,16 +1,28 @@
-
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
 import { useClub } from '@/context/ClubContext';
+import {
+  Sidebar as SidebarComponent,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
+  SidebarFooter,
+  SidebarSeparator
+} from '@/components/ui/sidebar';
 
 export function Sidebar() {
   const pathname = usePathname();
   const { clubLogo } = useClub();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const navItems = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -21,49 +33,61 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="hidden md:flex flex-col w-64 border-r bg-card h-screen sticky top-0">
-      <div className="p-6 flex items-center gap-3">
-        <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 border-primary bg-primary/10 flex items-center justify-center">
-          {clubLogo ? (
-            <Image 
-              src={clubLogo} 
-              alt="Club Logo" 
-              fill 
-              className="object-cover"
-            />
-          ) : (
-            <Activity className="h-6 w-6 text-primary" />
+    <SidebarComponent collapsible="icon" className="border-r bg-card">
+      <SidebarHeader className="p-4">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="relative h-8 w-8 shrink-0 rounded-lg overflow-hidden border-2 border-primary bg-primary/10 flex items-center justify-center">
+            {clubLogo ? (
+              <img 
+                src={clubLogo} 
+                alt="Club Logo" 
+                className="object-cover h-full w-full"
+              />
+            ) : (
+              <Activity className="h-5 w-5 text-primary" />
+            )}
+          </div>
+          {!isCollapsed && (
+            <h1 className="font-black text-base tracking-tighter text-primary truncate animate-in fade-in slide-in-from-left-2 duration-300">
+              TheBreakfastClub
+            </h1>
           )}
         </div>
-        <h1 className="font-black text-lg tracking-tighter text-primary">TheBreakfastClub</h1>
-      </div>
+      </SidebarHeader>
       
-      <nav className="flex-1 px-4 space-y-1">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg transition-all font-medium active:scale-95",
-                isActive 
-                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              )}
-            >
-              <item.icon className={cn("h-5 w-5", isActive ? "animate-pulse" : "")} />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <SidebarSeparator />
       
-      <div className="p-4 border-t">
-        <p className="text-[10px] text-center font-bold text-muted-foreground uppercase tracking-widest opacity-50">
-          TBC Cloud Edition v2.0
-        </p>
-      </div>
-    </aside>
+      <SidebarContent className="px-2 py-4">
+        <SidebarMenu>
+          {navItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  tooltip={item.label}
+                  className={cn(
+                    "transition-all font-medium h-10 px-3",
+                    isActive 
+                      ? "bg-primary text-primary-foreground shadow-sm" 
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  <Link href={item.href}>
+                    <item.icon className={cn("h-5 w-5", isActive ? "animate-pulse" : "")} />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarContent>
+      
+      <SidebarFooter className="p-2 flex items-center justify-center">
+        <SidebarTrigger className="h-8 w-8 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all" />
+      </SidebarFooter>
+    </SidebarComponent>
   );
 }

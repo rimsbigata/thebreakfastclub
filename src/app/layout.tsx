@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { ClubProvider } from '@/context/ClubContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { SidebarProvider } from '@/components/ui/sidebar';
 
 export const metadata: Metadata = {
   title: 'TheBreakfastClub | Badminton Club',
@@ -31,14 +32,16 @@ export default function RootLayout({
         <FirebaseClientProvider>
           <ThemeProvider>
             <ClubProvider>
-              <div className="flex min-h-screen">
-                <Sidebar />
-                <main className="flex-1 pb-20 md:pb-0">
-                  {children}
-                </main>
-              </div>
-              <BottomNav />
-              <Toaster />
+              <SidebarProvider defaultOpen={true}>
+                <div className="flex min-h-screen w-full">
+                  <Sidebar />
+                  <main className="flex-1 overflow-auto pb-20 md:pb-0">
+                    {children}
+                  </main>
+                </div>
+                <BottomNav />
+                <Toaster />
+              </SidebarProvider>
             </ClubProvider>
           </ThemeProvider>
         </FirebaseClientProvider>
