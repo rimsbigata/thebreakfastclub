@@ -50,9 +50,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [clubLogo, setClubLogoState] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load from Local Storage
+  // Load from Local Storage with a 3-second artificial delay
   useEffect(() => {
     const load = (key: string, fallback: any) => {
+      if (typeof window === 'undefined') return fallback;
       const saved = localStorage.getItem(key);
       return saved ? JSON.parse(saved) : fallback;
     };
@@ -64,7 +65,12 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setPaymentMethods(load(STORAGE_KEYS.PAYMENT_METHODS, []));
     setClubLogoState(localStorage.getItem(STORAGE_KEYS.LOGO));
     
-    setIsLoaded(true);
+    // Artificial delay to show splash screen for 3 seconds
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // Sync to Local Storage
