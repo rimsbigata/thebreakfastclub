@@ -9,9 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award, Clock, Timer } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award, Clock, Timer, Pencil } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
-import { SKILL_LEVELS } from '@/lib/types';
+import { SKILL_LEVELS, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,10 +37,13 @@ function WaitTimeText({ lastAvailableAt, status }: { lastAvailableAt?: number, s
 }
 
 export default function PlayersPage() {
-  const { players, addPlayer, deletePlayer } = useClub();
+  const { players, addPlayer, updatePlayer, deletePlayer } = useClub();
   const { toast } = useToast();
   const [newName, setNewName] = useState('');
   const [newSkill, setNewSkill] = useState('3');
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editSkill, setEditSkill] = useState('3');
   const [today, setToday] = useState<string>('');
 
   useEffect(() => {
@@ -47,19 +51,17 @@ export default function PlayersPage() {
   }, []);
 
   const skillDistribution = useMemo(() => {
-    const dist = Object.keys(SKILL_LEVELS).map(level => ({
+    return Object.keys(SKILL_LEVELS).map(level => ({
       level: `L${level}`,
       fullName: SKILL_LEVELS[parseInt(level)],
       count: players.filter(p => p.skillLevel === parseInt(level)).length,
       levelNum: parseInt(level)
     }));
-    return dist;
   }, [players]);
 
   const handleAddPlayerAction = () => {
     if (!newName) return;
     
-    // Validation: Duplicate name check
     const exists = players.some(p => p.name.trim().toLowerCase() === newName.trim().toLowerCase());
     if (exists) {
       toast({
@@ -77,6 +79,24 @@ export default function PlayersPage() {
     setNewName('');
     setNewSkill('3');
     toast({ title: "Player Added", description: `"${newName}" was successfully added to the roster.` });
+  };
+
+  const handleEditPlayerAction = () => {
+    if (!editingPlayer || !editName) return;
+
+    updatePlayer(editingPlayer.id, {
+      name: editName,
+      skillLevel: parseInt(editSkill)
+    });
+
+    setEditingPlayer(null);
+    toast({ title: "Player Updated", description: "The player details have been successfully changed." });
+  };
+
+  const openEditDialog = (player: Player) => {
+    setEditingPlayer(player);
+    setEditName(player.name);
+    setEditSkill(player.skillLevel.toString());
   };
 
   return (
@@ -220,14 +240,24 @@ export default function PlayersPage() {
                     </div>
                   </div>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-white hover:bg-destructive transition-all active:scale-90"
-                  onClick={() => deletePlayer(player.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-white hover:bg-primary transition-all active:scale-90"
+                    onClick={() => openEditDialog(player)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-white hover:bg-destructive transition-all active:scale-90"
+                    onClick={() => deletePlayer(player.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               
               <div className="flex items-center justify-between border-t pt-3">
@@ -255,6 +285,42 @@ export default function PlayersPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={!!editingPlayer} onOpenChange={(open) => !open && setEditingPlayer(null)}>
+        <DialogContent className="animate-in zoom-in duration-300">
+          <DialogHeader>
+            <DialogTitle>Edit Player</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input 
+                value={editName} 
+                onChange={e => setEditName(e.target.value)} 
+                className="bg-background focus:ring-primary transition-all"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Skill Level</Label>
+              <Select value={editSkill} onValueChange={setEditSkill}>
+                <SelectTrigger className="transition-all hover:bg-secondary/50">
+                  <SelectValue placeholder="Select Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SKILL_LEVELS).map(([val, label]) => (
+                    <SelectItem key={val} value={val}>
+                      {val} - {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full mt-2 transition-all active:scale-95" onClick={handleEditPlayerAction}>
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

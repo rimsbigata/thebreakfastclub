@@ -13,6 +13,7 @@ interface ClubContextType {
   paymentMethods: PaymentMethod[];
   clubLogo: string | null;
   addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes' | 'lastAvailableAt'>) => void;
+  updatePlayer: (id: string, updates: Partial<Player>) => void;
   deletePlayer: (id: string) => void;
   addCourt: (name: string) => void;
   deleteCourt: (id: string) => void;
@@ -41,7 +42,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    // Artificial delay for splash screen visibility
     const timer = setTimeout(() => {
       try {
         const data = localStorage.getItem('breakfast_club_data');
@@ -69,7 +69,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         console.error("Failed to load data", e);
       }
       setIsLoaded(true);
-    }, 1500); // 1.5s splash visibility
+    }, 1500);
     
     return () => clearTimeout(timer);
   }, []);
@@ -100,6 +100,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       lastAvailableAt: Date.now()
     };
     setPlayers(prev => [...prev, newPlayer]);
+  };
+
+  const updatePlayer = (id: string, updates: Partial<Player>) => {
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   };
 
   const deletePlayer = (id: string) => {
@@ -298,7 +302,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   return (
     <ClubContext.Provider value={{
       players, courts, matches, fees, paymentMethods, clubLogo,
-      addPlayer, deletePlayer, addCourt, deleteCourt,
+      addPlayer, updatePlayer, deletePlayer, addCourt, deleteCourt,
       startMatch, startTimer, endMatch, swapPlayer, updateFee, togglePayment,
       addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo
     }}>
