@@ -16,10 +16,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Image from 'next/image';
 
 export function Header() {
   const pathname = usePathname();
-  const { courts, players, addCourt, startMatch } = useClub();
+  const { courts, players, addCourt, startMatch, clubLogo } = useClub();
   const { toast } = useToast();
   
   const [newCourtName, setNewCourtName] = useState('');
@@ -36,6 +37,8 @@ export function Header() {
     { label: 'Fees', href: '/fees', icon: Banknote },
     { label: 'Settings', href: '/settings', icon: Settings },
   ];
+
+  const logoSrc = clubLogo || "/assets/image/tbc_logo_loading.png";
 
   const handleAddCourtAction = () => {
     if (!newCourtName) return;
@@ -73,17 +76,25 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-6 shrink-0 shadow-sm z-50">
+    <header className="h-14 border-b bg-card flex items-center justify-between px-4 shrink-0 shadow-sm z-50">
       <div className="flex items-center gap-4">
-        <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <img src="/assets/image/tbc_logo_loading.png" alt="Logo" className="h-10 w-10 object-contain" />
+        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div className="relative h-8 w-8 overflow-hidden rounded-md border shadow-sm">
+            <Image 
+              src={logoSrc} 
+              alt="TheBreakfastClub Logo" 
+              fill 
+              className="object-cover"
+              priority
+            />
+          </div>
           <div className="hidden sm:block">
-            <h1 className="text-lg font-black uppercase tracking-tighter leading-none">Command Center</h1>
-            <p className="text-[8px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-0.5">The Breakfast Club</p>
+            <h1 className="text-sm font-black uppercase tracking-tighter leading-none">Command Center</h1>
+            <p className="text-[7px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-0.5">The Breakfast Club</p>
           </div>
         </Link>
 
-        <nav className="flex items-center gap-1 ml-6 border-l pl-6">
+        <nav className="flex items-center gap-0.5 ml-4 border-l pl-4">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -92,11 +103,11 @@ export function Header() {
                   variant={isActive ? "default" : "ghost"}
                   size="icon"
                   className={cn(
-                    "h-10 w-10 transition-all",
-                    isActive ? "shadow-lg shadow-primary/20 scale-110" : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    "h-9 w-9 transition-all",
+                    isActive ? "shadow-md shadow-primary/20 scale-105" : "text-muted-foreground hover:text-primary hover:bg-primary/5"
                   )}
                 >
-                  <item.icon className={cn("h-5 w-5", isActive && "animate-pulse")} />
+                  <item.icon className={cn("h-4 w-4", isActive && "animate-pulse")} />
                 </Button>
               </Link>
             );
@@ -105,11 +116,10 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Manual Match Dialog */}
         <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="gap-2 font-black uppercase text-[10px] tracking-widest h-9 border-2 hover:bg-secondary">
-              <Swords className="h-3.5 w-3.5" /> Manual Match
+            <Button variant="outline" className="gap-2 font-black uppercase text-[9px] tracking-widest h-8 border-2 hover:bg-secondary px-3">
+              <Swords className="h-3 w-3" /> Manual
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
@@ -165,14 +175,14 @@ export function Header() {
           </DialogContent>
         </Dialog>
 
-        <Button onClick={handleQuickMatch} className="gap-2 bg-primary font-black uppercase text-[10px] tracking-widest h-9 px-4 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
-          <Zap className="h-3.5 w-3.5 fill-white" /> Quick Match
+        <Button onClick={handleQuickMatch} className="gap-2 bg-primary font-black uppercase text-[9px] tracking-widest h-8 px-3 shadow-md shadow-primary/20 hover:scale-105 transition-all">
+          <Zap className="h-3 w-3 fill-white" /> Quick
         </Button>
 
         <Dialog open={isAddCourtOpen} onOpenChange={setIsAddCourtOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="icon" className="h-9 w-9 border-2 hover:bg-secondary">
-              <Plus className="h-5 w-5" />
+            <Button variant="outline" size="icon" className="h-8 w-8 border-2 hover:bg-secondary">
+              <Plus className="h-4 w-4" />
             </Button>
           </DialogTrigger>
           <DialogContent>

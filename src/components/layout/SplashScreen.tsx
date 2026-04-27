@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import Image from 'next/image';
 
 interface SplashScreenProps {
   logo?: string | null;
@@ -22,10 +23,12 @@ export function SplashScreen({ logo }: SplashScreenProps) {
       <div className="relative mb-8 flex flex-col items-center">
         <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white overflow-hidden shadow-2xl flex items-center justify-center">
           {mounted && (
-            <img 
+            <Image 
               src={logoSrc} 
               alt="Club Logo" 
-              className="object-cover h-full w-full"
+              fill
+              className="object-cover p-2"
+              priority
             />
           )}
         </div>
