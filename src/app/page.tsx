@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered, X, CheckCircle2, Ban, Trophy, ListFilter, Hash } from 'lucide-react';
+import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered, X, Trophy, Ban } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -202,21 +202,56 @@ export default function HomePage() {
     toast({ title: "Match Removed from Queue" });
   };
 
+  const validateMatchScore = (scoreA: number, scoreB: number) => {
+    const higher = Math.max(scoreA, scoreB);
+    const lower = Math.min(scoreA, scoreB);
+
+    if (higher < defaultWinningScore) {
+      return { valid: false, message: `Winning score (${defaultWinningScore}) not reached.` };
+    }
+
+    if (higher === scoreB && scoreA === scoreB) {
+      return { valid: false, message: "Scores cannot be equal." };
+    }
+
+    // Win by 2 rule (standard badminton)
+    if (higher === defaultWinningScore && lower === defaultWinningScore - 1) {
+      return { valid: false, message: `Must win by 2 points (e.g., ${defaultWinningScore + 1}-${defaultWinningScore - 1}).` };
+    }
+
+    // If it goes past default winning score, leading by 1 is still not enough until deuce rules or cap (30)
+    // To keep it simple as per user request: "e.g. 21-20 not allowed, must be 22-20"
+    if (higher > defaultWinningScore && (higher - lower) < 2) {
+      return { valid: false, message: "Must win by 2 points in deuce." };
+    }
+
+    return { valid: true };
+  };
+
+  const handleFinishMatch = (courtId: string, teamAScore: number, teamBScore: number) => {
+    const validation = validateMatchScore(teamAScore, teamBScore);
+    if (!validation.valid) {
+      toast({ title: "Cannot Finish Match", description: validation.message, variant: "destructive" });
+      return;
+    }
+
+    const winner = teamAScore > teamBScore ? 'teamA' : 'teamB';
+    endMatch(courtId, 'completed', winner, teamAScore, teamBScore);
+    toast({ title: "Match Completed!" });
+  };
+
   const handleWinSubmit = () => {
     if (!winningTeam) return;
     const lScore = parseInt(loserScore) || 0;
     
-    if (lScore < 0 || lScore >= defaultWinningScore) {
-      toast({ 
-        title: "Invalid Score", 
-        description: `Loser score must be between 0 and ${defaultWinningScore - 1}`, 
-        variant: "destructive" 
-      });
-      return;
-    }
-
     const tAScore = winningTeam.team === 'teamA' ? defaultWinningScore : lScore;
     const tBScore = winningTeam.team === 'teamB' ? defaultWinningScore : lScore;
+
+    const validation = validateMatchScore(tAScore, tBScore);
+    if (!validation.valid) {
+      toast({ title: "Invalid Score", description: validation.message, variant: "destructive" });
+      return;
+    }
 
     endMatch(winningTeam.courtId, 'completed', winningTeam.team, tAScore, tBScore);
     setWinningTeam(null);
@@ -533,7 +568,7 @@ export default function HomePage() {
                             </Button>
                           ) : (
                             <div className="flex w-full gap-2">
-                               <Button onClick={() => endMatch(court.id, 'completed', teamAScore >= teamBScore ? 'teamA' : 'teamB', teamAScore, teamBScore)} className="flex-1 h-10 bg-primary font-black text-tiny uppercase px-2 truncate">
+                               <Button onClick={() => handleFinishMatch(court.id, teamAScore, teamBScore)} className="flex-1 h-10 bg-primary font-black text-tiny uppercase px-2 truncate">
                                   FINISH
                                </Button>
                                <Button variant="outline" size="icon" onClick={() => endMatch(court.id, 'cancelled')} className="h-10 w-10 p-0 border-2 shrink-0">
@@ -599,7 +634,6 @@ export default function HomePage() {
                   ref={loserScoreInputRef}
                   type="number" 
                   min="0"
-                  max={defaultWinningScore - 1}
                   placeholder="Enter loser score..." 
                   value={loserScore} 
                   onChange={(e) => setLoserScore(e.target.value)}

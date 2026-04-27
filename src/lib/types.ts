@@ -25,34 +25,33 @@ export const SKILL_LEVELS_FULL: Record<number, string> = {
 
 /**
  * Centralized Skill Color Mapping (Single Source of Truth)
- * Standardized Hex Mapping with Theme-Aware adjustments.
- * Green (Low Int) has been darkened for better accessibility.
+ * Standardized Hex Mapping with High-Contrast Accessible Colors.
  */
 export const getSkillColor = (level: number) => {
   switch (level) {
     case 1: 
-      // Beginner (Beg) → #E5E7EB (light gray)
-      return "bg-[#E5E7EB] text-slate-900 border-none";
+      // Beginner (Beg) → #9CA3AF (neutral gray)
+      return "bg-[#9CA3AF] text-slate-900 border-none font-bold";
     case 2: 
-      // Advanced Beginner (Adv Beg) → #14B8A6 (teal)
-      return "bg-[#14B8A6] text-white border-none";
+      // Advanced Beginner (Adv Beg) → #0F766E (deep teal)
+      return "bg-[#0F766E] text-white border-none font-bold";
     case 3: 
-      // Low Intermediate (Low Int) → #15803D (darker green for contrast)
-      return "bg-[#15803D] text-white border-none";
+      // Low Intermediate (Low Int) → #15803D (darker green)
+      return "bg-[#15803D] text-white border-none font-bold";
     case 4: 
-      // Mid Intermediate (Mid Int) → #EAB308 (yellow)
-      return "bg-[#EAB308] text-slate-900 border-none";
+      // Mid Intermediate (Mid Int) → #CA8A04 (darker yellow/gold)
+      return "bg-[#CA8A04] text-slate-900 border-none font-bold";
     case 5: 
-      // Upper Intermediate (Up Int) → #F97316 (orange)
-      return "bg-[#F97316] text-white border-none";
+      // Upper Intermediate (Up Int) → #EA580C (strong orange)
+      return "bg-[#EA580C] text-white border-none font-bold";
     case 6: 
-      // Advanced (Adv) → #EF4444 (red)
-      return "bg-[#EF4444] text-white border-none";
+      // Advanced (Adv) → #DC2626 (strong red)
+      return "bg-[#DC2626] text-white border-none font-bold";
     case 7: 
-      // Expert (Exp) → #8B5CF6 (purple)
-      return "bg-[#8B5CF6] text-white border-none";
+      // Expert (Exp) → #7C3AED (deep purple)
+      return "bg-[#7C3AED] text-white border-none font-bold";
     default: 
-      return "bg-muted text-muted-foreground border-none";
+      return "bg-muted text-muted-foreground border-none font-bold";
   }
 };
 
