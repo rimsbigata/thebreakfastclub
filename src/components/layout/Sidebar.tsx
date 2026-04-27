@@ -33,13 +33,13 @@ export function Sidebar() {
     { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  const logoSrc = clubLogo || "/assets/image/tbclogo.png";
+  const logoSrc = clubLogo || "/assets/image/tbc_logo_loading.png";
 
   return (
     <SidebarComponent collapsible="icon" className="border-r bg-card">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3 overflow-hidden">
-          {/* Logo is hidden entirely when sidebar is collapsed per user request */}
+          {/* Logo is hidden entirely when sidebar is collapsed */}
           {!isCollapsed && (
             <>
               <div className="relative h-8 w-8 shrink-0 rounded-lg overflow-hidden border-2 border-primary bg-white flex items-center justify-center shadow-sm">

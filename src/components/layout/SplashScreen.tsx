@@ -15,7 +15,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
     setMounted(true);
   }, []);
 
-  const logoSrc = logo || "/assets/image/tbclogo.png";
+  const logoSrc = logo || "/assets/image/tbc_logo_loading.png";
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">

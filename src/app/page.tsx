@@ -81,7 +81,7 @@ export default function HomePage() {
   const waitingMatches = matches.filter(m => !m.isCompleted && !m.courtId);
   const availableCourts = courts.filter(c => c.status === 'available');
 
-  const logoSrc = clubLogo || "/assets/image/tbclogo.png";
+  const logoSrc = clubLogo || "/assets/image/tbc_logo_loading.png";
 
   if (!mounted) return null;
 
