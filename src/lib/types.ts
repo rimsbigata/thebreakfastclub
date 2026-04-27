@@ -23,15 +23,19 @@ export const SKILL_LEVELS_FULL: Record<number, string> = {
   7: "Expert",
 };
 
+/**
+ * Centralized Skill Color Mapping
+ * Priority: Contrast and High Visibility
+ */
 export const getSkillColor = (level: number) => {
   switch (level) {
-    case 1: return "bg-slate-400 text-white";
-    case 2: return "bg-cyan-600 text-white";
-    case 3: return "bg-emerald-600 text-white";
-    case 4: return "bg-amber-500 text-white";
-    case 5: return "bg-orange-500 text-white";
-    case 6: return "bg-rose-600 text-white";
-    case 7: return "bg-violet-600 text-white";
+    case 1: return "bg-[#E5E7EB] text-slate-900"; // Beg - light gray
+    case 2: return "bg-[#14B8A6] text-white";     // Adv Beg - teal
+    case 3: return "bg-[#22C55E] text-white";     // Low Int - green
+    case 4: return "bg-[#EAB308] text-slate-900"; // Mid Int - yellow
+    case 5: return "bg-[#F97316] text-white";     // Up Int - orange
+    case 6: return "bg-[#EF4444] text-white";     // Adv - red
+    case 7: return "bg-[#8B5CF6] text-white";     // Exp - purple
     default: return "bg-muted text-muted-foreground";
   }
 };

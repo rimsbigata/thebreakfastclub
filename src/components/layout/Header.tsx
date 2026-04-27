@@ -15,6 +15,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { getSkillColor, SKILL_LEVELS_SHORT } from '@/lib/types';
 import Image from 'next/image';
 
 export function Header() {
@@ -143,8 +145,11 @@ export function Header() {
                             }
                           }}
                         />
-                        <label htmlFor={player.id} className="text-xs font-black cursor-pointer flex-1">
-                          {player.name} <span className="text-[10px] text-muted-foreground ml-1">Lvl {player.skillLevel}</span>
+                        <label htmlFor={player.id} className="text-xs font-black cursor-pointer flex-1 flex items-center justify-between">
+                          <span>{player.name}</span>
+                          <Badge className={cn("text-[8px] font-black uppercase px-1 border-none", getSkillColor(player.skillLevel))}>
+                            {SKILL_LEVELS_SHORT[player.skillLevel]}
+                          </Badge>
                         </label>
                       </div>
                     ))}

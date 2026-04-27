@@ -4,12 +4,11 @@
 import { useState, useEffect } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered, Plus, X, Swords, CheckCircle2, Ban } from 'lucide-react';
+import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered, X, CheckCircle2, Ban } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -200,8 +199,8 @@ export default function HomePage() {
                     <span className="font-black text-[10px] truncate max-w-[70px] leading-tight">{player.name}</span>
                     <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
                   </div>
-                  <div className="flex justify-between items-center opacity-60">
-                    <Badge className={cn("text-[6px] font-black uppercase h-3 px-1", getSkillColor(player.skillLevel))}>
+                  <div className="flex justify-between items-center opacity-80">
+                    <Badge className={cn("text-[6px] font-black uppercase h-3 px-1 border-none", getSkillColor(player.skillLevel))}>
                       {SKILL_LEVELS_SHORT[player.skillLevel]}
                     </Badge>
                     <span className="text-[7px] font-black">{player.gamesPlayed} Gms</span>
@@ -242,12 +241,22 @@ export default function HomePage() {
                     </Button>
                   </div>
                   <div className="grid grid-cols-2 gap-1">
-                    {draftPlayerIds.map(id => (
-                      <div key={id} className="text-[8px] font-black bg-card p-1 rounded border flex justify-between items-center group">
-                        <span className="truncate max-w-[40px]">{players.find(p => p.id === id)?.name}</span>
-                        <X className="h-2 w-2 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(pId => pId !== id))} />
-                      </div>
-                    ))}
+                    {draftPlayerIds.map(id => {
+                      const p = players.find(player => player.id === id);
+                      return (
+                        <div key={id} className="text-[8px] font-black bg-card p-1 rounded border flex flex-col gap-1 group">
+                          <div className="flex justify-between items-center">
+                            <span className="truncate max-w-[40px]">{p?.name}</span>
+                            <X className="h-2 w-2 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(pId => pId !== id))} />
+                          </div>
+                          {p && (
+                            <Badge className={cn("text-[5px] h-2.5 px-0.5 w-fit border-none", getSkillColor(p.skillLevel))}>
+                              {SKILL_LEVELS_SHORT[p.skillLevel]}
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </Card>
               )}
@@ -259,12 +268,28 @@ export default function HomePage() {
                   className="border border-orange-500/30 bg-orange-500/5 cursor-grab active:cursor-grabbing hover:border-orange-500 transition-all"
                 >
                   <div className="p-1.5 flex items-center justify-between gap-1">
-                    <div className="flex flex-col space-y-0.5 flex-1">
-                      {match.teamA.map(id => <span key={id} className="text-[9px] font-black truncate leading-tight">{players.find(p => p.id === id)?.name}</span>)}
+                    <div className="flex flex-col space-y-1 flex-1">
+                      {match.teamA.map(id => {
+                        const p = players.find(player => player.id === id);
+                        return (
+                          <div key={id} className="flex items-center gap-1">
+                            <span className="text-[9px] font-black truncate leading-tight">{p?.name}</span>
+                            {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="text-[7px] font-black opacity-30">VS</div>
-                    <div className="flex flex-col space-y-0.5 flex-1 text-right">
-                      {match.teamB.map(id => <span key={id} className="text-[9px] font-black truncate leading-tight">{players.find(p => p.id === id)?.name}</span>)}
+                    <div className="flex flex-col space-y-1 flex-1 text-right items-end">
+                      {match.teamB.map(id => {
+                        const p = players.find(player => player.id === id);
+                        return (
+                          <div key={id} className="flex items-center gap-1 justify-end">
+                            {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                            <span className="text-[9px] font-black truncate leading-tight">{p?.name}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </Card>
@@ -333,7 +358,7 @@ export default function HomePage() {
                           <div className="grid grid-cols-1 gap-1">
                             {/* TEAM A */}
                             <div className="p-1 bg-primary/5 rounded border-l-2 border-primary space-y-1">
-                               <div className="flex items-center justify-between">
+                               <div className="flex items-center justify-between mb-0.5">
                                   <span className="text-[7px] font-black uppercase text-primary/60">Team A</span>
                                   <Input 
                                     type="number" 
@@ -342,18 +367,24 @@ export default function HomePage() {
                                     onChange={(e) => updateMatchScore(match.id, parseInt(e.target.value) || 0, match.teamBScore || 0)}
                                   />
                                </div>
-                              {match.teamA.map(id => (
-                                <div key={id} className="flex justify-between items-center group/p">
-                                  <span className="text-[9px] font-black truncate max-w-[60px] leading-tight">{players.find(p => p.id === id)?.name}</span>
-                                  <Button variant="ghost" size="icon" className="h-3 w-3 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
-                                    <ArrowLeftRight className="h-2.5 w-2.5" />
-                                  </Button>
-                                </div>
-                              ))}
+                              {match.teamA.map(id => {
+                                const p = players.find(player => player.id === id);
+                                return (
+                                  <div key={id} className="flex justify-between items-center group/p">
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className="text-[9px] font-black truncate max-w-[45px] leading-tight">{p?.name}</span>
+                                      {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-3 w-3 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
+                                      <ArrowLeftRight className="h-2.5 w-2.5" />
+                                    </Button>
+                                  </div>
+                                );
+                              })}
                             </div>
                             {/* TEAM B */}
                             <div className="p-1 bg-muted/30 rounded border-l-2 border-muted-foreground/30 space-y-1">
-                               <div className="flex items-center justify-between">
+                               <div className="flex items-center justify-between mb-0.5">
                                   <span className="text-[7px] font-black uppercase opacity-60">Team B</span>
                                   <Input 
                                     type="number" 
@@ -362,14 +393,20 @@ export default function HomePage() {
                                     onChange={(e) => updateMatchScore(match.id, match.teamAScore || 0, parseInt(e.target.value) || 0)}
                                   />
                                </div>
-                              {match.teamB.map(id => (
-                                <div key={id} className="flex justify-between items-center group/p">
-                                  <span className="text-[9px] font-black truncate max-w-[60px] leading-tight">{players.find(p => p.id === id)?.name}</span>
-                                  <Button variant="ghost" size="icon" className="h-3 w-3 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
-                                    <ArrowLeftRight className="h-2.5 w-2.5" />
-                                  </Button>
-                                </div>
-                              ))}
+                              {match.teamB.map(id => {
+                                const p = players.find(player => player.id === id);
+                                return (
+                                  <div key={id} className="flex justify-between items-center group/p">
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className="text-[9px] font-black truncate max-w-[45px] leading-tight">{p?.name}</span>
+                                      {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-3 w-3 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
+                                      <ArrowLeftRight className="h-2.5 w-2.5" />
+                                    </Button>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </>
@@ -377,11 +414,15 @@ export default function HomePage() {
                         <div className="space-y-1">
                           <p className="text-[7px] font-black uppercase text-primary">Drafting ({draft.length}/4)</p>
                           <div className="space-y-0.5">
-                            {draft.map(id => (
-                              <div key={id} className="text-[8px] font-black bg-background p-0.5 rounded border truncate">
-                                {players.find(p => p.id === id)?.name}
-                              </div>
-                            ))}
+                            {draft.map(id => {
+                              const p = players.find(player => player.id === id);
+                              return (
+                                <div key={id} className="text-[8px] font-black bg-background p-0.5 rounded border flex items-center justify-between">
+                                  <span className="truncate max-w-[60px]">{p?.name}</span>
+                                  {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                </div>
+                              );
+                            })}
                           </div>
                           <Button variant="ghost" size="sm" className="w-full h-4 text-[7px] font-black" onClick={() => setCourtDrafts(prev => { const n = {...prev}; delete n[court.id]; return n; })}>CANCEL</Button>
                         </div>
@@ -433,7 +474,7 @@ export default function HomePage() {
                 <Button key={p.id} variant="outline" className="w-full justify-between h-auto py-3 px-4 hover:border-primary hover:bg-primary/5 transition-all" onClick={() => handleSwap(p.id)}>
                   <div className="flex flex-col items-start">
                     <span className="font-black text-sm">{p.name}</span>
-                    <Badge className={cn("text-[8px] uppercase font-black px-1 mt-1", getSkillColor(p.skillLevel))}>
+                    <Badge className={cn("text-[8px] uppercase font-black px-1 mt-1 border-none", getSkillColor(p.skillLevel))}>
                       {SKILL_LEVELS_SHORT[p.skillLevel]} • {p.gamesPlayed} Games
                     </Badge>
                   </div>

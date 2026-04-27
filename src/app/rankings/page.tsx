@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
-import { Match, SKILL_LEVELS } from '@/lib/types';
+import { Match, SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 
 export default function RankingsPage() {
   const { players, matches } = useClub();
@@ -90,9 +90,9 @@ export default function RankingsPage() {
                   {player.name}
                   {i === 0 && <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />}
                 </p>
-                <p className="text-[8px] uppercase font-black text-muted-foreground tracking-widest mt-0.5">
-                  {SKILL_LEVELS[player.skillLevel]} Specialized
-                </p>
+                <Badge className={cn("text-[7px] font-black uppercase px-1 h-3.5 mt-1 border-none", getSkillColor(player.skillLevel))}>
+                  {SKILL_LEVELS_SHORT[player.skillLevel]}
+                </Badge>
               </div>
             </div>
             <div className="flex gap-6 items-center">
