@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,21 +15,15 @@ export function SplashScreen({ logo }: SplashScreenProps) {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
-    return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
-        <Loader2 className="h-8 w-8 animate-spin opacity-50" />
-      </div>
-    );
-  }
-
   const logoSrc = logo || "/assets/image/tbclogo.png";
 
+  // We render the background and basic structure immediately to avoid a "white flash" 
+  // or a different loading screen before hydration.
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
       <div className="relative mb-8 flex flex-col items-center">
         <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl flex items-center justify-center">
-          {!imgError ? (
+          {mounted && !imgError ? (
             <img 
               src={logoSrc} 
               alt="Club Logo" 
