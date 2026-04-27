@@ -9,14 +9,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
 export default function SettingsPage() {
   const { 
     paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard, 
-    wipeAllData, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore 
+    wipeAllData, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
+    autoAdvanceEnabled, setAutoAdvanceEnabled
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -168,9 +169,9 @@ export default function SettingsPage() {
               <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                 <Trophy className="h-4 w-4" /> Gameplay Rules
               </CardTitle>
-              <CardDescription className="text-[10px] font-bold uppercase">Define scoring defaults.</CardDescription>
+              <CardDescription className="text-[10px] font-bold uppercase">Define scoring & match behavior.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Default Winning Score</Label>
                 <Input 
@@ -180,6 +181,19 @@ export default function SettingsPage() {
                   className="font-black text-lg h-12"
                 />
                 <p className="text-[9px] text-muted-foreground uppercase font-bold">This score is automatically applied when marking a winner.</p>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl border-2 border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                    <Zap className="h-5 w-5 fill-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-tight">Auto-Advance</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Next match pulls from queue</p>
+                  </div>
+                </div>
+                <Switch checked={autoAdvanceEnabled} onCheckedChange={setAutoAdvanceEnabled} />
               </div>
             </CardContent>
           </Card>

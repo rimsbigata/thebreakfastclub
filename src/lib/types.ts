@@ -26,6 +26,7 @@ export const SKILL_LEVELS_FULL: Record<number, string> = {
 /**
  * Centralized Skill Color Mapping (Single Source of Truth)
  * Standardized Hex Mapping with Theme-Aware adjustments.
+ * Green (Low Int) has been darkened for better accessibility.
  */
 export const getSkillColor = (level: number) => {
   switch (level) {
@@ -36,8 +37,8 @@ export const getSkillColor = (level: number) => {
       // Advanced Beginner (Adv Beg) → #14B8A6 (teal)
       return "bg-[#14B8A6] text-white border-none";
     case 3: 
-      // Low Intermediate (Low Int) → #22C55E (green)
-      return "bg-[#22C55E] text-white border-none";
+      // Low Intermediate (Low Int) → #15803D (darker green for contrast)
+      return "bg-[#15803D] text-white border-none";
     case 4: 
       // Mid Intermediate (Mid Int) → #EAB308 (yellow)
       return "bg-[#EAB308] text-slate-900 border-none";

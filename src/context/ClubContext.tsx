@@ -13,6 +13,7 @@ interface ClubContextType {
   paymentMethods: PaymentMethod[];
   clubLogo: string | null;
   defaultWinningScore: number;
+  autoAdvanceEnabled: boolean;
   addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes' | 'lastAvailableAt'>) => void;
   updatePlayer: (id: string, updates: Partial<Player>) => void;
   deletePlayer: (id: string) => void;
@@ -31,6 +32,7 @@ interface ClubContextType {
   deletePaymentMethod: (id: string) => void;
   setClubLogo: (imageUrl: string | null) => void;
   setDefaultWinningScore: (score: number) => void;
+  setAutoAdvanceEnabled: (enabled: boolean) => void;
   resetDailyBoard: () => void;
   wipeAllData: () => void;
   deleteMatch: (matchId: string) => void;
@@ -45,7 +47,8 @@ const STORAGE_KEYS = {
   FEES: 'tbc_fees',
   PAYMENT_METHODS: 'tbc_payment_methods',
   LOGO: 'tbc_logo',
-  WINNING_SCORE: 'tbc_winning_score'
+  WINNING_SCORE: 'tbc_winning_score',
+  AUTO_ADVANCE: 'tbc_auto_advance'
 };
 
 export function ClubProvider({ children }: { children: ReactNode }) {
@@ -56,6 +59,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [clubLogo, setClubLogoState] = useState<string | null>(null);
   const [defaultWinningScore, setDefaultWinningScoreState] = useState<number>(21);
+  const [autoAdvanceEnabled, setAutoAdvanceEnabledState] = useState<boolean>(true);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -73,9 +77,12 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setClubLogoState(localStorage.getItem(STORAGE_KEYS.LOGO));
     setDefaultWinningScoreState(parseInt(localStorage.getItem(STORAGE_KEYS.WINNING_SCORE) || '21'));
     
+    const savedAutoAdvance = localStorage.getItem(STORAGE_KEYS.AUTO_ADVANCE);
+    setAutoAdvanceEnabledState(savedAutoAdvance !== null ? JSON.parse(savedAutoAdvance) : true);
+    
     const timer = setTimeout(() => {
       setIsLoaded(true);
-    }, 3000);
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -88,9 +95,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEYS.FEES, JSON.stringify(fees));
     localStorage.setItem(STORAGE_KEYS.PAYMENT_METHODS, JSON.stringify(paymentMethods));
     localStorage.setItem(STORAGE_KEYS.WINNING_SCORE, defaultWinningScore.toString());
+    localStorage.setItem(STORAGE_KEYS.AUTO_ADVANCE, JSON.stringify(autoAdvanceEnabled));
     if (clubLogo) localStorage.setItem(STORAGE_KEYS.LOGO, clubLogo);
     else localStorage.removeItem(STORAGE_KEYS.LOGO);
-  }, [players, courts, matches, fees, paymentMethods, clubLogo, defaultWinningScore, isLoaded]);
+  }, [players, courts, matches, fees, paymentMethods, clubLogo, defaultWinningScore, autoAdvanceEnabled, isLoaded]);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -205,16 +213,19 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const startTime = match.startTime ? new Date(match.startTime) : null;
     const playDuration = startTime ? Math.floor((Date.now() - startTime.getTime()) / 60000) : 0;
 
+    // Update the match state
     setMatches(prev => prev.map(m => 
       m.id === court.currentMatchId 
         ? { ...m, isCompleted: status === 'completed', status, winner, teamAScore, teamBScore, endTime: new Date().toISOString() } 
         : m
     ));
 
+    // Free the court
     setCourts(prev => prev.map(c => 
       c.id === courtId ? { ...c, status: 'available', currentMatchId: null } : c
     ));
 
+    // Update the players
     setPlayers(prev => prev.map(p => {
       if (![...match.teamA, ...match.teamB].includes(p.id)) return p;
 
@@ -244,6 +255,50 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         totalPlayTimeMinutes: (p.totalPlayTimeMinutes || 0) + playDuration
       };
     }));
+
+    // Trigger Auto-Advance if enabled
+    if (autoAdvanceEnabled && status === 'completed') {
+      autoAdvanceToCourt(courtId);
+    }
+  };
+
+  const autoAdvanceToCourt = (targetCourtId: string) => {
+    setMatches(prevMatches => {
+      const queue = prevMatches
+        .filter(m => !m.isCompleted && !m.courtId)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      if (queue.length === 0) return prevMatches;
+
+      const nextMatch = queue[0];
+      
+      // Update the match with the new court assignment
+      const updatedMatches = prevMatches.map(m => 
+        m.id === nextMatch.id ? { ...m, courtId: targetCourtId, status: 'ongoing' as MatchStatus } : m
+      );
+
+      // We need to update courts too, but since we are inside setMatches, 
+      // we'll rely on the side effect or direct state call if possible.
+      // In React state updates, it's cleaner to handle this together.
+      
+      return updatedMatches;
+    });
+
+    // Separately update the court state
+    setCourts(prevCourts => {
+      // Find the first available match in the queue (re-calculate for consistency)
+      const nextMatchInQueue = matches
+        .filter(m => !m.isCompleted && !m.courtId)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0];
+
+      if (!nextMatchInQueue) return prevCourts;
+
+      return prevCourts.map(c => 
+        c.id === targetCourtId 
+          ? { ...c, status: 'occupied', currentMatchId: nextMatchInQueue.id } 
+          : c
+      );
+    });
   };
 
   const deleteMatch = (matchId: string) => {
@@ -295,7 +350,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const assignMatchToCourt = (matchId: string, courtId: string) => {
-    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, courtId } : m));
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, courtId, status: 'ongoing' } : m));
     setCourts(prev => prev.map(c => 
       c.id === courtId 
         ? { ...c, status: 'occupied', currentMatchId: matchId } 
@@ -353,6 +408,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setDefaultWinningScoreState(score);
   };
 
+  const setAutoAdvanceEnabled = (enabled: boolean) => {
+    setAutoAdvanceEnabledState(enabled);
+  };
+
   const resetDailyBoard = () => {
     setMatches(prev => prev.map(m => !m.isCompleted ? { ...m, isCompleted: true, status: 'cancelled' } : m));
     setPlayers(prev => prev.map(p => ({
@@ -375,6 +434,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setPaymentMethods([]);
     setClubLogoState(null);
     setDefaultWinningScoreState(21);
+    setAutoAdvanceEnabledState(true);
     localStorage.clear();
   };
 
@@ -384,10 +444,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   return (
     <ClubContext.Provider value={{
-      players, courts, matches, fees, paymentMethods, clubLogo, defaultWinningScore,
+      players, courts, matches, fees, paymentMethods, clubLogo, defaultWinningScore, autoAdvanceEnabled,
       addPlayer, updatePlayer, deletePlayer, addCourt, deleteCourt,
       startMatch, startTimer, updateMatchScore, endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch, updateFee, togglePayment,
-      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, deleteMatch, setDefaultWinningScore
+      addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, deleteMatch, setDefaultWinningScore, setAutoAdvanceEnabled
     }}>
       {children}
     </ClubContext.Provider>
