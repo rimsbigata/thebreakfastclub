@@ -1,12 +1,11 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { Sidebar } from '@/components/layout/Sidebar';
 import { ClubProvider } from '@/context/ClubContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { Header } from '@/components/layout/Header';
 
 export const metadata: Metadata = {
   title: 'TheBreakfastClub | Badminton Club',
@@ -32,16 +31,13 @@ export default function RootLayout({
         <FirebaseClientProvider>
           <ThemeProvider>
             <ClubProvider>
-              <SidebarProvider defaultOpen={true}>
-                <div className="flex min-h-screen w-full">
-                  <Sidebar />
-                  <main className="flex-1 overflow-auto pb-20 md:pb-0">
-                    {children}
-                  </main>
-                </div>
-                <BottomNav />
-                <Toaster />
-              </SidebarProvider>
+              <div className="flex flex-col min-h-screen w-full overflow-hidden">
+                <Header />
+                <main className="flex-1 overflow-auto">
+                  {children}
+                </main>
+              </div>
+              <Toaster />
             </ClubProvider>
           </ThemeProvider>
         </FirebaseClientProvider>

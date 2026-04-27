@@ -5,15 +5,12 @@ import { useState, useEffect } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered } from 'lucide-react';
+import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { SKILL_LEVELS } from '@/lib/types';
 
@@ -60,13 +57,11 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 }
 
 export default function HomePage() {
-  const { courts, players, matches, clubLogo, addCourt, deleteCourt, startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt } = useClub();
+  const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt } = useClub();
   const { toast } = useToast();
-  const [newCourtName, setNewCourtName] = useState('');
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
   
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [draggedMatchId, setDraggedMatchId] = useState<string | null>(null);
@@ -85,24 +80,6 @@ export default function HomePage() {
   const waitingMatches = matches.filter(m => !m.isCompleted && !m.courtId);
 
   if (!mounted) return null;
-
-  const handleAddCourtAction = () => {
-    if (!newCourtName) return;
-    addCourt(newCourtName);
-    setNewCourtName('');
-    setIsAddCourtOpen(false);
-    toast({ title: "Court Added" });
-  };
-
-  const handleAutoMatch = () => {
-    const result = generateDeterministicMatch(availablePlayers, courts.filter(c => c.status === 'available'));
-    if (result.matchCreated && result.teamA && result.teamB) {
-      startMatch({ teamA: result.teamA, teamB: result.teamB, courtId: result.courtId });
-      toast({ title: result.courtId ? "Match Created!" : "Match Queued!" });
-    } else {
-      toast({ title: "Matchmaking Error", description: result.error || "Need 4 players.", variant: "destructive" });
-    }
-  };
 
   const onDragStartPlayer = (e: React.DragEvent, playerId: string) => {
     setDraggedPlayerId(playerId);
@@ -155,39 +132,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden animate-in fade-in duration-700 bg-background text-foreground">
-      <header className="flex flex-row items-center justify-between gap-4 p-4 border-b bg-card shrink-0 shadow-sm z-20">
-        <div className="flex items-center gap-3">
-          <img src="/assets/image/tbc_logo_loading.png" alt="Club Logo" className="h-10 w-10 object-contain" />
-          <div>
-            <h1 className="text-xl font-black uppercase tracking-tighter leading-none">Command Center</h1>
-            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1">Live Club Operations</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Dialog open={isAddCourtOpen} onOpenChange={setIsAddCourtOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9 border-2 hover:bg-secondary">
-                <Plus className="h-5 w-5" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Add New Court</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Court Identifier</Label>
-                  <Input placeholder="e.g. 1, 2, Blue" value={newCourtName} onChange={e => setNewCourtName(e.target.value)} />
-                </div>
-                <Button className="w-full font-bold" onClick={handleAddCourtAction}>Save Court</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Button onClick={handleAutoMatch} disabled={availablePlayers.length < 4} className="gap-2 bg-primary font-black uppercase text-xs h-9 px-4 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
-            <Zap className="h-4 w-4 fill-white" /> Quick Match
-          </Button>
-        </div>
-      </header>
-
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden animate-in fade-in duration-700 bg-background text-foreground">
       <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12">
         
         {/* PANEL 1: THE BENCH */}
@@ -253,7 +198,12 @@ export default function HomePage() {
             <div className="space-y-3 pb-10">
               {draftPlayerIds.length > 0 && (
                 <Card className="border-dashed border-2 border-primary/50 bg-primary/5 p-2 space-y-1">
-                  <p className="text-[9px] font-black uppercase text-primary mb-1">Drafting ({draftPlayerIds.length}/4)</p>
+                  <div className="flex justify-between items-center mb-1">
+                    <p className="text-[9px] font-black uppercase text-primary">Drafting ({draftPlayerIds.length}/4)</p>
+                    <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setDraftPlayerIds([])}>
+                      <Plus className="h-3 w-3 rotate-45" />
+                    </Button>
+                  </div>
                   {draftPlayerIds.map(id => (
                     <div key={id} className="text-xs font-black bg-card p-1.5 rounded border shadow-sm flex justify-between items-center">
                       {players.find(p => p.id === id)?.name}
@@ -283,6 +233,11 @@ export default function HomePage() {
                   </div>
                 </Card>
               ))}
+              {waitingMatches.length === 0 && !draftPlayerIds.length && (
+                <div className="py-20 text-center text-muted-foreground text-xs font-bold italic opacity-30 px-4">
+                  Drag 4 players here to queue a match
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -362,7 +317,7 @@ export default function HomePage() {
                       ) : (
                         <div className="h-full py-10 flex flex-col items-center justify-center opacity-20 italic">
                           <Zap className={cn("h-10 w-10 mb-2 transition-all", isOver ? "scale-125 opacity-100 text-primary" : "")} />
-                          <p className="text-[10px] font-black uppercase tracking-widest">{isOver ? "Release to Start" : "Drag Match Here"}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-center">{isOver ? "Release to Start" : "Drag Queued Match Here"}</p>
                         </div>
                       )}
                     </CardContent>
@@ -391,6 +346,11 @@ export default function HomePage() {
                   </Card>
                 );
               })}
+              {courts.length === 0 && (
+                <div className="col-span-full py-20 text-center text-muted-foreground opacity-30 italic font-black uppercase text-[10px] tracking-widest">
+                  No courts configured. Use the header button to add one.
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>
