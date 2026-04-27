@@ -158,7 +158,7 @@ export function Header() {
                         />
                         <label htmlFor={player.id} className="text-xs font-black cursor-pointer flex-1 flex items-center justify-between">
                           <span>{player.name}</span>
-                          <Badge className={cn("text-[8px] font-black uppercase px-1 border-none", getSkillColor(player.skillLevel))}>
+                          <Badge className={cn("text-[8px] font-black uppercase px-1.5 h-4 border-none", getSkillColor(player.skillLevel))}>
                             {SKILL_LEVELS_SHORT[player.skillLevel]}
                           </Badge>
                         </label>

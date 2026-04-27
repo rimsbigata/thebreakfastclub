@@ -200,7 +200,7 @@ export default function HomePage() {
                     <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
                   </div>
                   <div className="flex justify-between items-center opacity-80">
-                    <Badge className={cn("text-[6px] font-black uppercase h-3 px-1 border-none", getSkillColor(player.skillLevel))}>
+                    <Badge className={cn("text-[6px] font-black uppercase h-3.5 px-1.5", getSkillColor(player.skillLevel))}>
                       {SKILL_LEVELS_SHORT[player.skillLevel]}
                     </Badge>
                     <span className="text-[7px] font-black">{player.gamesPlayed} Gms</span>
@@ -250,7 +250,7 @@ export default function HomePage() {
                             <X className="h-2 w-2 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(pId => pId !== id))} />
                           </div>
                           {p && (
-                            <Badge className={cn("text-[5px] h-2.5 px-0.5 w-fit border-none", getSkillColor(p.skillLevel))}>
+                            <Badge className={cn("text-[5px] h-3 px-1 w-fit", getSkillColor(p.skillLevel))}>
                               {SKILL_LEVELS_SHORT[p.skillLevel]}
                             </Badge>
                           )}
@@ -274,7 +274,7 @@ export default function HomePage() {
                         return (
                           <div key={id} className="flex items-center gap-1">
                             <span className="text-[9px] font-black truncate leading-tight">{p?.name}</span>
-                            {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                            {p && <Badge className={cn("text-[5px] h-3 px-1", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                           </div>
                         );
                       })}
@@ -285,7 +285,7 @@ export default function HomePage() {
                         const p = players.find(player => player.id === id);
                         return (
                           <div key={id} className="flex items-center gap-1 justify-end">
-                            {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                            {p && <Badge className={cn("text-[5px] h-3 px-1", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                             <span className="text-[9px] font-black truncate leading-tight">{p?.name}</span>
                           </div>
                         );
@@ -345,7 +345,7 @@ export default function HomePage() {
                       court.status === 'occupied' ? "bg-primary/5" : "bg-muted"
                     )}>
                       <span className="text-[9px] font-black uppercase tracking-tight">{court.name}</span>
-                      <Badge variant={court.status === 'available' ? 'outline' : 'default'} className="text-[6px] font-black uppercase px-0.5 h-3">
+                      <Badge variant={court.status === 'available' ? 'outline' : 'default'} className="text-[6px] font-black uppercase px-1 h-3.5">
                         {court.status}
                       </Badge>
                     </div>
@@ -373,7 +373,7 @@ export default function HomePage() {
                                   <div key={id} className="flex justify-between items-center group/p">
                                     <div className="flex items-center gap-1 min-w-0">
                                       <span className="text-[9px] font-black truncate max-w-[45px] leading-tight">{p?.name}</span>
-                                      {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                      {p && <Badge className={cn("text-[5px] h-3 px-1", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                     </div>
                                     <Button variant="ghost" size="icon" className="h-3 w-3 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
                                       <ArrowLeftRight className="h-2.5 w-2.5" />
@@ -399,7 +399,7 @@ export default function HomePage() {
                                   <div key={id} className="flex justify-between items-center group/p">
                                     <div className="flex items-center gap-1 min-w-0">
                                       <span className="text-[9px] font-black truncate max-w-[45px] leading-tight">{p?.name}</span>
-                                      {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                      {p && <Badge className={cn("text-[5px] h-3 px-1", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                     </div>
                                     <Button variant="ghost" size="icon" className="h-3 w-3 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
                                       <ArrowLeftRight className="h-2.5 w-2.5" />
@@ -419,7 +419,7 @@ export default function HomePage() {
                               return (
                                 <div key={id} className="text-[8px] font-black bg-background p-0.5 rounded border flex items-center justify-between">
                                   <span className="truncate max-w-[60px]">{p?.name}</span>
-                                  {p && <Badge className={cn("text-[5px] h-2.5 px-0.5 border-none", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                  {p && <Badge className={cn("text-[5px] h-3 px-1", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                 </div>
                               );
                             })}
@@ -474,7 +474,7 @@ export default function HomePage() {
                 <Button key={p.id} variant="outline" className="w-full justify-between h-auto py-3 px-4 hover:border-primary hover:bg-primary/5 transition-all" onClick={() => handleSwap(p.id)}>
                   <div className="flex flex-col items-start">
                     <span className="font-black text-sm">{p.name}</span>
-                    <Badge className={cn("text-[8px] uppercase font-black px-1 mt-1 border-none", getSkillColor(p.skillLevel))}>
+                    <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-4 mt-1 border-none", getSkillColor(p.skillLevel))}>
                       {SKILL_LEVELS_SHORT[p.skillLevel]} • {p.gamesPlayed} Games
                     </Badge>
                   </div>

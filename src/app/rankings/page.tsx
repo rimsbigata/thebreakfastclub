@@ -90,7 +90,7 @@ export default function RankingsPage() {
                   {player.name}
                   {i === 0 && <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />}
                 </p>
-                <Badge className={cn("text-[7px] font-black uppercase px-1 h-3.5 mt-1 border-none", getSkillColor(player.skillLevel))}>
+                <Badge className={cn("text-[7px] font-black uppercase px-1.5 h-4 mt-1 border-none", getSkillColor(player.skillLevel))}>
                   {SKILL_LEVELS_SHORT[player.skillLevel]}
                 </Badge>
               </div>
