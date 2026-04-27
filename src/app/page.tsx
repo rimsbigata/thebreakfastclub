@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered } from 'lucide-react';
+import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered, Plus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -57,24 +56,24 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 }
 
 export default function HomePage() {
-  const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt } = useClub();
+  const { courts, players, matches, deleteCourt, startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch } = useClub();
   const { toast } = useToast();
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   
-  const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
-  const [draggedMatchId, setDraggedMatchId] = useState<string | null>(null);
   const [draftPlayerIds, setDraftPlayerIds] = useState<string[]>([]);
   const [isQueueOver, setIsQueueOver] = useState(false);
   const [overCourtId, setOverCourtId] = useState<string | null>(null);
+  const [isCourtPanelOver, setIsCourtPanelOver] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Filter out players who are currently being drafted
   const availablePlayers = players
-    .filter(p => p.status === 'available')
+    .filter(p => p.status === 'available' && !draftPlayerIds.includes(p.id))
     .sort((a, b) => (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0));
   
   const waitingMatches = matches.filter(m => !m.isCompleted && !m.courtId);
@@ -82,12 +81,10 @@ export default function HomePage() {
   if (!mounted) return null;
 
   const onDragStartPlayer = (e: React.DragEvent, playerId: string) => {
-    setDraggedPlayerId(playerId);
     e.dataTransfer.setData("playerId", playerId);
   };
 
   const onDragStartMatch = (e: React.DragEvent, matchId: string) => {
-    setDraggedMatchId(matchId);
     e.dataTransfer.setData("matchId", matchId);
   };
 
@@ -101,6 +98,7 @@ export default function HomePage() {
     if (newDraft.length === 4) {
       startMatch({ teamA: [newDraft[0], newDraft[1]], teamB: [newDraft[2], newDraft[3]], courtId: undefined });
       setDraftPlayerIds([]);
+      toast({ title: "Match Drafted", description: "Match has been added to the queue." });
     } else {
       setDraftPlayerIds(newDraft);
     }
@@ -118,6 +116,18 @@ export default function HomePage() {
     assignMatchToCourt(matchId, courtId);
   };
 
+  const onDropInCourtPanel = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsCourtPanelOver(false);
+    const matchId = e.dataTransfer.getData("matchId");
+    if (!matchId) return;
+
+    // Check if dropping on a specific court (already handled by onDropInCourt)
+    // If not, auto-create a court and assign.
+    createCourtAndAssignMatch(matchId);
+    toast({ title: "Match Started", description: "A new court was created for this match." });
+  };
+
   const handleSwap = (newPlayerId: string) => {
     if (!swapping) return;
     swapPlayer(swapping.matchId, swapping.oldPlayerId, newPlayerId);
@@ -129,6 +139,10 @@ export default function HomePage() {
       endMatch(scoringCourtId, winner, teamAScore, teamBScore);
       setScoringCourtId(null);
     }
+  };
+
+  const removeFromDraft = (id: string) => {
+    setDraftPlayerIds(prev => prev.filter(pid => pid !== id));
   };
 
   return (
@@ -197,18 +211,18 @@ export default function HomePage() {
           <ScrollArea className="flex-1 p-2">
             <div className="space-y-3 pb-10">
               {draftPlayerIds.length > 0 && (
-                <Card className="border-dashed border-2 border-primary/50 bg-primary/5 p-2 space-y-1">
+                <Card className="border-dashed border-2 border-primary/50 bg-primary/5 p-2 space-y-1 animate-in zoom-in-95">
                   <div className="flex justify-between items-center mb-1">
                     <p className="text-[9px] font-black uppercase text-primary">Drafting ({draftPlayerIds.length}/4)</p>
-                    <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setDraftPlayerIds([])}>
-                      <Plus className="h-3 w-3 rotate-45" />
+                    <Button variant="ghost" size="icon" className="h-4 w-4 hover:bg-destructive hover:text-white" onClick={() => setDraftPlayerIds([])}>
+                      <X className="h-3 w-3" />
                     </Button>
                   </div>
                   {draftPlayerIds.map(id => (
-                    <div key={id} className="text-xs font-black bg-card p-1.5 rounded border shadow-sm flex justify-between items-center">
+                    <div key={id} className="text-xs font-black bg-card p-1.5 rounded border shadow-sm flex justify-between items-center group">
                       {players.find(p => p.id === id)?.name}
-                      <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setDraftPlayerIds(prev => prev.filter(pid => pid !== id))}>
-                        <Plus className="h-3 w-3 rotate-45" />
+                      <Button variant="ghost" size="icon" className="h-4 w-4 opacity-50 group-hover:opacity-100" onClick={() => removeFromDraft(id)}>
+                        <X className="h-3 w-3" />
                       </Button>
                     </div>
                   ))}
@@ -243,7 +257,15 @@ export default function HomePage() {
         </div>
 
         {/* PANEL 3: ACTIVE COURTS */}
-        <div className="md:col-span-6 flex flex-col h-full bg-secondary/5">
+        <div 
+          className={cn(
+            "md:col-span-6 flex flex-col h-full transition-all",
+            isCourtPanelOver ? "bg-green-500/5" : "bg-secondary/5"
+          )}
+          onDragOver={(e) => { e.preventDefault(); setIsCourtPanelOver(true); }}
+          onDragLeave={() => setIsCourtPanelOver(false)}
+          onDrop={onDropInCourtPanel}
+        >
           <div className="p-3 bg-card border-b flex items-center justify-between sticky top-0 z-10">
             <h2 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
               <DoorOpen className="h-4 w-4 text-green-600" /> Active Courts
@@ -258,9 +280,16 @@ export default function HomePage() {
                 return (
                   <Card 
                     key={court.id} 
-                    onDragOver={(e) => { e.preventDefault(); if (court.status === 'available') setOverCourtId(court.id); }}
+                    onDragOver={(e) => { 
+                      e.stopPropagation(); 
+                      e.preventDefault(); 
+                      if (court.status === 'available') setOverCourtId(court.id); 
+                    }}
                     onDragLeave={() => setOverCourtId(null)}
-                    onDrop={(e) => onDropInCourt(e, court.id)}
+                    onDrop={(e) => {
+                      e.stopPropagation();
+                      onDropInCourt(e, court.id);
+                    }}
                     className={cn(
                       "border-2 transition-all duration-200 overflow-hidden h-fit flex flex-col",
                       isOver ? "border-primary bg-primary/5 scale-105 z-20 shadow-xl" : "border-border shadow-sm",
@@ -347,8 +376,8 @@ export default function HomePage() {
                 );
               })}
               {courts.length === 0 && (
-                <div className="col-span-full py-20 text-center text-muted-foreground opacity-30 italic font-black uppercase text-[10px] tracking-widest">
-                  No courts configured. Use the header button to add one.
+                <div className="col-span-full py-20 text-center text-muted-foreground opacity-30 italic font-black uppercase text-[10px] tracking-widest border-2 border-dashed rounded-xl">
+                  Drag a match here to auto-create Court 1
                 </div>
               )}
             </div>

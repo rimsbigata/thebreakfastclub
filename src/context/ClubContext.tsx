@@ -21,6 +21,7 @@ interface ClubContextType {
   endMatch: (courtId: string, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => void;
   swapPlayer: (matchId: string, oldPlayerId: string, newPlayerId: string) => void;
   assignMatchToCourt: (matchId: string, courtId: string) => void;
+  createCourtAndAssignMatch: (matchId: string) => void;
   updateFee: (fee: Omit<Fee, 'payments'>) => void;
   togglePayment: (date: string, playerId: string) => void;
   addPaymentMethod: (name: string, imageData: string) => void;
@@ -50,7 +51,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [clubLogo, setClubLogoState] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load from Local Storage with a 3-second artificial delay
   useEffect(() => {
     const load = (key: string, fallback: any) => {
       if (typeof window === 'undefined') return fallback;
@@ -65,7 +65,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setPaymentMethods(load(STORAGE_KEYS.PAYMENT_METHODS, []));
     setClubLogoState(localStorage.getItem(STORAGE_KEYS.LOGO));
     
-    // Artificial delay to show splash screen for 3 seconds
     const timer = setTimeout(() => {
       setIsLoaded(true);
     }, 3000);
@@ -73,7 +72,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Sync to Local Storage
   useEffect(() => {
     if (!isLoaded) return;
     localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(players));
@@ -167,6 +165,25 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         ? { ...c, status: 'occupied', currentMatchId: matchId } 
         : c
     ));
+  };
+
+  const createCourtAndAssignMatch = (matchId: string) => {
+    // Determine the next numerical court name
+    const courtNumbers = courts
+      .map(c => parseInt(c.name.replace('Court ', '')))
+      .filter(n => !isNaN(n));
+    const nextNum = courtNumbers.length > 0 ? Math.max(...courtNumbers) + 1 : 1;
+    
+    const newCourtId = generateId();
+    const newCourt: Court = {
+      id: newCourtId,
+      name: `Court ${nextNum}`,
+      status: 'occupied',
+      currentMatchId: matchId
+    };
+
+    setCourts(prev => [...prev, newCourt]);
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, courtId: newCourtId } : m));
   };
 
   const startTimer = (courtId: string) => {
@@ -303,7 +320,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     <ClubContext.Provider value={{
       players, courts, matches, fees, paymentMethods, clubLogo,
       addPlayer, updatePlayer, deletePlayer, addCourt, deleteCourt,
-      startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt, updateFee, togglePayment,
+      startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch, updateFee, togglePayment,
       addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo
     }}>
       {children}
