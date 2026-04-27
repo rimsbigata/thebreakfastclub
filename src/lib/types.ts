@@ -3,14 +3,37 @@ export type PlayerStatus = 'available' | 'playing' | 'resting';
 export type CourtStatus = 'available' | 'occupied';
 export type MatchStatus = 'ongoing' | 'completed' | 'cancelled';
 
-export const SKILL_LEVELS: Record<number, string> = {
+export const SKILL_LEVELS_SHORT: Record<number, string> = {
   1: "Beg",
   2: "Adv Beg",
-  3: "Int",
-  4: "Int",
-  5: "Int",
+  3: "Low Int",
+  4: "Mid Int",
+  5: "Up Int",
   6: "Adv",
-  7: "Adv",
+  7: "Exp",
+};
+
+export const SKILL_LEVELS_FULL: Record<number, string> = {
+  1: "Beginner",
+  2: "Advanced Beginner",
+  3: "Low Intermediate",
+  4: "Mid Intermediate",
+  5: "Upper Intermediate",
+  6: "Advanced",
+  7: "Expert",
+};
+
+export const getSkillColor = (level: number) => {
+  switch (level) {
+    case 1: return "bg-slate-400 text-white";
+    case 2: return "bg-cyan-600 text-white";
+    case 3: return "bg-emerald-600 text-white";
+    case 4: return "bg-amber-500 text-white";
+    case 5: return "bg-orange-500 text-white";
+    case 6: return "bg-rose-600 text-white";
+    case 7: return "bg-violet-600 text-white";
+    default: return "bg-muted text-muted-foreground";
+  }
 };
 
 export interface PlayerSnapshot {

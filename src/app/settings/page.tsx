@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Image as ImageIcon, Sun, Moon, Palette } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
@@ -105,104 +105,100 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6 pb-24">
-      <h1 className="text-2xl font-black uppercase tracking-tight">Settings</h1>
+    <div className="container mx-auto px-4 py-8 space-y-8 pb-24 max-w-5xl animate-in fade-in duration-500">
+      <header className="space-y-1">
+        <h1 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-2">
+          <SettingsIcon className="h-8 w-8 text-primary" /> Settings
+        </h1>
+        <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest opacity-60">System configuration & branding</p>
+      </header>
 
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5" /> Appearance
-            </CardTitle>
-            <CardDescription>Customize the look and feel of your app.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-xl border border-border/50">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  {theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-                </div>
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-tight">Dark Mode</p>
-                  <p className="text-[10px] text-muted-foreground uppercase font-black">Switch between light and dark themes</p>
-                </div>
-              </div>
-              <Switch 
-                checked={theme === 'dark'} 
-                onCheckedChange={toggleTheme} 
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <QrCode className="h-5 w-5" /> Payment QR Methods
-            </CardTitle>
-            <CardDescription>Manage your scan-to-pay codes for player fees.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              <div className="flex-1 space-y-2">
-                <Label>Account Name</Label>
-                <Input 
-                  placeholder="e.g. GCash, Maya, Bank Transfer" 
-                  value={newMethodName} 
-                  onChange={e => setNewMethodName(e.target.value)} 
-                />
-              </div>
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-              <Button onClick={triggerFileUpload} disabled={isUploading} className="gap-2">
-                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                Add Payment Method
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-              {paymentMethods.map(method => (
-                <div key={method.id} className="relative group border rounded-xl p-4 bg-secondary/10 flex flex-col items-center">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="absolute top-2 right-2 h-7 w-7 bg-background/80 hover:bg-destructive hover:text-white"
-                    onClick={() => deletePaymentMethod(method.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                  <div className="relative h-32 w-32 border bg-white rounded-lg overflow-hidden mb-3 shadow-inner">
-                    <Image src={method.imageUrl} alt={method.name} fill className="object-contain p-2" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <Card className="border-2 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <Palette className="h-4 w-4" /> Appearance
+              </CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase">Customize the theme.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-xl border-2">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    {theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
                   </div>
-                  <span className="font-bold text-sm uppercase tracking-tight">{method.name}</span>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-tight">Dark Mode</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Toggle visual style</p>
+                  </div>
                 </div>
-              ))}
-              {paymentMethods.length === 0 && (
-                <div className="col-span-full py-12 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-secondary/5">
-                  <QrCode className="h-10 w-10 mb-2 opacity-10" />
-                  <p className="text-sm">No payment methods configured.</p>
+                <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 shadow-sm bg-destructive/5 border-destructive/20">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase tracking-widest text-destructive">Danger Zone</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
+                <RefreshCcw className="h-3 w-3 mr-2" /> Reset Daily Board
+              </Button>
+              <Button onClick={handleWipeAction} variant="destructive" className="w-full font-black uppercase text-[10px]">
+                <Trash2 className="h-3 w-3 mr-2" /> Wipe All Club Data
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="border-2 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <QrCode className="h-4 w-4" /> QR Payments
+              </CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase">Manage payment codes.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase opacity-60">Account Name</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="e.g. GCash" 
+                    value={newMethodName} 
+                    onChange={e => setNewMethodName(e.target.value)}
+                    className="font-bold text-xs"
+                  />
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                  <Button size="icon" onClick={triggerFileUpload} disabled={isUploading} className="shrink-0">
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  </Button>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </div>
 
-        <Card>
-          <CardHeader><CardTitle>Maintenance</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            <Button onClick={handleResetAction} variant="outline" className="w-full gap-2 border-primary text-primary hover:bg-primary/5">
-              <RefreshCcw className="h-4 w-4" /> Reset Daily Board (Clear Matches & Reset Stats)
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardHeader><CardTitle className="text-destructive">Danger Zone</CardTitle></CardHeader>
-          <CardContent>
-            <Button onClick={handleWipeAction} variant="destructive" className="w-full gap-2">
-              <Trash2 className="h-4 w-4" /> Wipe All Club Data (Factory Reset)
-            </Button>
-          </CardContent>
-        </Card>
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                {paymentMethods.map(method => (
+                  <div key={method.id} className="relative group border-2 rounded-xl p-2 bg-secondary/10 flex flex-col items-center">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute top-1 right-1 h-5 w-5 hover:bg-destructive hover:text-white"
+                      onClick={() => deletePaymentMethod(method.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                    <div className="relative h-20 w-full border bg-white rounded-lg overflow-hidden mb-1 shadow-inner">
+                      <Image src={method.imageUrl} alt={method.name} fill className="object-contain p-1" />
+                    </div>
+                    <span className="font-black text-[9px] uppercase truncate w-full text-center">{method.name}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

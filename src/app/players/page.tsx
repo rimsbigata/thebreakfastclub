@@ -10,9 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, User, TrendingUp, PieChart, Users, Trash2, Pencil, Search } from 'lucide-react';
+import { Plus, User, TrendingUp, Users, Trash2, Pencil, Search } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, Cell } from 'recharts';
-import { SKILL_LEVELS, Player } from '@/lib/types';
+import { SKILL_LEVELS_FULL, SKILL_LEVELS_SHORT, getSkillColor, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -48,7 +48,7 @@ export default function PlayersPage() {
   }, [players, searchQuery]);
 
   const skillDistribution = useMemo(() => {
-    return Object.keys(SKILL_LEVELS).map(level => ({
+    return Object.keys(SKILL_LEVELS_SHORT).map(level => ({
       level: `L${level}`,
       count: players.filter(p => p.skillLevel === parseInt(level)).length,
     }));
@@ -58,7 +58,6 @@ export default function PlayersPage() {
     const trimmedName = newName.trim();
     if (!trimmedName) return;
 
-    // Duplicate check
     const isDuplicate = players.some(p => p.name.toLowerCase() === trimmedName.toLowerCase());
     if (isDuplicate) {
       toast({
@@ -114,7 +113,6 @@ export default function PlayersPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* STATS & QUICK ADD PANEL */}
         <aside className="lg:col-span-4 space-y-6">
           <Card className="border-2 shadow-sm bg-card overflow-hidden">
             <CardHeader className="p-4 bg-primary/5 border-b">
@@ -141,7 +139,7 @@ export default function PlayersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(SKILL_LEVELS).map(([val, label]) => (
+                    {Object.entries(SKILL_LEVELS_FULL).map(([val, label]) => (
                       <SelectItem key={val} value={val} className="font-bold text-xs">{val} - {label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -178,7 +176,6 @@ export default function PlayersPage() {
           </Card>
         </aside>
 
-        {/* COMPACT PLAYER GRID */}
         <div className="lg:col-span-8">
           <ScrollArea className="h-[calc(100vh-200px)]">
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 pr-4">
@@ -215,7 +212,9 @@ export default function PlayersPage() {
                     <div className="grid grid-cols-2 gap-1 pt-2 border-t border-dashed">
                       <div className="space-y-0.5">
                         <p className="text-[7px] font-black uppercase text-muted-foreground leading-none">Skill</p>
-                        <p className="text-[9px] font-black">{SKILL_LEVELS[player.skillLevel]}</p>
+                        <Badge className={cn("text-[8px] font-black uppercase px-1 h-3.5", getSkillColor(player.skillLevel))}>
+                          {SKILL_LEVELS_SHORT[player.skillLevel]}
+                        </Badge>
                       </div>
                       <div className="space-y-0.5 text-right">
                         <p className="text-[7px] font-black uppercase text-muted-foreground leading-none">Games</p>
@@ -253,7 +252,7 @@ export default function PlayersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(SKILL_LEVELS).map(([val, label]) => (
+                  {Object.entries(SKILL_LEVELS_FULL).map(([val, label]) => (
                     <SelectItem key={val} value={val} className="font-bold text-xs">{val} - {label}</SelectItem>
                   ))}
                 </SelectContent>

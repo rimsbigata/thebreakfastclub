@@ -13,7 +13,7 @@ import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered, 
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { SKILL_LEVELS } from '@/lib/types';
+import { SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -201,7 +201,9 @@ export default function HomePage() {
                     <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
                   </div>
                   <div className="flex justify-between items-center opacity-60">
-                    <span className="text-[7px] font-black uppercase">{SKILL_LEVELS[player.skillLevel]}</span>
+                    <Badge className={cn("text-[6px] font-black uppercase h-3 px-1", getSkillColor(player.skillLevel))}>
+                      {SKILL_LEVELS_SHORT[player.skillLevel]}
+                    </Badge>
                     <span className="text-[7px] font-black">{player.gamesPlayed} Gms</span>
                   </div>
                 </Card>
@@ -431,7 +433,9 @@ export default function HomePage() {
                 <Button key={p.id} variant="outline" className="w-full justify-between h-auto py-3 px-4 hover:border-primary hover:bg-primary/5 transition-all" onClick={() => handleSwap(p.id)}>
                   <div className="flex flex-col items-start">
                     <span className="font-black text-sm">{p.name}</span>
-                    <span className="text-[9px] uppercase font-black text-muted-foreground">{SKILL_LEVELS[p.skillLevel]} • {p.gamesPlayed} Games</span>
+                    <Badge className={cn("text-[8px] uppercase font-black px-1 mt-1", getSkillColor(p.skillLevel))}>
+                      {SKILL_LEVELS_SHORT[p.skillLevel]} • {p.gamesPlayed} Games
+                    </Badge>
                   </div>
                 </Button>
               ))}
