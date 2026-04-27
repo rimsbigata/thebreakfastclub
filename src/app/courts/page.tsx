@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -13,16 +12,15 @@ import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
+import { MatchResults } from '@/components/match/MatchResults';
 import { SKILL_LEVELS } from '@/lib/types';
 
 export default function CourtsPage() {
-  const { courts, players, addCourt, deleteCourt, startMatch, endMatch, matches } = useClub();
+  const { courts, players, matches, addCourt, deleteCourt, startMatch, endMatch } = useClub();
   const { toast } = useToast();
   const [loadingMatch, setLoadingMatch] = useState(false);
   const [newCourtName, setNewCourtName] = useState('');
-  const [isSwapOpen, setIsSwapOpen] = useState(false);
-  const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
-  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
+  const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
 
   const handleAddCourt = () => {
     if (!newCourtName) return;
@@ -30,21 +28,11 @@ export default function CourtsPage() {
     setNewCourtName('');
   };
 
-  const handleDeleteCourtAction = (id: string) => {
-    if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to delete this court?")) return;
-    deleteCourt(id);
-    toast({ title: "Court Deleted" });
-  };
-
-  const handleOpenScoreDialog = (courtId: string) => {
-    setSelectedCourtId(courtId);
-    setScoreDialogOpen(true);
-  };
-
-  const handleScoreSubmit = (teamAScore: number, teamBScore: number, winner: 'teamA' | 'teamB') => {
-    if (selectedCourtId) {
-      endMatch(selectedCourtId, winner, teamAScore, teamBScore);
-      toast({ title: "Match Finished!", description: `Final Score: Team A ${teamAScore} - Team B ${teamBScore}` });
+  const handleScoreSubmit = (teamAScore: number | undefined, teamBScore: number | undefined, winner: 'teamA' | 'teamB') => {
+    if (scoringCourtId) {
+      endMatch(scoringCourtId, winner, teamAScore, teamBScore);
+      setScoringCourtId(null);
+      toast({ title: "Match Recorded" });
     }
   };
 
@@ -71,7 +59,7 @@ export default function CourtsPage() {
           teamB: result.teamB,
           courtId: result.courtId,
         });
-        toast({ title: "Match Started!", description: result.analysis || `Assigned to ${result.courtName}.` });
+        toast({ title: "Match Started!", description: result.analysis });
       } else {
         toast({ title: "No optimal match", description: result.error || "Logic engine couldn't find a balance." });
       }
@@ -84,7 +72,7 @@ export default function CourtsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6 pb-24">
+    <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Courts</h1>
         <div className="flex gap-2">
@@ -127,9 +115,9 @@ export default function CourtsPage() {
                   variant="ghost" 
                   size="icon" 
                   className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => handleDeleteCourtAction(court.id)}
+                  onClick={() => deleteCourt(court.id)}
                 >
-                  <Trash2 className="h-4 w-4 group-hover:text-white" />
+                  <Trash2 className="h-4 w-4" />
                 </Button>
                 <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={court.status === 'available' ? 'text-green-600 border-green-200' : 'bg-primary'}>
                   {court.status.toUpperCase()}
@@ -155,57 +143,32 @@ export default function CourtsPage() {
             </CardContent>
             <CardFooter className="flex justify-between gap-2 border-t pt-4">
                {court.status === 'occupied' ? (
-                 <>
-                  <Button variant="outline" size="sm" onClick={() => handleOpenScoreDialog(court.id)} className="flex-1">Record Score</Button>
-                  <Button variant="ghost" size="sm" onClick={() => setIsSwapOpen(true)} className="gap-2">
-                    <ArrowLeftRight className="h-4 w-4" /> Swap
-                  </Button>
-                 </>
+                  <Button variant="outline" size="sm" onClick={() => setScoringCourtId(court.id)} className="w-full">End Match & Record Score</Button>
                ) : (
                  <p className="text-xs text-muted-foreground">Idle</p>
                )}
             </CardFooter>
           </Card>
         ))}
-        {courts.length === 0 && (
-          <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed rounded-xl bg-muted/20">
-            <Trophy className="h-10 w-10 text-muted-foreground/20 mb-2" />
-            <p className="text-sm font-medium text-muted-foreground">No courts added yet.</p>
-          </div>
-        )}
       </div>
 
-      <Dialog open={isSwapOpen} onOpenChange={setIsSwapOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-            <Label>Select replacement from available players:</Label>
-            {players.filter(p => p.status === 'available').map(player => (
-              <Button key={player.id} variant="outline" className="w-full justify-between h-12" onClick={() => setIsSwapOpen(false)}>
-                <div className="flex flex-col items-start">
-                  <span className="font-bold">{player.name}</span>
-                  <span className="text-[10px] uppercase text-muted-foreground">{player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}</span>
-                </div>
-                <Badge>Available</Badge>
-              </Button>
-            ))}
-            {players.filter(p => p.status === 'available').length === 0 && (
-              <p className="text-center text-sm text-muted-foreground italic">No players available to swap.</p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Match History Section */}
+      <section className="pt-8">
+        <MatchResults matches={matches} players={players} limit={10} />
+      </section>
 
-      {selectedCourtId && (() => {
-        const court = courts.find(c => c.id === selectedCourtId);
-        const match = court?.currentMatchId ? matches.find(m => m.id === court.currentMatchId) : null;
-        const teamA = match ? players.filter(p => match.teamA.includes(p.id)) : [];
-        const teamB = match ? players.filter(p => match.teamB.includes(p.id)) : [];
+      {scoringCourtId && (() => {
+        const court = courts.find(c => c.id === scoringCourtId);
+        const match = matches.find(m => m.id === court?.currentMatchId);
+        if (!match) return null;
         
+        const teamA = players.filter(p => match.teamA.includes(p.id));
+        const teamB = players.filter(p => match.teamB.includes(p.id));
+
         return (
           <MatchScoreDialog
-            open={scoreDialogOpen}
-            onOpenChange={setScoreDialogOpen}
+            open={!!scoringCourtId}
+            onOpenChange={(open) => !open && setScoringCourtId(null)}
             teamA={teamA}
             teamB={teamB}
             onScoreSubmit={handleScoreSubmit}

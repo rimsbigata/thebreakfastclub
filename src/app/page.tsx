@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { SKILL_LEVELS } from '@/lib/types';
+import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
+import { MatchResults } from '@/components/match/MatchResults';
 import Image from 'next/image';
 import tbcLogo from '@/assets/images/tbclogo.jpg';
 
@@ -45,6 +47,8 @@ export default function HomePage() {
   const { toast } = useToast();
   const [newCourtName, setNewCourtName] = useState('');
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
+  const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
+  const [showWinButtons, setShowWinButtons] = useState<Record<string, boolean>>({});
   const [today, setToday] = useState<string>('');
 
   useEffect(() => {
@@ -92,6 +96,14 @@ export default function HomePage() {
     toast({ title: "Player Swapped" });
   };
 
+  const handleScoreSubmit = (teamAScore: number | undefined, teamBScore: number | undefined, winner: 'teamA' | 'teamB') => {
+    if (scoringCourtId) {
+      endMatch(scoringCourtId, winner, teamAScore, teamBScore);
+      setScoringCourtId(null);
+      toast({ title: "Match Ended", description: "Score recorded and player stats updated." });
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -106,7 +118,7 @@ export default function HomePage() {
           </div>
           <div>
             <h1 className="text-2xl font-black uppercase tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Live court status and FIFO matchmaking.</p>
+            <p className="text-sm text-muted-foreground">Live court status and deterministic matchmaking.</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -195,6 +207,7 @@ export default function HomePage() {
             const teamAPlayers = activeMatch?.teamA.map(id => players.find(p => p.id === id)).filter(Boolean);
             const teamBPlayers = activeMatch?.teamB.map(id => players.find(p => p.id === id)).filter(Boolean);
             const isTimerRunning = !!activeMatch?.startTime;
+            const isManualWinMode = showWinButtons[court.id];
 
             return (
               <Card key={court.id} className="border-2 shadow-sm relative group overflow-hidden">
@@ -203,11 +216,6 @@ export default function HomePage() {
                     <CardTitle className="text-lg font-black uppercase tracking-tight">{court.name}</CardTitle>
                     {court.status === 'occupied' && isTimerRunning && (
                       <LiveTimer startTime={activeMatch?.startTime} />
-                    )}
-                    {court.status === 'occupied' && !isTimerRunning && (
-                      <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-sm font-bold italic">
-                        Ready to Start
-                      </div>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -234,7 +242,7 @@ export default function HomePage() {
                         <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-3 relative">
                           <div className="flex justify-between items-center">
                             <p className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</p>
-                            {isTimerRunning && (
+                            {(isTimerRunning || isManualWinMode) && (
                               <Button 
                                 variant="secondary" 
                                 size="sm" 
@@ -270,7 +278,7 @@ export default function HomePage() {
                         <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-3 relative">
                           <div className="flex justify-between items-center">
                             <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
-                            {isTimerRunning && (
+                            {(isTimerRunning || isManualWinMode) && (
                               <Button 
                                 variant="secondary" 
                                 size="sm" 
@@ -322,8 +330,13 @@ export default function HomePage() {
                         ) : (
                           <>
                             <p className="text-[10px] font-black uppercase text-primary animate-pulse tracking-widest">Match In Progress</p>
-                            <Button variant="ghost" size="sm" onClick={() => endMatch(court.id)} className="text-xs font-bold uppercase text-muted-foreground hover:text-destructive">
-                              Force End
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setScoringCourtId(court.id)}
+                              className="text-xs font-bold uppercase"
+                            >
+                              End Match
                             </Button>
                           </>
                         )}
@@ -338,6 +351,12 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Match History Section */}
+      <section className="pt-8">
+        <MatchResults matches={matches} players={players} limit={5} />
+      </section>
+
+      {/* Dialogs */}
       <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
@@ -357,15 +376,33 @@ export default function HomePage() {
                 <Badge variant="secondary">Wait: {player.lastAvailableAt ? Math.floor((Date.now() - player.lastAvailableAt) / 60000) : 0}m</Badge>
               </Button>
             ))}
-            {players.filter(p => p.status === 'available').length === 0 && (
-              <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
-                <UserPlus className="h-8 w-8 opacity-20" />
-                <p className="text-sm italic">No players available to swap.</p>
-              </div>
-            )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {scoringCourtId && (() => {
+        const court = courts.find(c => c.id === scoringCourtId);
+        const match = matches.find(m => m.id === court?.currentMatchId);
+        if (!match) return null;
+        
+        const teamA = players.filter(p => match.teamA.includes(p.id));
+        const teamB = players.filter(p => match.teamB.includes(p.id));
+
+        return (
+          <MatchScoreDialog
+            open={!!scoringCourtId}
+            onOpenChange={(open) => !open && setScoringCourtId(null)}
+            teamA={teamA}
+            teamB={teamB}
+            onScoreSubmit={handleScoreSubmit}
+            onSkip={() => {
+              if (scoringCourtId) {
+                setShowWinButtons(prev => ({ ...prev, [scoringCourtId]: true }));
+              }
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

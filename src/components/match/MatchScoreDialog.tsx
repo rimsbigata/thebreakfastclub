@@ -1,23 +1,16 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Player } from '@/lib/types';
+import { Label } from '@/components/ui/label';
 
 interface MatchScoreDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   teamA: Player[];
   teamB: Player[];
-  /**
-   * Called when the user submits a score or selects a winner.
-   * If scores are omitted, they can be undefined.
-   */
   onScoreSubmit: (teamAScore: number | undefined, teamBScore: number | undefined, winner: 'teamA' | 'teamB') => void;
-  /**
-   * Called when the user chooses to skip recording a score.
-   * The caller can then show win buttons.
-   */
   onSkip?: () => void;
 }
 
@@ -28,23 +21,18 @@ export function MatchScoreDialog({ open, onOpenChange, teamA, teamB, onScoreSubm
   const handleSubmit = () => {
     const a = teamAScore.trim() === '' ? undefined : Number(teamAScore);
     const b = teamBScore.trim() === '' ? undefined : Number(teamBScore);
-    const winner = (a ?? 0) > (b ?? 0) ? 'teamA' : 'teamB';
+    
+    // Auto-determine winner if scores are provided
+    const winner = (a ?? 0) >= (b ?? 0) ? 'teamA' : 'teamB';
+    
     onScoreSubmit(a, b, winner);
     reset();
-    onOpenChange(false);
   };
 
   const handleSkip = () => {
-    // Close dialog without recording scores; notify parent to show win buttons.
     reset();
     onOpenChange(false);
     if (onSkip) onSkip();
-  };
-
-  const handleWin = (winner: 'teamA' | 'teamB') => {
-    onScoreSubmit(undefined, undefined, winner);
-    reset();
-    onOpenChange(false);
   };
 
   const reset = () => {
@@ -58,31 +46,56 @@ export function MatchScoreDialog({ open, onOpenChange, teamA, teamB, onScoreSubm
         <DialogHeader>
           <DialogTitle>Record Match Score</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4 items-center">
-            <div className="font-medium">Team A</div>
-            <Input
-              placeholder="Score"
-              value={teamAScore}
-              onChange={e => setTeamAScore(e.target.value)}
-              type="number"
-            />
-            <div className="font-medium">Team B</div>
-            <Input
-              placeholder="Score"
-              value={teamBScore}
-              onChange={e => setTeamBScore(e.target.value)}
-              type="number"
-            />
+        <div className="space-y-6 py-4">
+          <div className="grid grid-cols-2 gap-8 items-center">
+            <div className="space-y-3">
+              <div className="text-center">
+                <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</Label>
+                <div className="text-xs font-bold truncate">
+                  {teamA.map(p => p.name).join(' & ')}
+                </div>
+              </div>
+              <Input
+                placeholder="0"
+                value={teamAScore}
+                onChange={e => setTeamAScore(e.target.value)}
+                type="number"
+                className="text-center text-2xl font-black h-14"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-center">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</Label>
+                <div className="text-xs font-bold truncate">
+                  {teamB.map(p => p.name).join(' & ')}
+                </div>
+              </div>
+              <Input
+                placeholder="0"
+                value={teamBScore}
+                onChange={e => setTeamBScore(e.target.value)}
+                type="number"
+                className="text-center text-2xl font-black h-14"
+              />
+            </div>
           </div>
-          <div className="flex gap-2 justify-end mt-4">
-            <Button variant="outline" onClick={handleSkip}>Skip Score Recording</Button>
-            <Button onClick={handleSubmit}>Submit Score</Button>
-          </div>
-          <hr className="my-2" />
-          <div className="flex gap-2 justify-center">
-            <Button variant="success" onClick={() => handleWin('teamA')}>Team A Wins</Button>
-            <Button variant="destructive" onClick={() => handleWin('teamB')}>Team B Wins</Button>
+
+          <div className="flex flex-col gap-2 pt-4">
+            <Button 
+              className="w-full font-bold h-12" 
+              onClick={handleSubmit}
+              disabled={teamAScore === '' || teamBScore === ''}
+            >
+              Submit Score
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full text-xs font-bold uppercase text-muted-foreground" 
+              onClick={handleSkip}
+            >
+              Skip & Pick Winner Manually
+            </Button>
           </div>
         </div>
       </DialogContent>
