@@ -16,7 +16,6 @@ import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { SKILL_LEVELS } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { MatchResults } from '@/components/match/MatchResults';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
@@ -71,7 +70,6 @@ export default function HomePage() {
   const [mounted, setMounted] = useState(false);
   const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
   
-  // Manual Match State
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('waiting');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
@@ -87,8 +85,6 @@ export default function HomePage() {
   const availableCourts = courts.filter(c => c.status === 'available');
 
   if (!mounted) return null;
-
-  const displayLogo = clubLogo || PlaceHolderImages.find(img => img.id === 'logo')?.imageUrl || "";
 
   const handleAddCourtAction = () => {
     if (!newCourtName) return;
@@ -169,13 +165,17 @@ export default function HomePage() {
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="relative h-16 w-16 rounded-lg overflow-hidden shadow-md md:hidden border-2 border-primary bg-white">
-            <Image 
-              src={displayLogo} 
-              alt="TBC Logo" 
-              fill 
-              className="object-cover"
-            />
+          <div className="relative h-16 w-16 rounded-lg overflow-hidden shadow-md md:hidden border-2 border-primary bg-primary/10 flex items-center justify-center">
+            {clubLogo ? (
+              <Image 
+                src={clubLogo} 
+                alt="TBC Logo" 
+                fill 
+                className="object-cover"
+              />
+            ) : (
+              <Activity className="h-8 w-8 text-primary" />
+            )}
           </div>
           <div>
             <h1 className="text-2xl font-black uppercase tracking-tight">Dashboard</h1>

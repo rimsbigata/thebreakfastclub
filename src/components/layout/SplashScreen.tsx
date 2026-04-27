@@ -1,10 +1,9 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Loader2 } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import clubLogo from '@/assets/images/tbc_logo_loading.png';
+import { Loader2, Activity } from 'lucide-react';
 
 interface SplashScreenProps {
   logo?: string | null;
@@ -25,24 +24,19 @@ export function SplashScreen({ logo }: SplashScreenProps) {
     );
   }
 
-  const placeholderLogo = PlaceHolderImages.find(img => img.id === 'logo');
-  const displayLogo = logo || clubLogo.src || placeholderLogo?.imageUrl;
-
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
       <div className="relative mb-8 flex flex-col items-center">
-        <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl">
-          {displayLogo ? (
+        <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl flex items-center justify-center">
+          {logo ? (
             <Image 
-              src={displayLogo} 
+              src={logo} 
               alt="Club Logo" 
               fill 
               className="object-cover"
             />
           ) : (
-            <div className="h-full w-full flex items-center justify-center bg-white/20">
-              <span className="text-2xl font-black">BC</span>
-            </div>
+            <Activity className="h-16 w-16 text-white opacity-80" />
           )}
         </div>
         <div className="absolute -bottom-2 bg-white text-[#f76a01] px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">

@@ -3,11 +3,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useClub } from '@/context/ClubContext';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -21,18 +20,20 @@ export function Sidebar() {
     { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  const displayLogo = clubLogo || PlaceHolderImages.find(img => img.id === 'logo')?.imageUrl || "";
-
   return (
     <aside className="hidden md:flex flex-col w-64 border-r bg-card h-screen sticky top-0">
       <div className="p-6 flex items-center gap-3">
-        <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 border-primary bg-white">
-          <Image 
-            src={displayLogo} 
-            alt="The Breakfast Club Logo" 
-            fill 
-            className="object-cover"
-          />
+        <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 border-primary bg-primary/10 flex items-center justify-center">
+          {clubLogo ? (
+            <Image 
+              src={clubLogo} 
+              alt="Club Logo" 
+              fill 
+              className="object-cover"
+            />
+          ) : (
+            <Activity className="h-6 w-6 text-primary" />
+          )}
         </div>
         <h1 className="font-black text-lg tracking-tighter text-primary">TheBreakfastClub</h1>
       </div>
