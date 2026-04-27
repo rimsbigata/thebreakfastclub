@@ -8,12 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, UserPlus, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check } from 'lucide-react';
+import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
-import { SKILL_LEVELS, Player } from '@/lib/types';
+import { SKILL_LEVELS } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { MatchResults } from '@/components/match/MatchResults';
 import Image from 'next/image';
@@ -36,7 +36,7 @@ function LiveTimer({ startTime }: { startTime?: string }) {
   }, [startTime]);
 
   return (
-    <div className="flex items-center gap-1.5 text-primary font-mono text-sm font-bold">
+    <div className="flex items-center gap-1.5 text-primary font-mono text-sm font-bold animate-pulse">
       <Timer className="h-4 w-4" />
       {elapsed}
     </div>
@@ -88,8 +88,23 @@ export default function HomePage() {
 
   const handleAddCourtAction = () => {
     if (!newCourtName) return;
+    
+    // Validation: Duplicate court check
+    const formattedName = `Court ${newCourtName}`;
+    const exists = courts.some(c => c.name.toLowerCase() === formattedName.toLowerCase());
+    
+    if (exists) {
+      toast({ 
+        title: "Court already exists", 
+        description: `There is already a court named "${formattedName}".`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     addCourt(newCourtName);
     setNewCourtName('');
+    toast({ title: "Court Added", description: `"${formattedName}" is now available.` });
   };
 
   const handleAutoMatch = () => {
@@ -151,10 +166,11 @@ export default function HomePage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8 pb-24">
+    <div className="container mx-auto px-4 py-8 space-y-8 pb-24 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="relative h-16 w-16 rounded-lg overflow-hidden shadow-md">
+          {/* Logo hidden on desktop, visible on mobile */}
+          <div className="relative h-16 w-16 rounded-lg overflow-hidden shadow-md md:hidden border-2 border-primary">
             <Image 
               src={tbcLogo} 
               alt="TBC Logo" 
@@ -170,7 +186,7 @@ export default function HomePage() {
         <div className="flex gap-2">
           <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2 font-bold">
+              <Button variant="outline" className="gap-2 font-bold hover:bg-secondary transition-all active:scale-95">
                 <Hand className="h-4 w-4" /> Manual Match
               </Button>
             </DialogTrigger>
@@ -186,7 +202,7 @@ export default function HomePage() {
                       <Button
                         key={court.id}
                         variant={selectedCourtId === court.id ? 'default' : 'outline'}
-                        className="h-10 px-4"
+                        className="h-10 px-4 transition-all"
                         disabled={court.status === 'occupied'}
                         onClick={() => setSelectedCourtId(court.id)}
                       >
@@ -199,9 +215,9 @@ export default function HomePage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label>2. Select 4 Players ({selectedPlayerIds.length}/4)</Label>
-                    <Badge variant="outline">{availablePlayersCount} Available</Badge>
+                    <Badge variant="outline" className="animate-pulse">{availablePlayersCount} Available</Badge>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[40vh] overflow-y-auto p-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[40vh] overflow-y-auto p-1 custom-scrollbar">
                     {players
                       .filter(p => p.status === 'available')
                       .sort((a, b) => (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0))
@@ -212,8 +228,8 @@ export default function HomePage() {
                             key={player.id}
                             variant={isSelected ? 'secondary' : 'outline'}
                             className={cn(
-                              "justify-between h-auto py-3 px-4",
-                              isSelected && "ring-2 ring-primary border-primary"
+                              "justify-between h-auto py-3 px-4 transition-all hover:border-primary/50",
+                              isSelected && "ring-2 ring-primary border-primary bg-primary/10"
                             )}
                             onClick={() => {
                               setSelectedPlayerIds(prev => 
@@ -226,7 +242,7 @@ export default function HomePage() {
                             <div className="flex flex-col items-start gap-1">
                               <span className="font-bold flex items-center gap-2">
                                 {player.name}
-                                {isSelected && <Check className="h-3 w-3 text-primary" />}
+                                {isSelected && <Check className="h-3 w-3 text-primary animate-in zoom-in" />}
                               </span>
                               <span className="text-[10px] uppercase text-muted-foreground font-black">
                                 Lvl {player.skillLevel} • {player.gamesPlayed} Games
@@ -241,7 +257,7 @@ export default function HomePage() {
               </div>
               <DialogFooter>
                 <Button 
-                  className="w-full h-12 font-bold text-lg" 
+                  className="w-full h-12 font-bold text-lg active:scale-95 transition-transform" 
                   disabled={!selectedCourtId || selectedPlayerIds.length !== 4}
                   onClick={handleManualMatchSubmit}
                 >
@@ -254,14 +270,14 @@ export default function HomePage() {
           <Button 
             onClick={handleAutoMatch} 
             disabled={!courts.length || availablePlayersCount < 4} 
-            className="gap-2 bg-primary font-bold shadow-lg shadow-primary/20"
+            className="gap-2 bg-primary font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95"
           >
             <Zap className="h-4 w-4 fill-white" />
             Quick Match
           </Button>
           <Dialog>
             <DialogTrigger asChild>
-              <Button size="icon" variant="outline"><Plus className="h-4 w-4" /></Button>
+              <Button size="icon" variant="outline" className="hover:bg-secondary transition-all"><Plus className="h-4 w-4" /></Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Add New Court</DialogTitle></DialogHeader>
@@ -285,7 +301,7 @@ export default function HomePage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-primary/5 border-none shadow-none transition-shadow hover:shadow-lg">
+        <Card className="bg-primary/5 border-none shadow-none transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <CardContent className="pt-6 flex items-center gap-4">
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <Activity className="h-5 w-5" />
@@ -296,7 +312,7 @@ export default function HomePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-secondary/20 border-none shadow-none transition-shadow hover:shadow-lg">
+        <Card className="bg-secondary/20 border-none shadow-none transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <CardContent className="pt-6 flex items-center gap-4">
             <div className="h-10 w-10 rounded-full bg-secondary/30 flex items-center justify-center text-foreground">
               <DoorOpen className="h-5 w-5" />
@@ -307,7 +323,7 @@ export default function HomePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-green-500/10 dark:bg-green-500/20 border-none shadow-none transition-shadow hover:shadow-lg">
+        <Card className="bg-green-500/10 dark:bg-green-500/20 border-none shadow-none transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <CardContent className="pt-6 flex items-center gap-4">
             <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
               <Users className="h-5 w-5" />
@@ -324,7 +340,7 @@ export default function HomePage() {
       </div>
 
       {!courts.length ? (
-        <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl bg-card/50">
+        <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl bg-card/50 animate-in zoom-in duration-500">
           <Trophy className="h-12 w-12 text-muted-foreground/20 mb-4" />
           <p className="text-lg font-bold text-muted-foreground">No courts registered</p>
           <p className="text-sm text-muted-foreground mb-6">Add a court to start matchmaking.</p>
@@ -339,7 +355,7 @@ export default function HomePage() {
             const isManualWinMode = showWinButtons[court.id];
 
             return (
-              <Card key={court.id} className="border-2 shadow-sm relative group overflow-hidden">
+              <Card key={court.id} className="border-2 shadow-sm relative group overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary/30">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-secondary/10">
                   <div className="space-y-1">
                     <CardTitle className="text-lg font-black uppercase tracking-tight">{court.name}</CardTitle>
@@ -351,14 +367,14 @@ export default function HomePage() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90"
                       onClick={() => deleteCourt(court.id)}
                     >
                       <Trash2 className="h-4 w-4 transition-colors group-hover:text-white" />
                     </Button>
                     <Badge variant={court.status === 'available' ? 'outline' : 'default'} className={cn(
-                      "font-black tracking-widest text-[10px]",
-                      court.status === 'available' ? 'text-green-600 border-green-200' : 'bg-primary'
+                      "font-black tracking-widest text-[10px] transition-colors",
+                      court.status === 'available' ? 'text-green-600 border-green-200 bg-green-500/5' : 'bg-primary'
                     )}>
                       {court.status.toUpperCase()}
                     </Badge>
@@ -366,16 +382,16 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent className="pt-6">
                   {court.status === 'occupied' && activeMatch ? (
-                    <div className="space-y-6">
+                    <div className="space-y-6 animate-in slide-in-from-top-4">
                       <div className="grid grid-cols-1 gap-4">
-                        <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-3 relative">
+                        <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary space-y-3 relative transition-all hover:bg-primary/10">
                           <div className="flex justify-between items-center">
                             <p className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</p>
                             {(isTimerRunning || isManualWinMode) && (
                               <Button 
                                 variant="secondary" 
                                 size="sm" 
-                                className="h-7 px-2 text-[10px] font-black uppercase gap-1"
+                                className="h-7 px-2 text-[10px] font-black uppercase gap-1 hover:bg-primary hover:text-white transition-all active:scale-95"
                                 onClick={() => endMatch(court.id, 'teamA')}
                               >
                                 <CheckCircle2 className="h-3 w-3" /> Win
@@ -384,7 +400,7 @@ export default function HomePage() {
                           </div>
                           <div className="space-y-2">
                             {teamAPlayers?.map(p => (
-                              <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-primary/10">
+                              <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-primary/10 transition-all hover:border-primary/30">
                                 <div className="flex flex-col">
                                   <span>{p?.name}</span>
                                   <span className="text-[8px] uppercase text-muted-foreground tracking-tighter">{p?.skillLevel} - {SKILL_LEVELS[p?.skillLevel!]}</span>
@@ -392,7 +408,7 @@ export default function HomePage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                  className="h-6 w-6 text-muted-foreground hover:text-primary transition-all active:scale-90"
                                   onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
                                 >
                                   <ArrowLeftRight className="h-3 w-3" />
@@ -401,17 +417,17 @@ export default function HomePage() {
                             ))}
                           </div>
                         </div>
-                        <div className="flex items-center justify-center -my-2">
-                          <div className="bg-background px-3 py-1 border rounded-full text-[10px] font-black text-muted-foreground italic z-10">VS</div>
+                        <div className="flex items-center justify-center -my-2 relative">
+                          <div className="bg-background px-3 py-1 border rounded-full text-[10px] font-black text-muted-foreground italic z-10 shadow-sm">VS</div>
                         </div>
-                        <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-3 relative">
+                        <div className="p-4 bg-secondary/20 rounded-xl border-l-4 border-muted space-y-3 relative transition-all hover:bg-secondary/30">
                           <div className="flex justify-between items-center">
                             <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</p>
                             {(isTimerRunning || isManualWinMode) && (
                               <Button 
                                 variant="secondary" 
                                 size="sm" 
-                                className="h-7 px-2 text-[10px] font-black uppercase gap-1"
+                                className="h-7 px-2 text-[10px] font-black uppercase gap-1 hover:bg-primary hover:text-white transition-all active:scale-95"
                                 onClick={() => endMatch(court.id, 'teamB')}
                               >
                                 <CheckCircle2 className="h-3 w-3" /> Win
@@ -420,7 +436,7 @@ export default function HomePage() {
                           </div>
                           <div className="space-y-2">
                             {teamBPlayers?.map(p => (
-                              <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-muted/20">
+                              <div key={p?.id} className="flex items-center justify-between text-sm font-bold bg-background/50 p-2 rounded-lg border border-muted/20 transition-all hover:border-muted/40">
                                 <div className="flex flex-col">
                                   <span>{p?.name}</span>
                                   <span className="text-[8px] uppercase text-muted-foreground tracking-tighter">{p?.skillLevel} - {SKILL_LEVELS[p?.skillLevel!]}</span>
@@ -428,7 +444,7 @@ export default function HomePage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                  className="h-6 w-6 text-muted-foreground hover:text-primary transition-all active:scale-90"
                                   onClick={() => setSwapping({ matchId: activeMatch.id, oldPlayerId: p!.id })}
                                 >
                                   <ArrowLeftRight className="h-3 w-3" />
@@ -440,8 +456,8 @@ export default function HomePage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-xl bg-secondary/5">
-                       <Trophy className="h-8 w-8 text-muted-foreground/20 mb-3" />
+                    <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-xl bg-secondary/5 transition-all hover:bg-secondary/10 group-hover:border-primary/20">
+                       <Trophy className="h-8 w-8 text-muted-foreground/20 mb-3 group-hover:text-primary/20 transition-colors" />
                        <p className="text-sm font-bold text-muted-foreground italic">Available for Matching</p>
                     </div>
                   )}
@@ -452,18 +468,20 @@ export default function HomePage() {
                         {!isTimerRunning ? (
                           <Button 
                             onClick={() => startTimer(court.id)} 
-                            className="w-full gap-2 bg-green-600 hover:bg-green-700 h-10 font-bold uppercase"
+                            className="w-full gap-2 bg-green-600 hover:bg-green-700 h-10 font-bold uppercase transition-all hover:scale-[1.02] active:scale-95 shadow-md shadow-green-500/10"
                           >
                             <Play className="h-4 w-4" /> Start Match
                           </Button>
                         ) : (
                           <>
-                            <p className="text-[10px] font-black uppercase text-primary animate-pulse tracking-widest">Match In Progress</p>
+                            <p className="text-[10px] font-black uppercase text-primary animate-pulse tracking-widest flex items-center gap-1">
+                               <Activity className="h-3 w-3" /> Match In Progress
+                            </p>
                             <Button 
                               variant="outline" 
                               size="sm" 
                               onClick={() => setScoringCourtId(court.id)}
-                              className="text-xs font-bold uppercase"
+                              className="text-xs font-bold uppercase transition-all hover:bg-primary hover:text-white"
                             >
                               End Match
                             </Button>
@@ -480,24 +498,24 @@ export default function HomePage() {
         </div>
       )}
 
-      <section className="pt-8">
+      <section className="pt-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <MatchResults matches={matches} players={players} limit={5} />
       </section>
 
       <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
-        <DialogContent>
+        <DialogContent className="animate-in zoom-in duration-300">
           <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             <Label className="text-xs text-muted-foreground">Select replacement from available players:</Label>
             {players.filter(p => p.status === 'available').map(player => (
               <Button 
                 key={player.id} 
                 variant="outline" 
-                className="w-full justify-between h-14" 
+                className="w-full justify-between h-14 transition-all hover:border-primary/50 group" 
                 onClick={() => handleSwap(player.id)}
               >
                 <div className="flex flex-col items-start">
-                  <span className="font-bold">{player.name}</span>
+                  <span className="font-bold group-hover:text-primary transition-colors">{player.name}</span>
                   <span className="text-[10px] uppercase text-muted-foreground">{player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}</span>
                 </div>
                 <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
