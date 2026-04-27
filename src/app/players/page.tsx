@@ -1,20 +1,21 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useClub } from '@/context/ClubContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award, Clock, Timer, Pencil } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
+import { Plus, User, TrendingUp, PieChart, Users, Trash2, Pencil, Search } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, Cell } from 'recharts';
 import { SKILL_LEVELS, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 function StatusBadge({ status }: { status: string }) {
   const colors = {
@@ -23,7 +24,7 @@ function StatusBadge({ status }: { status: string }) {
     resting: "bg-muted text-muted-foreground"
   };
   return (
-    <Badge className={cn("text-[9px] font-black uppercase tracking-widest h-5", colors[status as keyof typeof colors])}>
+    <Badge className={cn("text-[8px] font-black uppercase tracking-widest h-4 px-1.5", colors[status as keyof typeof colors])}>
       {status}
     </Badge>
   );
@@ -32,11 +33,19 @@ function StatusBadge({ status }: { status: string }) {
 export default function PlayersPage() {
   const { players, addPlayer, updatePlayer, deletePlayer } = useClub();
   const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  
   const [newName, setNewName] = useState('');
   const [newSkill, setNewSkill] = useState('3');
+  const [searchQuery, setSearchQuery] = useState('');
+  
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [editName, setEditName] = useState('');
   const [editSkill, setEditSkill] = useState('3');
+
+  const filteredPlayers = useMemo(() => {
+    return players.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [players, searchQuery]);
 
   const skillDistribution = useMemo(() => {
     return Object.keys(SKILL_LEVELS).map(level => ({
@@ -46,70 +55,119 @@ export default function PlayersPage() {
   }, [players]);
 
   const handleAddPlayerAction = () => {
-    if (!newName) return;
-    addPlayer({ name: newName, skillLevel: parseInt(newSkill) });
+    const trimmedName = newName.trim();
+    if (!trimmedName) return;
+
+    // Duplicate check
+    const isDuplicate = players.some(p => p.name.toLowerCase() === trimmedName.toLowerCase());
+    if (isDuplicate) {
+      toast({
+        title: "Duplicate Name",
+        description: `${trimmedName} is already in the roster.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    addPlayer({ name: trimmedName, skillLevel: parseInt(newSkill) });
     setNewName('');
-    setNewSkill('3');
-    toast({ title: "Player Added" });
+    inputRef.current?.focus();
+    toast({ title: "Player Added", description: `${trimmedName} joined the club.` });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAddPlayerAction();
+    }
   };
 
   const handleEditPlayerAction = () => {
-    if (!editingPlayer || !editName) return;
-    updatePlayer(editingPlayer.id, { name: editName, skillLevel: parseInt(editSkill) });
+    if (!editingPlayer || !editName.trim()) return;
+    updatePlayer(editingPlayer.id, { name: editName.trim(), skillLevel: parseInt(editSkill) });
     setEditingPlayer(null);
-    toast({ title: "Player Updated" });
+    toast({ title: "Profile Updated" });
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8 pb-24 animate-in fade-in duration-700 max-w-7xl">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-2">
-          <Users className="h-8 w-8 text-primary" /> Player Roster
-        </h1>
-        <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest opacity-60">Manage members and skills</p>
+    <div className="container mx-auto px-4 py-6 space-y-6 pb-24 max-w-7xl animate-in fade-in duration-500">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-0.5">
+          <h1 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
+            <Users className="h-6 w-6 text-primary" /> Player Roster
+          </h1>
+          <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-60">
+            {players.length} Registered Members
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input 
+              placeholder="Search roster..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-8 h-9 text-xs font-bold bg-secondary/20 border-none"
+            />
+          </div>
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1 border-2 shadow-sm bg-card h-fit">
-          <CardHeader>
-            <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" /> Register Member
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Full Name</Label>
-              <Input placeholder="Enter Name" value={newName} onChange={e => setNewName(e.target.value)} className="h-10 font-bold" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Skill Tier</Label>
-              <Select value={newSkill} onValueChange={setNewSkill}>
-                <SelectTrigger className="h-10 font-bold">
-                  <SelectValue placeholder="Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(SKILL_LEVELS).map(([val, label]) => (
-                    <SelectItem key={val} value={val} className="font-bold">{val} - {label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button className="w-full mt-2 font-black uppercase shadow-lg shadow-primary/20" onClick={handleAddPlayerAction} disabled={!newName}>Add Player</Button>
-          </CardContent>
-        </Card>
-
-        <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="border-2 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                <PieChart className="h-3 w-3" /> Skill Distribution
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* STATS & QUICK ADD PANEL */}
+        <aside className="lg:col-span-4 space-y-6">
+          <Card className="border-2 shadow-sm bg-card overflow-hidden">
+            <CardHeader className="p-4 bg-primary/5 border-b">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                <Plus className="h-3.5 w-3.5" /> Quick Registration
               </CardTitle>
             </CardHeader>
-            <CardContent className="h-40">
+            <CardContent className="p-4 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black uppercase tracking-widest opacity-60">Full Name</Label>
+                <Input 
+                  ref={inputRef}
+                  placeholder="Type name and press Enter..." 
+                  value={newName} 
+                  onChange={e => setNewName(e.target.value)} 
+                  onKeyDown={handleKeyDown}
+                  className="h-10 font-bold border-2 focus-visible:ring-primary" 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black uppercase tracking-widest opacity-60">Skill Tier</Label>
+                <Select value={newSkill} onValueChange={setNewSkill}>
+                  <SelectTrigger className="h-10 font-bold border-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SKILL_LEVELS).map(([val, label]) => (
+                      <SelectItem key={val} value={val} className="font-bold text-xs">{val} - {label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button 
+                className="w-full font-black uppercase text-xs h-10 shadow-lg shadow-primary/10" 
+                onClick={handleAddPlayerAction} 
+                disabled={!newName.trim()}
+              >
+                Add Member
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 shadow-sm">
+            <CardHeader className="p-4 border-b">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                <TrendingUp className="h-3.5 w-3.5" /> Skill Distribution
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={skillDistribution}>
-                  <XAxis dataKey="level" fontSize={10} tickLine={false} axisLine={false} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  <XAxis dataKey="level" fontSize={9} tickLine={false} axisLine={false} fontVariant="bold" />
+                  <Bar dataKey="count" radius={[2, 2, 0, 0]}>
                     {skillDistribution.map((entry, idx) => (
                       <Cell key={`cell-${idx}`} fill={entry.count > 0 ? 'hsl(var(--primary))' : 'hsl(var(--muted))'} />
                     ))}
@@ -118,96 +176,90 @@ export default function PlayersPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+        </aside>
 
-          <Card className="border-2 shadow-sm bg-primary/5">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                <TrendingUp className="h-3 w-3" /> Club Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4 py-4">
-               <div className="text-center p-3 bg-card rounded-xl border-2">
-                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Members</p>
-                 <p className="text-3xl font-black text-primary">{players.length}</p>
-               </div>
-               <div className="text-center p-3 bg-card rounded-xl border-2">
-                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Avg Skill</p>
-                 <p className="text-3xl font-black text-primary">
-                   {players.length ? (players.reduce((acc, p) => acc + p.skillLevel, 0) / players.length).toFixed(1) : '0.0'}
-                 </p>
-               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-          Registered Members <Badge variant="secondary" className="font-black bg-primary/10 text-primary border-none">{players.length}</Badge>
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {players.map((player, idx) => (
-            <Card key={player.id} className="p-4 border-2 shadow-sm bg-card group hover:border-primary transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-xl bg-secondary border-2 flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
-                    <User className="h-6 w-6" />
+        {/* COMPACT PLAYER GRID */}
+        <div className="lg:col-span-8">
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 pr-4">
+              {filteredPlayers.map((player) => (
+                <Card key={player.id} className="border-2 shadow-sm bg-card group hover:border-primary transition-all duration-200 overflow-hidden">
+                  <div className="p-2 space-y-2">
+                    <div className="flex items-start justify-between gap-1">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-[11px] truncate leading-tight group-hover:text-primary transition-colors">
+                          {player.name}
+                        </p>
+                        <StatusBadge status={player.status} />
+                      </div>
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5 hover:bg-primary/10" 
+                          onClick={() => { setEditingPlayer(player); setEditName(player.name); setEditSkill(player.skillLevel.toString()); }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5 hover:bg-destructive/10 text-destructive" 
+                          onClick={() => deletePlayer(player.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-1 pt-2 border-t border-dashed">
+                      <div className="space-y-0.5">
+                        <p className="text-[7px] font-black uppercase text-muted-foreground leading-none">Skill</p>
+                        <p className="text-[9px] font-black">{SKILL_LEVELS[player.skillLevel]}</p>
+                      </div>
+                      <div className="space-y-0.5 text-right">
+                        <p className="text-[7px] font-black uppercase text-muted-foreground leading-none">Games</p>
+                        <p className="text-[9px] font-black">{player.gamesPlayed}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-black text-base group-hover:text-primary transition-colors">{player.name}</p>
-                    <StatusBadge status={player.status} />
-                  </div>
+                </Card>
+              ))}
+              {filteredPlayers.length === 0 && (
+                <div className="col-span-full py-20 text-center border-2 border-dashed rounded-2xl bg-secondary/5">
+                  <User className="h-8 w-8 mx-auto mb-2 opacity-10" />
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest opacity-40">
+                    No matching members
+                  </p>
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10" onClick={() => { setEditingPlayer(player); setEditName(player.name); setEditSkill(player.skillLevel.toString()); }}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={() => deletePlayer(player.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 border-t pt-4">
-                <div className="space-y-0.5">
-                   <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Skill Tier</p>
-                   <p className="text-xs font-black">Lvl {player.skillLevel}</p>
-                </div>
-                <div className="space-y-0.5">
-                   <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Games</p>
-                   <p className="text-xs font-black">{player.gamesPlayed}</p>
-                </div>
-                <div className="space-y-0.5 text-right">
-                   <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Total Play</p>
-                   <p className="text-xs font-black">{player.totalPlayTimeMinutes}m</p>
-                </div>
-              </div>
-            </Card>
-          ))}
+              )}
+            </div>
+          </ScrollArea>
         </div>
       </div>
 
       <Dialog open={!!editingPlayer} onOpenChange={(open) => !open && setEditingPlayer(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Update Profile</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="text-sm font-black uppercase tracking-tight">Edit Member Profile</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest">Name</Label>
-              <Input value={editName} onChange={e => setEditName(e.target.value)} className="font-bold" />
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black uppercase tracking-widest opacity-60">Full Name</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="font-bold text-xs" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest">Skill Level</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black uppercase tracking-widest opacity-60">Skill Level</Label>
               <Select value={editSkill} onValueChange={setEditSkill}>
-                <SelectTrigger className="font-bold">
+                <SelectTrigger className="font-bold text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(SKILL_LEVELS).map(([val, label]) => (
-                    <SelectItem key={val} value={val} className="font-bold">{val} - {label}</SelectItem>
+                    <SelectItem key={val} value={val} className="font-bold text-xs">{val} - {label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <Button className="w-full font-black uppercase" onClick={handleEditPlayerAction}>Save Changes</Button>
+            <Button className="w-full font-black uppercase text-xs h-10" onClick={handleEditPlayerAction}>Save Changes</Button>
           </div>
         </DialogContent>
       </Dialog>
