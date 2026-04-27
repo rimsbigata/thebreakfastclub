@@ -56,12 +56,22 @@
   body {
     @apply bg-background text-foreground font-body text-[16px] leading-relaxed;
   }
-  h1 { @apply text-3xl font-black tracking-tighter; }
-  h2 { @apply text-2xl font-black tracking-tight; }
-  h3 { @apply text-xl font-black; }
+  h1 { @apply text-4xl font-black tracking-tighter; }
+  h2 { @apply text-3xl font-black tracking-tight; }
+  h3 { @apply text-2xl font-black; }
 }
 
 @layer utilities {
-  .text-tiny { font-size: 0.7rem; }
-  .text-compact { font-size: 0.8rem; }
+  .text-tiny { font-size: 0.85rem; }
+  .text-compact { font-size: 1rem; }
+  
+  /* Hide number input spinners */
+  .no-spinner::-webkit-inner-spin-button,
+  .no-spinner::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .no-spinner {
+    -moz-appearance: textfield;
+  }
 }

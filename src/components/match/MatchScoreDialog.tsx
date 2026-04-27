@@ -19,13 +19,13 @@ export function MatchScoreDialog({ open, onOpenChange, teamA, teamB, onScoreSubm
   const [teamBScore, setTeamBScore] = useState<string>('');
 
   const handleSubmit = () => {
-    const a = teamAScore.trim() === '' ? undefined : Number(teamAScore);
-    const b = teamBScore.trim() === '' ? undefined : Number(teamBScore);
+    const aVal = teamAScore.trim() === '' ? undefined : Math.max(0, Number(teamAScore));
+    const bVal = teamBScore.trim() === '' ? undefined : Math.max(0, Number(teamBScore));
     
     // Auto-determine winner if scores are provided
-    const winner = (a ?? 0) >= (b ?? 0) ? 'teamA' : 'teamB';
+    const winner = (aVal ?? 0) >= (bVal ?? 0) ? 'teamA' : 'teamB';
     
-    onScoreSubmit(a, b, winner);
+    onScoreSubmit(aVal, bVal, winner);
     reset();
   };
 
@@ -42,16 +42,16 @@ export function MatchScoreDialog({ open, onOpenChange, teamA, teamB, onScoreSubm
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Record Match Score</DialogTitle>
+          <DialogTitle className="text-2xl font-black uppercase">Record Match Score</DialogTitle>
         </DialogHeader>
-        <div className="space-y-6 py-4">
-          <div className="grid grid-cols-2 gap-8 items-center">
-            <div className="space-y-3">
+        <div className="space-y-8 py-6">
+          <div className="grid grid-cols-2 gap-10 items-center">
+            <div className="space-y-4">
               <div className="text-center">
-                <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Team A</Label>
-                <div className="text-xs font-bold truncate">
+                <Label className="text-[12px] font-black uppercase text-primary tracking-widest">Team A</Label>
+                <div className="text-sm font-bold truncate mt-1">
                   {teamA.map(p => p.name).join(' & ')}
                 </div>
               </div>
@@ -60,14 +60,18 @@ export function MatchScoreDialog({ open, onOpenChange, teamA, teamB, onScoreSubm
                 value={teamAScore}
                 onChange={e => setTeamAScore(e.target.value)}
                 type="number"
-                className="text-center text-2xl font-black h-14"
+                min="0"
+                className="text-center text-4xl font-black h-20 border-2 no-spinner"
+                onBlur={() => {
+                  if (teamAScore && Number(teamAScore) < 0) setTeamAScore('0');
+                }}
               />
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="text-center">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team B</Label>
-                <div className="text-xs font-bold truncate">
+                <Label className="text-[12px] font-black uppercase text-muted-foreground tracking-widest">Team B</Label>
+                <div className="text-sm font-bold truncate mt-1">
                   {teamB.map(p => p.name).join(' & ')}
                 </div>
               </div>
@@ -76,22 +80,26 @@ export function MatchScoreDialog({ open, onOpenChange, teamA, teamB, onScoreSubm
                 value={teamBScore}
                 onChange={e => setTeamBScore(e.target.value)}
                 type="number"
-                className="text-center text-2xl font-black h-14"
+                min="0"
+                className="text-center text-4xl font-black h-20 border-2 no-spinner"
+                onBlur={() => {
+                  if (teamBScore && Number(teamBScore) < 0) setTeamBScore('0');
+                }}
               />
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 pt-4">
+          <div className="flex flex-col gap-3 pt-6">
             <Button 
-              className="w-full font-bold h-12" 
+              className="w-full font-black h-16 text-lg uppercase" 
               onClick={handleSubmit}
               disabled={teamAScore === '' || teamBScore === ''}
             >
-              Submit Score
+              Submit Results
             </Button>
             <Button 
               variant="ghost" 
-              className="w-full text-xs font-bold uppercase text-muted-foreground" 
+              className="w-full text-xs font-black uppercase tracking-widest text-muted-foreground" 
               onClick={handleSkip}
             >
               Skip & Pick Winner Manually

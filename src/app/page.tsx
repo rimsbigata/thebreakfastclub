@@ -30,8 +30,8 @@ function LiveTimer({ startTime }: { startTime?: string }) {
   }, [startTime]);
 
   return (
-    <div className="flex items-center gap-2 text-primary font-mono text-sm font-black animate-pulse bg-primary/10 px-3 py-1 rounded-full">
-      <Timer className="h-4 w-4" />
+    <div className="flex items-center gap-2 text-primary font-mono text-base font-black animate-pulse bg-primary/10 px-4 py-1.5 rounded-full">
+      <Timer className="h-5 w-5" />
       {elapsed}
     </div>
   );
@@ -49,7 +49,7 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
   }, [lastAvailableAt]);
 
   return (
-    <Badge variant="secondary" className="gap-1 text-xs h-5 px-2 font-black uppercase tracking-tighter bg-secondary border shadow-sm">
+    <Badge variant="secondary" className="gap-1 text-xs h-6 px-2.5 font-black uppercase tracking-tighter bg-secondary border shadow-sm">
       {mins}m
     </Badge>
   );
@@ -173,41 +173,47 @@ export default function HomePage() {
     setSwapping(null);
   };
 
+  const handleScoreChange = (matchId: string, scoreA: number, scoreB: number) => {
+    const validA = Math.max(0, scoreA);
+    const validB = Math.max(0, scoreB);
+    updateMatchScore(matchId, validA, validB);
+  };
+
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden bg-background">
-      <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12">
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-background">
+      <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 overflow-hidden">
         
         {/* THE BENCH */}
-        <div className="md:col-span-3 border-r flex flex-col h-full bg-secondary/5">
-          <div className="p-3 bg-card border-b flex items-center justify-between sticky top-0 z-10">
-            <h2 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" /> The Bench
+        <div className="md:col-span-3 border-r flex flex-col min-h-0 bg-secondary/5">
+          <div className="p-4 bg-card border-b flex items-center justify-between sticky top-0 z-10">
+            <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" /> The Bench
             </h2>
-            <Badge variant="outline" className="font-black h-5 px-2 text-xs">{availablePlayers.length}</Badge>
+            <Badge variant="outline" className="font-black h-6 px-3 text-sm">{availablePlayers.length}</Badge>
           </div>
-          <ScrollArea className="flex-1 p-2">
-            <div className="grid grid-cols-2 gap-2 pb-12">
+          <ScrollArea className="flex-1">
+            <div className="p-3 grid grid-cols-2 gap-3 pb-24">
               {availablePlayers.map((player) => (
                 <Card 
                   key={player.id} 
                   draggable 
                   onDragStart={(e) => onDragStartPlayer(e, player.id)}
-                  className="p-3 cursor-grab active:cursor-grabbing hover:border-primary transition-all border shadow-sm group bg-card"
+                  className="p-4 cursor-grab active:cursor-grabbing hover:border-primary transition-all border-2 shadow-sm group bg-card"
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-black text-sm truncate max-w-[100px] leading-tight">{player.name}</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-black text-base truncate leading-tight">{player.name}</span>
                     <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
                   </div>
                   <div className="flex justify-between items-center opacity-80">
-                    <Badge variant="outline" className={cn("text-[10px] font-black uppercase h-4.5 px-2", getSkillColor(player.skillLevel))}>
+                    <Badge variant="outline" className={cn("text-[11px] font-black uppercase h-5 px-2", getSkillColor(player.skillLevel))}>
                       {SKILL_LEVELS_SHORT[player.skillLevel]}
                     </Badge>
-                    <span className="text-[11px] font-black">{player.gamesPlayed} Gms</span>
+                    <span className="text-sm font-black">{player.gamesPlayed} Gms</span>
                   </div>
                 </Card>
               ))}
               {availablePlayers.length === 0 && (
-                <div className="col-span-2 py-16 text-center text-muted-foreground text-sm font-bold italic opacity-30">Empty</div>
+                <div className="col-span-2 py-32 text-center text-muted-foreground text-base font-bold italic opacity-30">The bench is empty</div>
               )}
             </div>
           </ScrollArea>
@@ -216,40 +222,40 @@ export default function HomePage() {
         {/* MATCH QUEUE */}
         <div 
           className={cn(
-            "md:col-span-3 border-r flex flex-col h-full bg-background transition-all",
+            "md:col-span-3 border-r flex flex-col min-h-0 bg-background transition-all",
             isQueueOver ? "ring-4 ring-inset ring-primary/20 bg-primary/5" : ""
           )}
           onDragOver={(e) => { e.preventDefault(); setIsQueueOver(true); }}
           onDragLeave={() => setIsQueueOver(false)}
           onDrop={onDropInQueue}
         >
-          <div className="p-3 bg-card border-b flex items-center justify-between sticky top-0 z-10">
-            <h2 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-              <ListOrdered className="h-4 w-4 text-orange-500" /> Match Queue
+          <div className="p-4 bg-card border-b flex items-center justify-between sticky top-0 z-10">
+            <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <ListOrdered className="h-5 w-5 text-orange-500" /> Match Queue
             </h2>
-            <Badge variant="secondary" className="font-black h-5 px-2 text-xs bg-orange-500 text-white border-none">{waitingMatches.length}</Badge>
+            <Badge variant="secondary" className="font-black h-6 px-3 text-sm bg-orange-500 text-white border-none">{waitingMatches.length}</Badge>
           </div>
-          <ScrollArea className="flex-1 p-2">
-            <div className="space-y-3 pb-12">
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-4 pb-24">
               {draftPlayerIds.length > 0 && (
-                <Card className="border-dashed border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
+                <Card className="border-dashed border-2 border-primary/40 bg-primary/5 p-4 space-y-3">
                   <div className="flex justify-between items-center mb-1">
                     <p className="text-xs font-black uppercase text-primary">Drafting ({draftPlayerIds.length}/4)</p>
-                    <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setDraftPlayerIds([])}>
-                      <X className="h-3 w-3" />
+                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setDraftPlayerIds([])}>
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     {draftPlayerIds.map(id => {
                       const p = players.find(player => player.id === id);
                       return (
-                        <div key={id} className="text-[11px] font-black bg-card p-2 rounded border flex flex-col gap-1 group">
+                        <div key={id} className="text-sm font-black bg-card p-3 rounded-lg border flex flex-col gap-1.5 group">
                           <div className="flex justify-between items-center">
-                            <span className="truncate max-w-[60px]">{p?.name}</span>
-                            <X className="h-3 w-3 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(pId => pId !== id))} />
+                            <span className="truncate">{p?.name}</span>
+                            <X className="h-4 w-4 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(pId => pId !== id))} />
                           </div>
                           {p && (
-                            <Badge variant="outline" className={cn("text-[9px] h-4 px-1.5 w-fit", getSkillColor(p.skillLevel))}>
+                            <Badge variant="outline" className={cn("text-[10px] h-4.5 px-2 w-fit", getSkillColor(p.skillLevel))}>
                               {SKILL_LEVELS_SHORT[p.skillLevel]}
                             </Badge>
                           )}
@@ -264,28 +270,28 @@ export default function HomePage() {
                   key={match.id} 
                   draggable 
                   onDragStart={(e) => onDragStartMatch(e, match.id)}
-                  className="border border-orange-500/30 bg-orange-500/5 cursor-grab active:cursor-grabbing hover:border-orange-500 transition-all"
+                  className="border-2 border-orange-500/30 bg-orange-500/5 cursor-grab active:cursor-grabbing hover:border-orange-500 transition-all shadow-sm"
                 >
-                  <div className="p-3 flex items-center justify-between gap-2">
-                    <div className="flex flex-col space-y-2 flex-1">
+                  <div className="p-4 flex items-center justify-between gap-3">
+                    <div className="flex flex-col space-y-3 flex-1">
                       {match.teamA.map(id => {
                         const p = players.find(player => player.id === id);
                         return (
                           <div key={id} className="flex items-center gap-2">
-                            <span className="text-xs font-black truncate leading-tight">{p?.name}</span>
-                            {p && <Badge variant="outline" className={cn("text-[9px] h-4 px-1.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                            <span className="text-sm font-black truncate leading-tight">{p?.name}</span>
+                            {p && <Badge variant="outline" className={cn("text-[10px] h-4.5 px-2", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                           </div>
                         );
                       })}
                     </div>
-                    <div className="text-[10px] font-black opacity-30">VS</div>
-                    <div className="flex flex-col space-y-2 flex-1 text-right items-end">
+                    <div className="text-xs font-black opacity-30">VS</div>
+                    <div className="flex flex-col space-y-3 flex-1 text-right items-end">
                       {match.teamB.map(id => {
                         const p = players.find(player => player.id === id);
                         return (
                           <div key={id} className="flex items-center gap-2 justify-end">
-                            {p && <Badge variant="outline" className={cn("text-[9px] h-4 px-1.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
-                            <span className="text-xs font-black truncate leading-tight">{p?.name}</span>
+                            {p && <Badge variant="outline" className={cn("text-[10px] h-4.5 px-2", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                            <span className="text-sm font-black truncate leading-tight">{p?.name}</span>
                           </div>
                         );
                       })}
@@ -293,6 +299,9 @@ export default function HomePage() {
                   </div>
                 </Card>
               ))}
+              {waitingMatches.length === 0 && !draftPlayerIds.length && (
+                <div className="py-32 text-center text-muted-foreground text-base font-bold italic opacity-30">No matches queued</div>
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -300,21 +309,21 @@ export default function HomePage() {
         {/* ACTIVE COURTS */}
         <div 
           className={cn(
-            "md:col-span-6 flex flex-col h-full transition-all",
+            "md:col-span-6 flex flex-col min-h-0 transition-all",
             isCourtPanelOver ? "bg-green-500/5" : "bg-secondary/5"
           )}
           onDragOver={(e) => { e.preventDefault(); setIsCourtPanelOver(true); }}
           onDragLeave={() => setIsCourtPanelOver(false)}
           onDrop={onDropInCourtPanel}
         >
-          <div className="p-3 bg-card border-b flex items-center justify-between sticky top-0 z-10">
-            <h2 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-              <DoorOpen className="h-4 w-4 text-green-600" /> Active Courts
+          <div className="p-4 bg-card border-b flex items-center justify-between sticky top-0 z-10">
+            <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <DoorOpen className="h-5 w-5 text-green-600" /> Active Courts
             </h2>
-            <Badge variant="outline" className="font-black h-5 px-2 text-xs">{courts.filter(c => c.status === 'occupied').length}/{courts.length}</Badge>
+            <Badge variant="outline" className="font-black h-6 px-3 text-sm">{courts.filter(c => c.status === 'occupied').length}/{courts.length}</Badge>
           </div>
-          <ScrollArea className="flex-1 p-3">
-            <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 pb-12">
+          <ScrollArea className="flex-1">
+            <div className="p-4 grid grid-cols-2 gap-4 pb-24">
               {courts.map(court => {
                 const match = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
                 const isOver = overCourtId === court.id;
@@ -336,46 +345,46 @@ export default function HomePage() {
                       onDropInCourt(e, court.id);
                     }}
                     className={cn(
-                      "border-2 transition-all duration-200 overflow-hidden flex flex-col min-h-[300px]",
-                      isOver ? "border-primary bg-primary/5 scale-102 shadow-lg" : "border-border shadow-sm",
+                      "border-2 transition-all duration-200 overflow-hidden flex flex-col min-h-[380px]",
+                      isOver ? "border-primary bg-primary/5 scale-102 shadow-lg" : "border-border shadow-md",
                       court.status === 'occupied' ? "bg-card" : "bg-muted/10"
                     )}
                   >
                     <div className={cn(
-                      "p-2 flex justify-between items-center border-b",
+                      "p-3 flex justify-between items-center border-b",
                       court.status === 'occupied' ? "bg-primary/5" : "bg-muted"
                     )}>
-                      <span className="text-sm font-black uppercase tracking-tight">{court.name}</span>
-                      <Badge variant={court.status === 'available' ? 'outline' : 'default'} className="text-[10px] font-black uppercase px-2 h-5">
+                      <span className="text-base font-black uppercase tracking-tight">{court.name}</span>
+                      <Badge variant={court.status === 'available' ? 'outline' : 'default'} className="text-[11px] font-black uppercase px-2.5 h-6">
                         {court.status}
                       </Badge>
                     </div>
-                    <CardContent className="p-3 flex-1 flex flex-col space-y-4">
+                    <CardContent className="p-4 flex-1 flex flex-col space-y-5">
                       {court.status === 'occupied' && match ? (
                         <>
                           <div className="flex justify-between items-center">
                             <LiveTimer startTime={match.startTime} />
-                            <Trophy className="h-5 w-5 text-yellow-500 opacity-20" />
+                            <Trophy className="h-6 w-6 text-yellow-500 opacity-20" />
                           </div>
-                          <div className="grid grid-cols-1 gap-3">
+                          <div className="grid grid-cols-1 gap-4">
                             {/* TEAM A */}
                             <div className={cn(
-                              "p-3 rounded-lg border-l-4 transition-colors space-y-2",
+                              "p-4 rounded-xl border-l-4 transition-colors space-y-3",
                               teamAScore > teamBScore ? "border-primary bg-primary/5" : "border-muted-foreground/20 bg-muted/20"
                             )}>
                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-black uppercase text-muted-foreground">Team A</span>
+                                  <span className="text-[11px] font-black uppercase text-muted-foreground">Team A</span>
                                </div>
                               {match.teamA.map(id => {
                                 const p = players.find(player => player.id === id);
                                 return (
                                   <div key={id} className="flex justify-between items-center group/p">
                                     <div className="flex items-center gap-2 min-w-0">
-                                      <span className="text-sm font-black truncate max-w-[120px] leading-tight">{p?.name}</span>
-                                      {p && <Badge variant="outline" className={cn("text-[9px] h-4 px-1.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                      <span className="text-base font-black truncate max-w-[140px] leading-tight">{p?.name}</span>
+                                      {p && <Badge variant="outline" className={cn("text-[10px] h-4.5 px-2", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
-                                      <ArrowLeftRight className="h-3.5 w-3.5" />
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
+                                      <ArrowLeftRight className="h-4 w-4" />
                                     </Button>
                                   </div>
                                 );
@@ -383,22 +392,22 @@ export default function HomePage() {
                             </div>
                             {/* TEAM B */}
                             <div className={cn(
-                              "p-3 rounded-lg border-l-4 transition-colors space-y-2",
+                              "p-4 rounded-xl border-l-4 transition-colors space-y-3",
                               teamBScore > teamAScore ? "border-primary bg-primary/5" : "border-muted-foreground/20 bg-muted/20"
                             )}>
                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-black uppercase text-muted-foreground">Team B</span>
+                                  <span className="text-[11px] font-black uppercase text-muted-foreground">Team B</span>
                                 </div>
                               {match.teamB.map(id => {
                                 const p = players.find(player => player.id === id);
                                 return (
                                   <div key={id} className="flex justify-between items-center group/p">
                                     <div className="flex items-center gap-2 min-w-0">
-                                      <span className="text-sm font-black truncate max-w-[120px] leading-tight">{p?.name}</span>
-                                      {p && <Badge variant="outline" className={cn("text-[9px] h-4 px-1.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                      <span className="text-base font-black truncate max-w-[140px] leading-tight">{p?.name}</span>
+                                      {p && <Badge variant="outline" className={cn("text-[10px] h-4.5 px-2", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
-                                      <ArrowLeftRight className="h-3.5 w-3.5" />
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover/p:opacity-100" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
+                                      <ArrowLeftRight className="h-4 w-4" />
                                     </Button>
                                   </div>
                                 );
@@ -407,85 +416,89 @@ export default function HomePage() {
                           </div>
                         </>
                       ) : draft ? (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           <p className="text-xs font-black uppercase text-primary">Drafting ({draft.length}/4)</p>
-                          <div className="space-y-1">
+                          <div className="space-y-2">
                             {draft.map(id => {
                               const p = players.find(player => player.id === id);
                               return (
-                                <div key={id} className="text-xs font-black bg-background p-1.5 rounded border flex items-center justify-between">
-                                  <span className="truncate max-w-[140px]">{p?.name}</span>
-                                  {p && <Badge variant="outline" className={cn("text-[9px] h-4 px-1.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                <div key={id} className="text-sm font-black bg-background p-2.5 rounded-lg border flex items-center justify-between">
+                                  <span className="truncate max-w-[160px]">{p?.name}</span>
+                                  {p && <Badge variant="outline" className={cn("text-[10px] h-4.5 px-2", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                 </div>
                               );
                             })}
                           </div>
-                          <Button variant="ghost" size="sm" className="w-full h-8 text-xs font-black" onClick={() => setCourtDrafts(prev => { const n = {...prev}; delete n[court.id]; return n; })}>CANCEL DRAFT</Button>
+                          <Button variant="ghost" size="sm" className="w-full h-10 text-xs font-black" onClick={() => setCourtDrafts(prev => { const n = {...prev}; delete n[court.id]; return n; })}>CANCEL DRAFT</Button>
                         </div>
                       ) : (
-                        <div className="h-full flex flex-col items-center justify-center opacity-20 py-8">
-                          <Zap className={cn("h-10 w-10 mb-2", isOver && "text-primary opacity-100 scale-125")} />
-                          <p className="text-xs font-black uppercase text-center tracking-widest">Available Court</p>
+                        <div className="h-full flex flex-col items-center justify-center opacity-20 py-12">
+                          <Zap className={cn("h-14 w-14 mb-3", isOver && "text-primary opacity-100 scale-125")} />
+                          <p className="text-sm font-black uppercase text-center tracking-widest">Available Court</p>
                         </div>
                       )}
                     </CardContent>
                     
                     {/* SCORING SECTION */}
                     {court.status === 'occupied' && match && (
-                      <div className="p-3 bg-secondary/30 border-t space-y-3">
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex-1 flex flex-col gap-1">
-                            <span className="text-[10px] font-black uppercase opacity-50 text-center">T1</span>
+                      <div className="p-4 bg-secondary/30 border-t space-y-4">
+                        <div className="flex items-center justify-between gap-6">
+                          <div className="flex-1 flex flex-col gap-2">
+                            <span className="text-[11px] font-black uppercase opacity-50 text-center">T1</span>
                             <Input 
                               type="number" 
+                              min="0"
                               className={cn(
-                                "h-14 text-3xl font-black text-center border-2 transition-all",
+                                "h-16 text-4xl font-black text-center border-2 transition-all no-spinner",
                                 teamAScore > teamBScore ? "border-primary bg-primary/10" : "bg-card"
                               )}
                               value={match.teamAScore || 0}
-                              onChange={(e) => updateMatchScore(match.id, parseInt(e.target.value) || 0, match.teamBScore || 0)}
+                              onChange={(e) => handleScoreChange(match.id, parseInt(e.target.value) || 0, match.teamBScore || 0)}
+                              onBlur={(e) => handleScoreChange(match.id, parseInt(e.target.value) || 0, match.teamBScore || 0)}
                             />
                           </div>
-                          <div className="text-xl font-black opacity-30 mt-5">VS</div>
-                          <div className="flex-1 flex flex-col gap-1">
-                            <span className="text-[10px] font-black uppercase opacity-50 text-center">T2</span>
+                          <div className="text-2xl font-black opacity-30 mt-6">VS</div>
+                          <div className="flex-1 flex flex-col gap-2">
+                            <span className="text-[11px] font-black uppercase opacity-50 text-center">T2</span>
                             <Input 
                               type="number" 
+                              min="0"
                               className={cn(
-                                "h-14 text-3xl font-black text-center border-2 transition-all",
+                                "h-16 text-4xl font-black text-center border-2 transition-all no-spinner",
                                 teamBScore > teamAScore ? "border-primary bg-primary/10" : "bg-card"
                               )}
                               value={match.teamBScore || 0}
-                              onChange={(e) => updateMatchScore(match.id, match.teamAScore || 0, parseInt(e.target.value) || 0)}
+                              onChange={(e) => handleScoreChange(match.id, match.teamAScore || 0, parseInt(e.target.value) || 0)}
+                              onBlur={(e) => handleScoreChange(match.id, match.teamAScore || 0, parseInt(e.target.value) || 0)}
                             />
                           </div>
                         </div>
                       </div>
                     )}
 
-                    <CardFooter className="p-2 border-t mt-auto gap-2">
+                    <CardFooter className="p-3 border-t mt-auto gap-3">
                       {court.status === 'occupied' && match ? (
                         <>
                           {!match.startTime ? (
-                            <Button onClick={() => startTimer(court.id)} size="sm" className="w-full h-10 bg-green-600 hover:bg-green-700 font-black text-xs uppercase">
-                              <Play className="h-4 w-4 mr-2" /> Start Timer
+                            <Button onClick={() => startTimer(court.id)} className="w-full h-12 bg-green-600 hover:bg-green-700 font-black text-sm uppercase">
+                              <Play className="h-5 w-5 mr-2" /> Start Timer
                             </Button>
                           ) : (
-                            <div className="flex w-full gap-2">
-                               <Button size="sm" onClick={() => endMatch(court.id, 'completed', teamAScore >= teamBScore ? 'teamA' : 'teamB', teamAScore, teamBScore)} className="flex-1 h-10 bg-primary font-black text-xs uppercase">
-                                  <CheckCircle2 className="h-4 w-4 mr-2" /> Finish Match
+                            <div className="flex w-full gap-3">
+                               <Button onClick={() => endMatch(court.id, 'completed', teamAScore >= teamBScore ? 'teamA' : 'teamB', teamAScore, teamBScore)} className="flex-1 h-12 bg-primary font-black text-sm uppercase">
+                                  <CheckCircle2 className="h-5 w-5 mr-2" /> Finish Match
                                </Button>
-                               <Button variant="outline" size="sm" onClick={() => endMatch(court.id, 'cancelled')} className="h-10 w-10 p-0">
-                                  <Ban className="h-4 w-4 text-destructive" />
+                               <Button variant="outline" size="icon" onClick={() => endMatch(court.id, 'cancelled')} className="h-12 w-12 p-0 border-2">
+                                  <Ban className="h-5 w-5 text-destructive" />
                                </Button>
                             </div>
                           )}
                         </>
                       ) : (
-                        <div className="flex w-full justify-between items-center p-1">
-                          <p className="text-[10px] font-black uppercase opacity-40">Ready for Match</p>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white" onClick={() => deleteCourt(court.id)}>
-                            <Trash2 className="h-4 w-4" />
+                        <div className="flex w-full justify-between items-center px-1">
+                          <p className="text-[11px] font-black uppercase opacity-40">Ready for Match</p>
+                          <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:bg-destructive hover:text-white" onClick={() => deleteCourt(court.id)}>
+                            <Trash2 className="h-5 w-5" />
                           </Button>
                         </div>
                       )}
@@ -500,14 +513,14 @@ export default function HomePage() {
 
       <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="text-lg font-black uppercase">Swap Player</DialogTitle></DialogHeader>
-          <ScrollArea className="h-[400px] pr-4">
-            <div className="space-y-3">
+          <DialogHeader><DialogTitle className="text-xl font-black uppercase">Swap Player</DialogTitle></DialogHeader>
+          <ScrollArea className="h-[500px] pr-4">
+            <div className="space-y-4">
               {players.filter(p => p.status === 'available').map(p => (
-                <Button key={p.id} variant="outline" className="w-full justify-between h-auto py-4 px-6 hover:border-primary hover:bg-primary/5 transition-all" onClick={() => handleSwap(p.id)}>
+                <Button key={p.id} variant="outline" className="w-full justify-between h-auto py-5 px-8 hover:border-primary hover:bg-primary/5 transition-all border-2" onClick={() => handleSwap(p.id)}>
                   <div className="flex flex-col items-start">
-                    <span className="font-black text-base">{p.name}</span>
-                    <Badge variant="outline" className={cn("text-[10px] uppercase font-black px-2 h-5 mt-1.5", getSkillColor(p.skillLevel))}>
+                    <span className="font-black text-lg">{p.name}</span>
+                    <Badge variant="outline" className={cn("text-[11px] uppercase font-black px-2.5 h-6 mt-2", getSkillColor(p.skillLevel))}>
                       {SKILL_LEVELS_SHORT[p.skillLevel]} • {p.gamesPlayed} Games
                     </Badge>
                   </div>
