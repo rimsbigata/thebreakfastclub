@@ -9,10 +9,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award, Clock } from 'lucide-react';
+import { Plus, User, TrendingUp, PieChart, Users, Trash2, Award, Clock, Timer } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { SKILL_LEVELS } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
+function WaitTimeText({ lastAvailableAt, status }: { lastAvailableAt?: number, status: string }) {
+  const [mins, setMins] = useState(0);
+
+  useEffect(() => {
+    if (!lastAvailableAt || status !== 'available') return;
+    const update = () => setMins(Math.floor((Date.now() - lastAvailableAt) / 60000));
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [lastAvailableAt, status]);
+
+  if (status !== 'available') return null;
+
+  return (
+    <div className="flex items-center gap-1 text-[9px] font-black uppercase text-primary">
+      <Timer className="h-2.5 w-2.5" /> Bench: {mins}m
+    </div>
+  );
+}
 
 export default function PlayersPage() {
   const { players, addPlayer, deletePlayer } = useClub();
@@ -151,11 +171,16 @@ export default function PlayersPage() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          Player List <Badge variant="secondary">{players.length}</Badge>
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            Player List <Badge variant="secondary">{players.length}</Badge>
+          </h2>
+          <p className="text-[10px] font-bold uppercase text-muted-foreground italic">Wait time is prioritized in Auto Match</p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {players.map(player => (
+          {players
+            .sort((a, b) => (a.status === 'available' ? (a.lastAvailableAt || 0) : Infinity) - (b.status === 'available' ? (b.lastAvailableAt || 0) : Infinity))
+            .map(player => (
             <Card key={player.id} className="flex flex-col p-4 group hover:border-primary/40 transition-colors shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -164,12 +189,15 @@ export default function PlayersPage() {
                   </div>
                   <div>
                     <p className="font-bold leading-none mb-1 text-sm">{player.name}</p>
-                    <p className={cn(
-                      "text-[9px] uppercase font-bold tracking-tighter",
-                      player.status === 'playing' ? 'text-primary' : 'text-muted-foreground'
-                    )}>
-                      {player.status}
-                    </p>
+                    <div className="flex flex-col gap-0.5">
+                      <p className={cn(
+                        "text-[9px] uppercase font-bold tracking-tighter",
+                        player.status === 'playing' ? 'text-primary' : 'text-muted-foreground'
+                      )}>
+                        {player.status}
+                      </p>
+                      <WaitTimeText lastAvailableAt={player.lastAvailableAt} status={player.status} />
+                    </div>
                   </div>
                 </div>
                 <Button 
@@ -185,7 +213,7 @@ export default function PlayersPage() {
               <div className="flex items-center justify-between border-t pt-3">
                 <div className="space-y-1">
                    <div className="flex items-center gap-1 text-[9px] font-black uppercase text-muted-foreground">
-                      <Clock className="h-2.5 w-2.5" /> Time Played
+                      <Clock className="h-2.5 w-2.5" /> Total Time
                    </div>
                    <p className="text-xs font-bold">{player.totalPlayTimeMinutes || 0} mins</p>
                 </div>

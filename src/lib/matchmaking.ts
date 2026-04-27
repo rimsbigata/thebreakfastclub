@@ -30,12 +30,14 @@ export function generateDeterministicMatch(
 
   // Phase A: Selection
   // 1. Sort by games played (ascending)
-  // 2. Sort by waiting time (earliest lastAvailableAt first) as tie-breaker
+  // 2. Sort by waiting time (earliest lastAvailableAt first) as primary tie-breaker
   const selectedPlayers = [...availablePlayers]
     .sort((a, b) => {
-      if (a.gamesPlayed !== b.gamesPlayed) {
+      // Priority 1: Fewer games played
+      if ((a.gamesPlayed || 0) !== (b.gamesPlayed || 0)) {
         return (a.gamesPlayed || 0) - (b.gamesPlayed || 0);
       }
+      // Priority 2: Longest wait time (earliest timestamp)
       return (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0);
     })
     .slice(0, 4);
@@ -89,7 +91,7 @@ export function generateDeterministicMatch(
     teamA: bestCombo.teamA.map(p => p.id),
     teamB: bestCombo.teamB.map(p => p.id),
     analysis: bestCombo.score >= 25 
-      ? `Prioritized social variety over skill gap (${bestCombo.skillGap}pt gap).` 
+      ? `Prioritized wait time and social variety (${bestCombo.skillGap}pt gap).` 
       : `Optimal balance found with ${bestCombo.skillGap}pt gap.`
   };
 }

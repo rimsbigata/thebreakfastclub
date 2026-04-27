@@ -1,18 +1,19 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, UserPlus, Zap, ArrowLeftRight, Activity, Users, DoorOpen } from 'lucide-react';
+import { Plus, Trophy, Trash2, Timer, CheckCircle2, Play, UserPlus, Zap, ArrowLeftRight, Activity, Users, DoorOpen, Hand, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
-import { SKILL_LEVELS } from '@/lib/types';
+import { SKILL_LEVELS, Player } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { MatchResults } from '@/components/match/MatchResults';
 import Image from 'next/image';
@@ -42,6 +43,24 @@ function LiveTimer({ startTime }: { startTime?: string }) {
   );
 }
 
+function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
+  const [mins, setMins] = useState(0);
+
+  useEffect(() => {
+    if (!lastAvailableAt) return;
+    const update = () => setMins(Math.floor((Date.now() - lastAvailableAt) / 60000));
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [lastAvailableAt]);
+
+  return (
+    <Badge variant="secondary" className="gap-1 text-[10px] h-5">
+      <Timer className="h-3 w-3" /> {mins}m wait
+    </Badge>
+  );
+}
+
 export default function HomePage() {
   const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch, swapPlayer } = useClub();
   const { toast } = useToast();
@@ -49,14 +68,23 @@ export default function HomePage() {
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
   const [showWinButtons, setShowWinButtons] = useState<Record<string, boolean>>({});
+  const [mounted, setMounted] = useState(false);
   const [today, setToday] = useState<string>('');
+  
+  // Manual Match State
+  const [isManualOpen, setIsManualOpen] = useState(false);
+  const [selectedCourtId, setSelectedCourtId] = useState<string>('');
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
 
   useEffect(() => {
+    setMounted(true);
     setToday(new Date().toLocaleDateString());
   }, []);
 
   const availablePlayersCount = players.filter(p => p.status === 'available').length;
   const occupiedCourtsCount = courts.filter(c => c.status === 'occupied').length;
+
+  if (!mounted) return null;
 
   const handleAddCourtAction = () => {
     if (!newCourtName) return;
@@ -78,7 +106,7 @@ export default function HomePage() {
       });
       toast({ 
         title: "Match Created!", 
-        description: result.analysis || "Optimal pairing found based on games played and history." 
+        description: result.analysis || "Optimal pairing found based on wait times and history." 
       });
     } else {
       toast({ 
@@ -87,6 +115,24 @@ export default function HomePage() {
         variant: "destructive"
       });
     }
+  };
+
+  const handleManualMatchSubmit = () => {
+    if (!selectedCourtId || selectedPlayerIds.length !== 4) return;
+    
+    const selectedPlayers = players.filter(p => selectedPlayerIds.includes(p.id))
+      .sort((a, b) => (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0));
+
+    startMatch({
+      teamA: [selectedPlayers[0].id, selectedPlayers[1].id],
+      teamB: [selectedPlayers[2].id, selectedPlayers[3].id],
+      courtId: selectedCourtId,
+    });
+
+    setIsManualOpen(false);
+    setSelectedPlayerIds([]);
+    setSelectedCourtId('');
+    toast({ title: "Manual Match Started" });
   };
 
   const handleSwap = (newPlayerId: string) => {
@@ -122,6 +168,89 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 font-bold">
+                <Hand className="h-4 w-4" /> Manual Match
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create Manual Match</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6 py-4">
+                <div className="space-y-3">
+                  <Label>1. Select Court</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {courts.map(court => (
+                      <Button
+                        key={court.id}
+                        variant={selectedCourtId === court.id ? 'default' : 'outline'}
+                        className="h-10 px-4"
+                        disabled={court.status === 'occupied'}
+                        onClick={() => setSelectedCourtId(court.id)}
+                      >
+                        {court.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>2. Select 4 Players ({selectedPlayerIds.length}/4)</Label>
+                    <Badge variant="outline">{availablePlayersCount} Available</Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[40vh] overflow-y-auto p-1">
+                    {players
+                      .filter(p => p.status === 'available')
+                      .sort((a, b) => (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0))
+                      .map(player => {
+                        const isSelected = selectedPlayerIds.includes(player.id);
+                        return (
+                          <Button
+                            key={player.id}
+                            variant={isSelected ? 'secondary' : 'outline'}
+                            className={cn(
+                              "justify-between h-auto py-3 px-4",
+                              isSelected && "ring-2 ring-primary border-primary"
+                            )}
+                            onClick={() => {
+                              setSelectedPlayerIds(prev => 
+                                isSelected 
+                                  ? prev.filter(id => id !== player.id) 
+                                  : (prev.length < 4 ? [...prev, player.id] : prev)
+                              );
+                            }}
+                          >
+                            <div className="flex flex-col items-start gap-1">
+                              <span className="font-bold flex items-center gap-2">
+                                {player.name}
+                                {isSelected && <Check className="h-3 w-3 text-primary" />}
+                              </span>
+                              <span className="text-[10px] uppercase text-muted-foreground font-black">
+                                Lvl {player.skillLevel} • {player.gamesPlayed} Games
+                              </span>
+                            </div>
+                            <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
+                          </Button>
+                        );
+                      })}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  className="w-full h-12 font-bold text-lg" 
+                  disabled={!selectedCourtId || selectedPlayerIds.length !== 4}
+                  onClick={handleManualMatchSubmit}
+                >
+                  Start Match
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Button 
             onClick={handleAutoMatch} 
             disabled={!courts.length || availablePlayersCount < 4} 
@@ -187,7 +316,7 @@ export default function HomePage() {
               <p className="text-[10px] font-black uppercase text-muted-foreground">Total Players</p>
               <p className="text-2xl font-black">{players.length}</p>
               <p className="text-[8px] font-bold uppercase text-muted-foreground/60">
-                {today ? today : '...'}
+                {today}
               </p>
             </div>
           </CardContent>
@@ -351,12 +480,10 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Match History Section */}
       <section className="pt-8">
         <MatchResults matches={matches} players={players} limit={5} />
       </section>
 
-      {/* Dialogs */}
       <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
@@ -373,7 +500,7 @@ export default function HomePage() {
                   <span className="font-bold">{player.name}</span>
                   <span className="text-[10px] uppercase text-muted-foreground">{player.skillLevel} - {SKILL_LEVELS[player.skillLevel]}</span>
                 </div>
-                <Badge variant="secondary">Wait: {player.lastAvailableAt ? Math.floor((Date.now() - player.lastAvailableAt) / 60000) : 0}m</Badge>
+                <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
               </Button>
             ))}
           </div>
