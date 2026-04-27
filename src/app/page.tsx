@@ -16,8 +16,8 @@ import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { SKILL_LEVELS } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { MatchResults } from '@/components/match/MatchResults';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
-import tbcLogo from '@/assets/images/tbclogo.jpg';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -62,7 +62,7 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 }
 
 export default function HomePage() {
-  const { courts, players, matches, addCourt, deleteCourt, startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt } = useClub();
+  const { courts, players, matches, clubLogo, addCourt, deleteCourt, startMatch, startTimer, endMatch, swapPlayer, assignMatchToCourt } = useClub();
   const { toast } = useToast();
   const [newCourtName, setNewCourtName] = useState('');
   const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
@@ -87,6 +87,8 @@ export default function HomePage() {
   const availableCourts = courts.filter(c => c.status === 'available');
 
   if (!mounted) return null;
+
+  const displayLogo = clubLogo || PlaceHolderImages.find(img => img.id === 'logo')?.imageUrl || "";
 
   const handleAddCourtAction = () => {
     if (!newCourtName) return;
@@ -167,9 +169,9 @@ export default function HomePage() {
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="relative h-16 w-16 rounded-lg overflow-hidden shadow-md md:hidden border-2 border-primary">
+          <div className="relative h-16 w-16 rounded-lg overflow-hidden shadow-md md:hidden border-2 border-primary bg-white">
             <Image 
-              src={tbcLogo} 
+              src={displayLogo} 
               alt="TBC Logo" 
               fill 
               className="object-cover"
@@ -181,7 +183,6 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Add Court Button restored */}
           <Dialog open={isAddCourtOpen} onOpenChange={setIsAddCourtOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95 shadow-sm">
@@ -311,7 +312,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card className="bg-primary/5 border-none shadow-none transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <CardContent className="pt-6 flex items-center gap-4">
@@ -360,9 +360,7 @@ export default function HomePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Queue & Bench */}
         <div className="lg:col-span-4 space-y-8">
-          {/* Section: The Bench (Available Players) */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
@@ -399,7 +397,6 @@ export default function HomePage() {
             </Card>
           </section>
 
-          {/* Section: Waiting Matches */}
           {waitingMatches.length > 0 && (
             <section className="space-y-4 animate-in slide-in-from-left-4 duration-500">
               <div className="flex items-center gap-2">
@@ -458,7 +455,6 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Right Column: Active Courts */}
         <div className="lg:col-span-8 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
@@ -617,12 +613,10 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Match History Section */}
       <section className="pt-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <MatchResults matches={matches} players={players} limit={5} />
       </section>
 
-      {/* Swap Player Dialog */}
       <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent className="animate-in zoom-in duration-300">
           <DialogHeader><DialogTitle>Swap Player</DialogTitle></DialogHeader>
@@ -646,7 +640,6 @@ export default function HomePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Scoring Dialog */}
       {scoringCourtId && (() => {
         const court = courts.find(c => c.id === scoringCourtId);
         const match = matches.find(m => m.id === court?.currentMatchId);

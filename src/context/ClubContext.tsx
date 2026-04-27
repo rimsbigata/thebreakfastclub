@@ -1,8 +1,24 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Player, Court, Match, Fee, PaymentMethod } from '@/lib/types';
 import { SplashScreen } from '@/components/layout/SplashScreen';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  setDoc, 
+  query, 
+  orderBy,
+  getFirestore,
+  Firestore,
+  serverTimestamp
+} from 'firebase/firestore';
+import { useFirebase } from '@/firebase';
 
 interface ClubContextType {
   players: Player[];
@@ -33,6 +49,7 @@ interface ClubContextType {
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
 
 export function ClubProvider({ children }: { children: ReactNode }) {
+  const { firestore } = useFirebase();
   const [players, setPlayers] = useState<Player[]>([]);
   const [courts, setCourts] = useState<Court[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -42,39 +59,51 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        const data = localStorage.getItem('breakfast_club_data');
-        if (data) {
-          const parsed = JSON.parse(data);
-          setPlayers(parsed.players || []);
-          setCourts(parsed.courts || []);
-          setMatches(parsed.matches || []);
-          setFees(parsed.fees || []);
-          setPaymentMethods(parsed.paymentMethods || []);
-          setClubLogoState(parsed.clubLogo || null);
-        }
-      } catch (e) {
-        console.error("Failed to load data", e);
-      }
-      setIsLoaded(true);
-    }, 1500);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    if (!firestore) return;
 
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('breakfast_club_data', JSON.stringify({
-        players, courts, matches, fees, paymentMethods, clubLogo
-      }));
-    }
-  }, [players, courts, matches, fees, paymentMethods, clubLogo, isLoaded]);
+    // Real-time listeners for all collections
+    const unsubPlayers = onSnapshot(collection(firestore, 'players'), (snapshot) => {
+      setPlayers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Player)));
+    });
+
+    const unsubCourts = onSnapshot(collection(firestore, 'courts'), (snapshot) => {
+      setCourts(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Court)));
+    });
+
+    const unsubMatches = onSnapshot(query(collection(firestore, 'matches'), orderBy('timestamp', 'desc')), (snapshot) => {
+      setMatches(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Match)));
+    });
+
+    const unsubFees = onSnapshot(collection(firestore, 'fees'), (snapshot) => {
+      setFees(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Fee)));
+    });
+
+    const unsubMethods = onSnapshot(collection(firestore, 'paymentMethods'), (snapshot) => {
+      setPaymentMethods(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as PaymentMethod)));
+    });
+
+    const unsubSettings = onSnapshot(doc(firestore, 'settings', 'branding'), (docSnap) => {
+      if (docSnap.exists()) {
+        setClubLogoState(docSnap.data().logo || null);
+      }
+    });
+
+    setIsLoaded(true);
+
+    return () => {
+      unsubPlayers();
+      unsubCourts();
+      unsubMatches();
+      unsubFees();
+      unsubMethods();
+      unsubSettings();
+    };
+  }, [firestore]);
 
   const addPlayer = (data: any) => {
-    const newPlayer: Player = {
+    if (!firestore) return;
+    addDoc(collection(firestore, 'players'), {
       ...data,
-      id: Math.random().toString(36).substring(7),
       wins: 0,
       gamesPlayed: 0,
       partnerHistory: [],
@@ -82,204 +111,212 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       improvementScore: 0,
       totalPlayTimeMinutes: 0,
       lastAvailableAt: Date.now()
-    };
-    setPlayers(prev => [...prev, newPlayer]);
+    });
   };
 
   const updatePlayer = (id: string, updates: Partial<Player>) => {
-    setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    if (!firestore) return;
+    updateDoc(doc(firestore, 'players', id), updates);
   };
 
   const deletePlayer = (id: string) => {
-    setPlayers(prev => prev.filter(p => p.id !== id));
+    if (!firestore) return;
+    deleteDoc(doc(firestore, 'players', id));
   };
 
   const addCourt = (name: string) => {
-    const newCourt: Court = {
-      id: Math.random().toString(36).substring(7),
+    if (!firestore) return;
+    addDoc(collection(firestore, 'courts'), {
       name: `Court ${name}`,
-      status: 'available'
-    };
-    setCourts(prev => [...prev, newCourt]);
+      status: 'available',
+      currentMatchId: null
+    });
   };
 
   const deleteCourt = (id: string) => {
-    const courtToDelete = courts.find(c => c.id === id);
-    if (courtToDelete?.currentMatchId) {
-      const match = matches.find(m => m.id === courtToDelete.currentMatchId);
+    if (!firestore) return;
+    const court = courts.find(c => c.id === id);
+    if (court?.currentMatchId) {
+      const match = matches.find(m => m.id === court.currentMatchId);
       if (match) {
-        const playerIds = [...match.teamA, ...match.teamB];
-        setPlayers(prev => prev.map(p => 
-          playerIds.includes(p.id) ? { ...p, status: 'available', lastAvailableAt: Date.now() } : p
-        ));
+        [...match.teamA, ...match.teamB].forEach(pid => {
+          updatePlayer(pid, { status: 'available', lastAvailableAt: Date.now() });
+        });
       }
     }
-    setCourts(prev => prev.filter(c => c.id !== id));
+    deleteDoc(doc(firestore, 'courts', id));
   };
 
   const startMatch = (matchData: any) => {
-    const matchId = Math.random().toString(36).substring(7);
-    const newMatch: Match = {
+    if (!firestore) return;
+    addDoc(collection(firestore, 'matches'), {
       ...matchData,
-      id: matchId,
       timestamp: new Date().toISOString(),
       isCompleted: false
-    };
-
-    setMatches(prev => [...prev, newMatch]);
-    
-    if (matchData.courtId) {
-      setCourts(prev => prev.map(c => 
-        c.id === matchData.courtId ? { ...c, status: 'occupied', currentMatchId: matchId } : c
-      ));
-    }
-
-    setPlayers(prev => prev.map(p => 
-      [...matchData.teamA, ...matchData.teamB].includes(p.id) 
-        ? { ...p, status: 'playing', gamesPlayed: (p.gamesPlayed || 0) + 1, lastAvailableAt: undefined } 
-        : p
-    ));
+    }).then(docRef => {
+      const matchId = docRef.id;
+      if (matchData.courtId) {
+        updateDoc(doc(firestore, 'courts', matchData.courtId), {
+          status: 'occupied',
+          currentMatchId: matchId
+        });
+      }
+      [...matchData.teamA, ...matchData.teamB].forEach(pid => {
+        const p = players.find(player => player.id === pid);
+        updateDoc(doc(firestore, 'players', pid), {
+          status: 'playing',
+          gamesPlayed: (p?.gamesPlayed || 0) + 1,
+          lastAvailableAt: null
+        });
+      });
+    });
   };
 
   const assignMatchToCourt = (matchId: string, courtId: string) => {
-    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, courtId } : m));
-    setCourts(prev => prev.map(c => c.id === courtId ? { ...c, status: 'occupied', currentMatchId: matchId } : c));
+    if (!firestore) return;
+    updateDoc(doc(firestore, 'matches', matchId), { courtId });
+    updateDoc(doc(firestore, 'courts', courtId), { 
+      status: 'occupied', 
+      currentMatchId: matchId 
+    });
   };
 
   const startTimer = (courtId: string) => {
+    if (!firestore) return;
     const court = courts.find(c => c.id === courtId);
-    if (!court || !court.currentMatchId) return;
-
-    setMatches(prev => prev.map(m => 
-      m.id === court.currentMatchId ? { ...m, startTime: new Date().toISOString() } : m
-    ));
+    if (court?.currentMatchId) {
+      updateDoc(doc(firestore, 'matches', court.currentMatchId), {
+        startTime: new Date().toISOString()
+      });
+    }
   };
 
   const endMatch = (courtId: string, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => {
+    if (!firestore) return;
     const court = courts.find(c => c.id === courtId);
-    if (!court || !court.currentMatchId) return;
+    if (!court?.currentMatchId) return;
 
     const match = matches.find(m => m.id === court.currentMatchId);
     if (!match) return;
 
-    const endTime = new Date();
     const startTime = match.startTime ? new Date(match.startTime) : null;
-    const playDurationMinutes = startTime ? Math.floor((endTime.getTime() - startTime.getTime()) / 60000) : 0;
+    const playDuration = startTime ? Math.floor((Date.now() - startTime.getTime()) / 60000) : 0;
 
-    setMatches(prev => prev.map(m => m.id === court.currentMatchId ? { ...m, isCompleted: true, winner, teamAScore, teamBScore } : m));
-    setCourts(prev => prev.map(c => c.id === courtId ? { ...c, status: 'available', currentMatchId: null } : c));
-    
-    setPlayers(prev => prev.map(p => {
-      const isPart = [...match.teamA, ...match.teamB].includes(p.id);
-      if (!isPart) return p;
+    updateDoc(doc(firestore, 'matches', court.currentMatchId), {
+      isCompleted: true,
+      winner,
+      teamAScore,
+      teamBScore
+    });
 
-      const partnerId = match.teamA.includes(p.id) 
-        ? match.teamA.find(id => id !== p.id) 
-        : match.teamB.find(id => id !== p.id);
-      
+    updateDoc(doc(firestore, 'courts', courtId), {
+      status: 'available',
+      currentMatchId: null
+    });
+
+    [...match.teamA, ...match.teamB].forEach(pid => {
+      const p = players.find(player => player.id === pid);
+      if (!p) return;
+
+      const isTeamA = match.teamA.includes(pid);
+      const partnerId = isTeamA ? match.teamA.find(id => id !== pid) : match.teamB.find(id => id !== pid);
       const newHistory = partnerId ? [partnerId, ...p.partnerHistory].slice(0, 5) : p.partnerHistory;
-
-      let impChange = 0;
-      let wonMatch = false;
+      
+      let won = false;
       if (winner) {
-        wonMatch = (winner === 'teamA' && match.teamA.includes(p.id)) || 
-                   (winner === 'teamB' && match.teamB.includes(p.id));
-        impChange = wonMatch ? 5 : -2;
+        won = (winner === 'teamA' && isTeamA) || (winner === 'teamB' && !isTeamA);
       }
 
-      return { 
-        ...p, 
-        status: 'available', 
+      updateDoc(doc(firestore, 'players', pid), {
+        status: 'available',
         lastAvailableAt: Date.now(),
-        wins: wonMatch ? p.wins + 1 : p.wins,
+        wins: won ? (p.wins || 0) + 1 : (p.wins || 0),
         partnerHistory: newHistory,
-        improvementScore: Math.max(0, p.improvementScore + impChange),
-        totalPlayTimeMinutes: p.totalPlayTimeMinutes + playDurationMinutes
-      };
-    }));
-  };
-
-  const swapPlayer = (matchId: string, oldPlayerId: string, newPlayerId: string) => {
-    setMatches(prev => prev.map(m => {
-      if (m.id !== matchId) return m;
-      const isTeamA = m.teamA.includes(oldPlayerId);
-      const teamA = isTeamA ? m.teamA.map(id => id === oldPlayerId ? newPlayerId : id) : m.teamA;
-      const teamB = !isTeamA ? m.teamB.map(id => id === oldPlayerId ? newPlayerId : id) : m.teamB;
-      return { ...m, teamA, teamB };
-    }));
-
-    setPlayers(prev => prev.map(p => {
-      if (p.id === oldPlayerId) return { ...p, status: 'available', lastAvailableAt: Date.now() };
-      if (p.id === newPlayerId) return { ...p, status: 'playing', gamesPlayed: p.gamesPlayed + 1, lastAvailableAt: undefined };
-      return p;
-    }));
-  };
-
-  const updateFee = (data: any) => {
-    setFees(prev => {
-      const existing = prev.find(f => f.id === data.id);
-      if (existing) {
-        return prev.map(f => f.id === data.id ? { ...f, ...data } : f);
-      }
-      return [...prev, { ...data, payments: {} }];
+        improvementScore: Math.max(0, (p.improvementScore || 0) + (won ? 5 : -2)),
+        totalPlayTimeMinutes: (p.totalPlayTimeMinutes || 0) + playDuration
+      });
     });
   };
 
+  const swapPlayer = (matchId: string, oldPlayerId: string, newPlayerId: string) => {
+    if (!firestore) return;
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    const isTeamA = match.teamA.includes(oldPlayerId);
+    const teamA = isTeamA ? match.teamA.map(id => id === oldPlayerId ? newPlayerId : id) : match.teamA;
+    const teamB = !isTeamA ? match.teamB.map(id => id === oldPlayerId ? newPlayerId : id) : match.teamB;
+
+    updateDoc(doc(firestore, 'matches', matchId), { teamA, teamB });
+    updateDoc(doc(firestore, 'players', oldPlayerId), { status: 'available', lastAvailableAt: Date.now() });
+    
+    const newP = players.find(p => p.id === newPlayerId);
+    updateDoc(doc(firestore, 'players', newPlayerId), { 
+      status: 'playing', 
+      gamesPlayed: (newP?.gamesPlayed || 0) + 1,
+      lastAvailableAt: null 
+    });
+  };
+
+  const updateFee = (data: any) => {
+    if (!firestore) return;
+    setDoc(doc(firestore, 'fees', data.id), data, { merge: true });
+  };
+
   const togglePayment = (date: string, playerId: string) => {
-    setFees(prev => {
-      const existing = prev.find(f => f.id === date);
-      if (existing) {
-        return prev.map(f => {
-          if (f.id === date) {
-            const newPayments = { ...f.payments, [playerId]: !f.payments[playerId] };
-            return { ...f, payments: newPayments };
-          }
-          return f;
-        });
-      }
-      return [...prev, { id: date, shuttleFee: 0, courtFee: 0, entranceFee: 0, payments: { [playerId]: true } }];
+    if (!firestore) return;
+    const fee = fees.find(f => f.id === date);
+    const payments = fee?.payments || {};
+    updateDoc(doc(firestore, 'fees', date), {
+      [`payments.${playerId}`]: !payments[playerId]
     });
   };
 
   const addPaymentMethod = (name: string, imageData: string) => {
-    const newMethod: PaymentMethod = {
-      id: Math.random().toString(36).substring(7),
-      name,
-      imageUrl: imageData
-    };
-    setPaymentMethods(prev => [...prev, newMethod]);
+    if (!firestore) return;
+    addDoc(collection(firestore, 'paymentMethods'), { name, imageUrl: imageData });
   };
 
   const deletePaymentMethod = (id: string) => {
-    setPaymentMethods(prev => prev.filter(pm => pm.id !== id));
+    if (!firestore) return;
+    deleteDoc(doc(firestore, 'paymentMethods', id));
   };
 
   const setClubLogo = (imageUrl: string | null) => {
-    setClubLogoState(imageUrl);
+    if (!firestore) return;
+    setDoc(doc(firestore, 'settings', 'branding'), { logo: imageUrl }, { merge: true });
   };
 
   const resetDailyBoard = () => {
-    setMatches([]);
-    setPlayers(prev => prev.map(p => ({ 
-      ...p, 
-      status: 'available', 
-      wins: 0, 
-      gamesPlayed: 0, 
-      totalPlayTimeMinutes: 0, 
-      partnerHistory: [],
-      lastAvailableAt: Date.now()
-    })));
-    setCourts(prev => prev.map(c => ({ ...c, status: 'available', currentMatchId: null })));
+    // This would typically involve cloud functions for efficiency, 
+    // but for MVP we loop through local lists to trigger updates.
+    matches.filter(m => !m.isCompleted).forEach(m => {
+      updateDoc(doc(firestore, 'matches', m.id), { isCompleted: true, winner: null });
+    });
+    players.forEach(p => {
+      updateDoc(doc(firestore, 'players', p.id), {
+        status: 'available',
+        wins: 0,
+        gamesPlayed: 0,
+        totalPlayTimeMinutes: 0,
+        partnerHistory: [],
+        lastAvailableAt: Date.now()
+      });
+    });
+    courts.forEach(c => {
+      updateDoc(doc(firestore, 'courts', c.id), { status: 'available', currentMatchId: null });
+    });
   };
 
   const wipeAllData = () => {
-    setPlayers([]);
-    setCourts([]);
-    setMatches([]);
-    setFees([]);
-    setPaymentMethods([]);
-    setClubLogoState(null);
-    localStorage.removeItem('breakfast_club_data');
+    // This requires administrative access or a specific wipe pattern.
+    // In Firestore, we'd delete the documents individually.
+    players.forEach(p => deleteDoc(doc(firestore, 'players', p.id)));
+    courts.forEach(c => deleteDoc(doc(firestore, 'courts', c.id)));
+    matches.forEach(m => deleteDoc(doc(firestore, 'matches', m.id)));
+    fees.forEach(f => deleteDoc(doc(firestore, 'fees', f.id)));
+    paymentMethods.forEach(pm => deleteDoc(doc(firestore, 'paymentMethods', pm.id)));
+    setDoc(doc(firestore, 'settings', 'branding'), { logo: null });
   };
 
   if (!isLoaded) {

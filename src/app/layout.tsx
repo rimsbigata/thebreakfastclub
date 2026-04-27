@@ -5,6 +5,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ClubProvider } from '@/context/ClubContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
   title: 'TheBreakfastClub | Badminton Club',
@@ -27,18 +28,20 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground">
-        <ThemeProvider>
-          <ClubProvider>
-            <div className="flex min-h-screen">
-              <Sidebar />
-              <main className="flex-1 pb-20 md:pb-0">
-                {children}
-              </main>
-            </div>
-            <BottomNav />
-            <Toaster />
-          </ClubProvider>
-        </ThemeProvider>
+        <FirebaseClientProvider>
+          <ThemeProvider>
+            <ClubProvider>
+              <div className="flex min-h-screen">
+                <Sidebar />
+                <main className="flex-1 pb-20 md:pb-0">
+                  {children}
+                </main>
+              </div>
+              <BottomNav />
+              <Toaster />
+            </ClubProvider>
+          </ThemeProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );
