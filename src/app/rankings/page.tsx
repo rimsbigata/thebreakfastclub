@@ -6,13 +6,13 @@ import { Trophy, TrendingUp, Medal, Star, Target, Calendar } from 'lucide-react'
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Match, SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 
 export default function RankingsPage() {
   const { players, matches } = useClub();
 
-  const getRankingsForPeriod = (periodMatches: Match[]) => {
+  const getRankingsForPeriod = useCallback((periodMatches: Match[]) => {
     const stats: Record<string, { wins: number; total: number; diff: number }> = {};
     
     periodMatches.forEach(m => {
@@ -48,7 +48,7 @@ export default function RankingsPage() {
         if (b.winRate !== a.winRate) return b.winRate - a.winRate;
         return b.pointDiff - a.pointDiff;
       });
-  };
+  }, [players]);
 
   const todayMatches = useMemo(() => {
     const now = new Date().toDateString();
@@ -63,8 +63,8 @@ export default function RankingsPage() {
     });
   }, [matches]);
 
-  const dailyRankings = useMemo(() => getRankingsForPeriod(todayMatches), [todayMatches, players]);
-  const monthlyRankings = useMemo(() => getRankingsForPeriod(monthMatches), [monthMatches, players]);
+  const dailyRankings = useMemo(() => getRankingsForPeriod(todayMatches), [todayMatches, getRankingsForPeriod]);
+  const monthlyRankings = useMemo(() => getRankingsForPeriod(monthMatches), [monthMatches, getRankingsForPeriod]);
 
   const RenderLeaderboard = ({ data }: { data: any[] }) => (
     <div className="grid gap-1.5 pb-24">

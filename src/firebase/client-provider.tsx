@@ -22,6 +22,11 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
     }
   }, [firebaseServices.auth]);
 
+  // Don't render FirebaseProvider if services are not available (during SSR)
+  if (!firebaseServices.firebaseApp) {
+    return <>{children}</>;
+  }
+
   return (
     <FirebaseProvider
       firebaseApp={firebaseServices.firebaseApp}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useClub } from '@/context/ClubContext';
+import { useModal } from '@/context/ModalContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -62,14 +63,10 @@ export default function HomePage() {
   const { 
     courts, players, matches, deleteCourt, startMatch, startTimer, 
     endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch,
-    updateMatchScore, addCourt, deleteMatch, defaultWinningScore
+    updateMatchScore, addCourt, deleteMatch, defaultWinningScore, benchSort, setBenchSort
   } = useClub();
+  const { currentModal, openModal, closeModal, updateModalData } = useModal();
   const { toast } = useToast();
-  
-  const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
-  const [winningTeam, setWinningTeam] = useState<{ courtId: string; team: 'teamA' | 'teamB' } | null>(null);
-  const [loserScore, setLoserScore] = useState<string>('');
-  const [mounted, setMounted] = useState(false);
   
   const [draftPlayerIds, setDraftPlayerIds] = useState<string[]>([]);
   const [courtDrafts, setCourtDrafts] = useState<Record<string, string[]>>({}); 
@@ -77,51 +74,37 @@ export default function HomePage() {
   const [isQueueOver, setIsQueueOver] = useState(false);
   const [overCourtId, setOverCourtId] = useState<string | null>(null);
   const [isCourtPanelOver, setIsCourtPanelOver] = useState(false);
-  
-  const [sortOption, setSortOption] = useState<string>('default');
   const loserScoreInputRef = useRef<HTMLInputElement>(null);
-
-  // Zero-score confirmation state
-  const [pendingMatchFinish, setPendingMatchFinish] = useState<{
-    courtId: string;
-    winner: 'teamA' | 'teamB';
-    scoreA: number;
-    scoreB: number;
-  } | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const allDraftedIds = [
+  const allDraftedIds = useMemo(() => [
     ...draftPlayerIds,
     ...Object.values(courtDrafts).flat()
-  ];
+  ], [draftPlayerIds, courtDrafts]);
 
   const sortedAvailablePlayers = useMemo(() => {
     return players
       .filter(p => p.status === 'available' && !allDraftedIds.includes(p.id))
       .sort((a, b) => {
         let result = 0;
-        switch (sortOption) {
-          case 'skill-asc':
-            result = a.skillLevel - b.skillLevel;
-            break;
-          case 'skill-desc':
+        switch (benchSort) {
+          case 'skill':
             result = b.skillLevel - a.skillLevel;
             break;
-          case 'name-asc':
+          case 'lastAvailable':
+            result = (b.lastAvailableAt || 0) - (a.lastAvailableAt || 0);
+            break;
+          case 'name':
+          default:
             result = a.name.localeCompare(b.name);
             break;
-          case 'name-desc':
-            result = b.name.localeCompare(a.name);
-            break;
-          default:
-            result = 0;
         }
-        return result || (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0);
+        return result;
       });
-  }, [players, allDraftedIds, sortOption]);
+  }, [players, allDraftedIds, benchSort]);
   
   const waitingMatches = useMemo(() => {
     return matches.filter(m => !m.isCompleted && !m.courtId).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -196,9 +179,9 @@ export default function HomePage() {
   };
 
   const handleSwap = (newPlayerId: string) => {
-    if (!swapping) return;
-    swapPlayer(swapping.matchId, swapping.oldPlayerId, newPlayerId);
-    setSwapping(null);
+    if (currentModal.type !== 'swap' || !currentModal.data) return;
+    swapPlayer(currentModal.data.matchId, currentModal.data.oldPlayerId, newPlayerId);
+    closeModal();
   };
 
   const handleScoreChange = (matchId: string, scoreA: number, scoreB: number) => {
@@ -235,9 +218,7 @@ export default function HomePage() {
 
   const completeMatch = (courtId: string, winner: 'teamA' | 'teamB', scoreA: number, scoreB: number) => {
     endMatch(courtId, 'completed', winner, scoreA, scoreB);
-    setPendingMatchFinish(null);
-    setWinningTeam(null);
-    setLoserScore('');
+    closeModal();
     toast({ title: "Match Completed!" });
   };
 
@@ -259,11 +240,11 @@ export default function HomePage() {
   };
 
   const handleWinSubmit = () => {
-    if (!winningTeam) return;
-    const lScore = parseInt(loserScore) || 0;
+    if (currentModal.type !== 'winner' || !currentModal.data) return;
+    const lScore = parseInt(currentModal.data.loserScore) || 0;
     
-    const tAScore = winningTeam.team === 'teamA' ? defaultWinningScore : lScore;
-    const tBScore = winningTeam.team === 'teamB' ? defaultWinningScore : lScore;
+    const tAScore = currentModal.data.team === 'teamA' ? defaultWinningScore : lScore;
+    const tBScore = currentModal.data.team === 'teamB' ? defaultWinningScore : lScore;
 
     const validation = validateMatchScore(tAScore, tBScore);
     if (!validation.valid) {
@@ -271,14 +252,11 @@ export default function HomePage() {
       return;
     }
 
-    const courtId = winningTeam.courtId;
-    const winner = winningTeam.team;
-    
-    // Clear winningTeam dialog first to prevent modal state lock
-    setWinningTeam(null);
+    const courtId = currentModal.data.courtId;
+    const winner = currentModal.data.team;
     
     if (lScore === 0) {
-      setPendingMatchFinish({ courtId, winner, scoreA: tAScore, scoreB: tBScore });
+      openModal('zero-confirm', { courtId, winner, scoreA: tAScore, scoreB: tBScore });
     } else {
       completeMatch(courtId, winner, tAScore, tBScore);
     }
@@ -295,16 +273,14 @@ export default function HomePage() {
               <User className="h-4 w-4 text-primary" /> The Bench
             </h2>
             <div className="flex items-center gap-1.5 overflow-hidden">
-              <Select value={sortOption} onValueChange={setSortOption}>
+              <Select value={benchSort} onValueChange={setBenchSort}>
                 <SelectTrigger className="h-7 text-[9px] font-black uppercase tracking-widest border-2 w-[100px] bg-background px-2">
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default" className="text-[9px] font-bold uppercase">Default</SelectItem>
-                  <SelectItem value="skill-asc" className="text-[9px] font-bold uppercase">Skill ↑</SelectItem>
-                  <SelectItem value="skill-desc" className="text-[9px] font-bold uppercase">Skill ↓</SelectItem>
-                  <SelectItem value="name-asc" className="text-[9px] font-bold uppercase">A-Z</SelectItem>
-                  <SelectItem value="name-desc" className="text-[9px] font-bold uppercase">Z-A</SelectItem>
+                  <SelectItem value="name" className="text-[9px] font-bold uppercase">Name</SelectItem>
+                  <SelectItem value="skill" className="text-[9px] font-bold uppercase">Skill</SelectItem>
+                  <SelectItem value="lastAvailable" className="text-[9px] font-bold uppercase">Wait Time</SelectItem>
                 </SelectContent>
               </Select>
               <Badge variant="outline" className="font-black h-7 px-2 text-tiny shrink-0">{sortedAvailablePlayers.length}</Badge>
@@ -507,7 +483,7 @@ export default function HomePage() {
                                       toast({ title: "Match not started", description: "Start the match timer first.", variant: "destructive" });
                                       return;
                                     }
-                                    setWinningTeam({ courtId: court.id, team: 'teamA' });
+                                    openModal('winner', { courtId: court.id, team: 'teamA', loserScore: '' });
                                   }}
                                >
                                   T1 WIN
@@ -522,7 +498,7 @@ export default function HomePage() {
                                       toast({ title: "Match not started", description: "Start the match timer first.", variant: "destructive" });
                                       return;
                                     }
-                                    setWinningTeam({ courtId: court.id, team: 'teamB' });
+                                    openModal('winner', { courtId: court.id, team: 'teamB', loserScore: '' });
                                   }}
                                >
                                   T2 WIN
@@ -540,7 +516,7 @@ export default function HomePage() {
                                       <span className="text-compact font-black truncate flex-1 leading-tight">{p?.name}</span>
                                       {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}><ArrowLeftRight className="h-3 w-3" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100 shrink-0" onClick={() => openModal('swap', { matchId: match.id, oldPlayerId: id })}><ArrowLeftRight className="h-3 w-3" /></Button>
                                   </div>
                                 );
                               })}
@@ -555,7 +531,7 @@ export default function HomePage() {
                                       <span className="text-compact font-black truncate flex-1 leading-tight">{p?.name}</span>
                                       {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}><ArrowLeftRight className="h-3 w-3" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100 shrink-0" onClick={() => openModal('swap', { matchId: match.id, oldPlayerId: id })}><ArrowLeftRight className="h-3 w-3" /></Button>
                                   </div>
                                 );
                               })}
@@ -651,7 +627,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
+      <Dialog open={currentModal.type === 'swap'} onOpenChange={(open) => !open && closeModal()}>
         <DialogContent>
           <DialogHeader><DialogTitle className="text-compact font-black uppercase">Swap Player</DialogTitle></DialogHeader>
           <ScrollArea className="h-[400px]">
@@ -671,7 +647,7 @@ export default function HomePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!winningTeam} onOpenChange={(open) => !open && setWinningTeam(null)}>
+      <Dialog open={currentModal.type === 'winner'} onOpenChange={(open) => !open && closeModal()}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-lg font-black uppercase flex items-center gap-2">
@@ -681,20 +657,20 @@ export default function HomePage() {
           <div className="space-y-6 py-4">
              <div className="p-4 bg-primary/5 rounded-xl border-2 border-primary/20 text-center">
                 <p className="text-[10px] font-black uppercase text-primary opacity-60">Winner Team</p>
-                <h3 className="text-2xl font-black uppercase">{winningTeam?.team === 'teamA' ? 'Team 1' : 'Team 2'}</h3>
+                <h3 className="text-2xl font-black uppercase">{currentModal.data?.team === 'teamA' ? 'Team 1' : 'Team 2'}</h3>
                 <div className="mt-2 text-3xl font-black text-primary">{defaultWinningScore}</div>
              </div>
 
              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase opacity-60">Losing Team's Score</Label>
+                <Label className="text-[10px] font-black uppercase opacity-60">Losing Team&apos;s Score</Label>
                 <Input 
                   ref={loserScoreInputRef}
                   type="number" 
                   min="0"
                   placeholder="0" 
-                  value={loserScore === "0" ? "" : loserScore} 
-                  onChange={(e) => setLoserScore(e.target.value)}
-                  onBlur={(e) => { if (e.target.value === "") setLoserScore("0"); }}
+                  value={currentModal.data?.loserScore || ''}
+                  onChange={(e) => updateModalData({ loserScore: e.target.value })}
+                  onBlur={(e) => { if (e.target.value === "") updateModalData({ loserScore: "0" }); }}
                   onKeyDown={(e) => e.key === 'Enter' && handleWinSubmit()}
                   className="h-16 text-3xl font-black text-center border-2 no-spinner"
                   autoFocus
@@ -707,7 +683,7 @@ export default function HomePage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!pendingMatchFinish} onOpenChange={(open) => !open && setPendingMatchFinish(null)}>
+      <AlertDialog open={currentModal.type === 'zero-confirm'} onOpenChange={(open) => !open && closeModal()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-black uppercase text-lg">Zero Score Confirmation</AlertDialogTitle>
@@ -718,19 +694,19 @@ export default function HomePage() {
           <AlertDialogFooter>
             <Button 
               variant="outline" 
-              onClick={() => setPendingMatchFinish(null)} 
+              onClick={() => openModal('winner', { ...currentModal.data, loserScore: '' })}
               className="font-black uppercase"
             >
               Edit Score
             </Button>
             <AlertDialogAction 
               onClick={() => {
-                if (pendingMatchFinish) {
+                if (currentModal.data) {
                   completeMatch(
-                    pendingMatchFinish.courtId, 
-                    pendingMatchFinish.winner, 
-                    pendingMatchFinish.scoreA, 
-                    pendingMatchFinish.scoreB
+                    currentModal.data.courtId, 
+                    currentModal.data.winner, 
+                    currentModal.data.scoreA, 
+                    currentModal.data.scoreB
                   );
                 }
               }}

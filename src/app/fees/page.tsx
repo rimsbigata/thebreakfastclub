@@ -96,7 +96,7 @@ export default function FeesPage() {
           </CardContent>
           <CardFooter>
             <Button className="w-full h-12 font-black uppercase tracking-widest" onClick={() => updateFee({ id: today, shuttleFee, courtFee, entranceFee: includeEntranceFee ? entranceFee : 0 })}>
-              Apply to Today's Board
+              Apply to Today&apos;s Board
             </Button>
           </CardFooter>
         </Card>

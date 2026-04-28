@@ -152,7 +152,7 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="flex-1 space-y-2">
-                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Upload your club's official branding</p>
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Upload your club&apos;s official branding</p>
                     <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoChange} />
                     <Button size="sm" variant="outline" className="w-full h-8 text-[9px] font-black uppercase" onClick={() => logoInputRef.current?.click()} disabled={isLogoUploading}>
                       {isLogoUploading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
