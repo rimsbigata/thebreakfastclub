@@ -1,7 +1,36 @@
 
+export type UserRole = 'player' | 'admin';
 export type PlayerStatus = 'available' | 'playing' | 'resting';
 export type CourtStatus = 'available' | 'occupied';
 export type MatchStatus = 'ongoing' | 'completed' | 'cancelled';
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  role: UserRole;
+  skillLevel?: number;
+  playStyle?: string;
+  createdAt?: string;
+}
+
+export interface QueueSession {
+  id: string;
+  code: string;
+  status: 'active' | 'inactive';
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface SessionPlayer {
+  userId: string;
+  sessionId: string;
+  status: PlayerStatus;
+  joinedAt: string;
+  lastAvailableAt?: number;
+  // Denormalized for easy UI display
+  name?: string;
+  skillLevel?: number;
+}
 
 export const SKILL_LEVELS_SHORT: Record<number, string> = {
   1: "Beg",
@@ -25,35 +54,16 @@ export const SKILL_LEVELS_FULL: Record<number, string> = {
 
 export const SKILL_LEVELS = SKILL_LEVELS_FULL;
 
-/**
- * Centralized Skill Color Mapping (Single Source of Truth)
- * Standardized Hex Mapping with High-Contrast Accessible Colors.
- */
 export const getSkillColor = (level: number) => {
   switch (level) {
-    case 1: 
-      // Beginner (Beg) → #9CA3AF (neutral gray)
-      return "bg-[#9CA3AF] text-slate-900 border-none font-bold";
-    case 2: 
-      // Advanced Beginner (Adv Beg) → #0F766E (deep teal)
-      return "bg-[#0F766E] text-white border-none font-bold";
-    case 3: 
-      // Low Intermediate (Low Int) → #15803D (darker green)
-      return "bg-[#15803D] text-white border-none font-bold";
-    case 4: 
-      // Mid Intermediate (Mid Int) → #CA8A04 (darker yellow/gold)
-      return "bg-[#CA8A04] text-slate-900 border-none font-bold";
-    case 5: 
-      // Upper Intermediate (Up Int) → #EA580C (strong orange)
-      return "bg-[#EA580C] text-white border-none font-bold";
-    case 6: 
-      // Advanced (Adv) → #DC2626 (strong red)
-      return "bg-[#DC2626] text-white border-none font-bold";
-    case 7: 
-      // Expert (Exp) → #7C3AED (deep purple)
-      return "bg-[#7C3AED] text-white border-none font-bold";
-    default: 
-      return "bg-muted text-muted-foreground border-none font-bold";
+    case 1: return "bg-[#9CA3AF] text-slate-900 border-none font-bold";
+    case 2: return "bg-[#0F766E] text-white border-none font-bold";
+    case 3: return "bg-[#15803D] text-white border-none font-bold";
+    case 4: return "bg-[#CA8A04] text-slate-900 border-none font-bold";
+    case 5: return "bg-[#EA580C] text-white border-none font-bold";
+    case 6: return "bg-[#DC2626] text-white border-none font-bold";
+    case 7: return "bg-[#7C3AED] text-white border-none font-bold";
+    default: return "bg-muted text-muted-foreground border-none font-bold";
   }
 };
 
@@ -63,10 +73,7 @@ export interface PlayerSnapshot {
   skillLevel: number;
 }
 
-export interface Player {
-  id: string;
-  name: string;
-  skillLevel: number; 
+export interface Player extends UserProfile {
   wins: number;
   gamesPlayed: number;
   partnerHistory: string[]; 
@@ -74,7 +81,6 @@ export interface Player {
   improvementScore: number;
   totalPlayTimeMinutes: number;
   lastAvailableAt?: number;
-  playStyle: string;
 }
 
 export interface Court {

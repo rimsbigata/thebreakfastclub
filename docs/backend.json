@@ -1,6 +1,46 @@
 
 {
   "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "type": "object",
+      "description": "Information about a user, including their role.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["player", "admin"] },
+        "skillLevel": { "type": "number" },
+        "playStyle": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "role"]
+    },
+    "QueueSession": {
+      "title": "Queue Session",
+      "type": "object",
+      "description": "An active badminton session with a specific code.",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "code", "status"]
+    },
+    "SessionPlayer": {
+      "title": "Session Player",
+      "type": "object",
+      "description": "Mapping of a user to an active queue session.",
+      "properties": {
+        "userId": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "playing", "resting"] },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "lastAvailableAt": { "type": "number" }
+      },
+      "required": ["userId", "sessionId", "status"]
+    },
     "Court": {
       "title": "Court",
       "type": "object",
@@ -12,21 +52,6 @@
         "currentMatchId": { "type": "string" }
       },
       "required": ["id", "name", "status"]
-    },
-    "Player": {
-      "title": "Player",
-      "type": "object",
-      "description": "Represents a player with skill and history.",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "skillLevel": { "type": "number", "description": "1 to 7" },
-        "gamesPlayed": { "type": "number" },
-        "partnerHistory": { "type": "array", "items": { "type": "string" } },
-        "status": { "type": "string", "enum": ["available", "playing", "resting"] },
-        "improvementScore": { "type": "number" }
-      },
-      "required": ["id", "name", "skillLevel", "gamesPlayed", "partnerHistory", "status", "improvementScore"]
     },
     "Match": {
       "title": "Match",
@@ -41,40 +66,16 @@
         "isCompleted": { "type": "boolean" }
       },
       "required": ["id", "teamA", "teamB", "timestamp", "isCompleted"]
-    },
-    "Fee": {
-      "title": "Fee",
-      "type": "object",
-      "description": "Daily fee records.",
-      "properties": {
-        "id": { "type": "string", "description": "YYYY-MM-DD" },
-        "shuttleFee": { "type": "number" },
-        "courtFee": { "type": "number" },
-        "entranceFee": { "type": "number" },
-        "payments": { "type": "object", "additionalProperties": { "type": "boolean" } }
-      },
-      "required": ["id", "shuttleFee", "courtFee", "entranceFee", "payments"]
-    },
-    "PaymentMethod": {
-      "title": "Payment Method",
-      "type": "object",
-      "description": "QR Code payment methods.",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "imageUrl": { "type": "string" }
-      },
-      "required": ["id", "name", "imageUrl"]
     }
   },
   "auth": {
-    "providers": ["anonymous"]
+    "providers": ["email", "anonymous"]
   },
   "firestore": {
-    "/courts/{courtId}": { "schema": { "$ref": "#/entities/Court" }, "description": "Courts list" },
-    "/players/{playerId}": { "schema": { "$ref": "#/entities/Player" }, "description": "Players profiles" },
-    "/matches/{matchId}": { "schema": { "$ref": "#/entities/Match" }, "description": "Match history" },
-    "/fees/{dateId}": { "schema": { "$ref": "#/entities/Fee" }, "description": "Daily financial records" },
-    "/paymentMethods/{methodId}": { "schema": { "$ref": "#/entities/PaymentMethod" }, "description": "QR payment options" }
+    "/users/{userId}": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "Global user profiles" },
+    "/sessions/{sessionId}": { "schema": { "$ref": "#/entities/QueueSession" }, "description": "Queue sessions" },
+    "/sessions/{sessionId}/players/{userId}": { "schema": { "$ref": "#/entities/SessionPlayer" }, "description": "Players in a session" },
+    "/sessions/{sessionId}/courts/{courtId}": { "schema": { "$ref": "#/entities/Court" }, "description": "Courts in a session" },
+    "/sessions/{sessionId}/matches/{matchId}": { "schema": { "$ref": "#/entities/Match" }, "description": "Matches in a session" }
   }
 }

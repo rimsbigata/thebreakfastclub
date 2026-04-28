@@ -1,8 +1,9 @@
+
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, UserPlus } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, UserPlus, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useClub } from '@/context/ClubContext';
@@ -12,17 +13,19 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { generateDeterministicMatch } from '@/lib/matchmaking';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { getSkillColor, SKILL_LEVELS_SHORT } from '@/lib/types';
 import Image from 'next/image';
-import tbcLogo from '@/assets/images/tbc_logo_loading.png';
+import { useFirebase } from '@/firebase';
+import { signOut } from 'firebase/auth';
 
 export function Header() {
   const pathname = usePathname();
-  const { courts, players, addCourt, startMatch, clubLogo } = useClub();
+  const router = useRouter();
+  const { auth } = useFirebase();
+  const { courts, players, addCourt, startMatch, role, activeSession, userProfile } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   
@@ -30,27 +33,23 @@ export function Header() {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('queue');
 
+  const isAdmin = role === 'admin';
+
   const navItems = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { label: 'Join', href: '/join', icon: UserPlus },
-    { label: 'Players', href: '/players', icon: Users },
     { label: 'Rankings', href: '/rankings', icon: Trophy },
     { label: 'Fees', href: '/fees', icon: Banknote },
-    { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  const logoSrc = tbcLogo;
+  if (isAdmin) {
+    navItems.push({ label: 'Players', href: '/players', icon: Users });
+    navItems.push({ label: 'Settings', href: '/settings', icon: Settings });
+  }
 
-  const handleQuickMatch = async () => {
-    const availablePlayers = players.filter(p => p.status === 'available');
-    const availableCourts = courts.filter(c => c.status === 'available');
-    const result = generateDeterministicMatch(availablePlayers, availableCourts);
-    
-    if (result.matchCreated && result.teamA && result.teamB) {
-      await startMatch({ teamA: result.teamA, teamB: result.teamB, courtId: result.courtId });
-      toast({ title: result.courtId ? "Match Started!" : "Match Queued!" });
-    } else {
-      toast({ title: "Matchmaking Error", description: result.error || "Need 4 players.", variant: "destructive" });
+  const handleLogout = async () => {
+    if (auth) {
+      await signOut(auth);
+      router.push('/auth');
     }
   };
 
@@ -72,18 +71,9 @@ export function Header() {
     <header className="h-16 border-b bg-card flex items-center justify-between px-6 shrink-0 shadow-md z-50 transition-colors">
       <div className="flex items-center gap-6">
         <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="relative h-10 w-10 overflow-hidden rounded-lg border shadow-sm bg-white">
-            <Image 
-              src={logoSrc} 
-              alt="TheBreakfastClub Logo" 
-              fill 
-              className="object-cover"
-              priority
-            />
-          </div>
           <div className="hidden sm:block">
-            <h1 className="text-base font-black tracking-tighter leading-none" style={{color: '#f76a01'}}>The Breakfast Club</h1>
-            <p className="text-[8px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">Badminton Queuing System</p>
+            <h1 className="text-base font-black tracking-tighter leading-none" style={{color: '#f76a01'}}>TBC</h1>
+            <p className="text-[8px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">Command Center</p>
           </div>
         </Link>
 
@@ -110,6 +100,12 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
+        {activeSession && (
+          <Badge variant="outline" className="hidden lg:flex gap-2 font-black uppercase text-[10px] tracking-widest px-3 h-8 border-2 bg-secondary/50">
+            Session: <span className="text-primary">{activeSession.code}</span>
+          </Badge>
+        )}
+
         <Button 
           variant="ghost" 
           size="icon" 
@@ -119,91 +115,95 @@ export function Header() {
           {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
 
-        <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 border-2 hover:bg-secondary px-4">
-              <Swords className="h-4 w-4" /> Manual
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle className="text-lg font-black uppercase">Manual Match Selection</DialogTitle></DialogHeader>
-            <div className="space-y-6 py-6">
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest">Target Court</Label>
-                <Select value={selectedCourtId} onValueChange={setSelectedCourtId}>
-                  <SelectTrigger className="h-12 font-bold"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="queue" className="font-bold">Send to Queue</SelectItem>
-                    {courts.filter(c => c.status === 'available').map(c => (
-                      <SelectItem key={c.id} value={c.id} className="font-bold">{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest">Select 4 Players ({selectedPlayerIds.length}/4)</Label>
-                <ScrollArea className="h-80 border-2 rounded-xl p-3">
+        {isAdmin && activeSession && (
+          <>
+            <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 border-2 hover:bg-secondary px-4">
+                  <Swords className="h-4 w-4" /> Match
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader><DialogTitle className="text-lg font-black uppercase">Manual Match Selection</DialogTitle></DialogHeader>
+                <div className="space-y-6 py-6">
                   <div className="space-y-2">
-                    {players.filter(p => p.status === 'available').map(player => (
-                      <div key={player.id} className="flex items-center space-x-3 p-3 hover:bg-secondary rounded-xl transition-colors">
-                        <Checkbox 
-                          id={player.id}
-                          checked={selectedPlayerIds.includes(player.id)}
-                          className="h-6 w-6"
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              if (selectedPlayerIds.length < 4) setSelectedPlayerIds([...selectedPlayerIds, player.id]);
-                            } else {
-                              setSelectedPlayerIds(selectedPlayerIds.filter(id => id !== player.id));
-                            }
-                          }}
-                        />
-                        <label htmlFor={player.id} className="text-sm font-black cursor-pointer flex-1 flex items-center justify-between">
-                          <span>{player.name}</span>
-                          <Badge variant="outline" className={cn("text-[10px] font-black uppercase px-2 h-5", getSkillColor(player.skillLevel))}>
-                            {SKILL_LEVELS_SHORT[player.skillLevel]}
-                          </Badge>
-                        </label>
-                      </div>
-                    ))}
+                    <Label className="text-xs font-black uppercase tracking-widest">Target Court</Label>
+                    <Select value={selectedCourtId} onValueChange={setSelectedCourtId}>
+                      <SelectTrigger className="h-12 font-bold"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="queue" className="font-bold">Send to Queue</SelectItem>
+                        {courts.filter(c => c.status === 'available').map(c => (
+                          <SelectItem key={c.id} value={c.id} className="font-bold">{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </ScrollArea>
-              </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs font-black uppercase tracking-widest">Select 4 Players ({selectedPlayerIds.length}/4)</Label>
+                    <ScrollArea className="h-80 border-2 rounded-xl p-3">
+                      <div className="space-y-2">
+                        {players.filter(p => p.status === 'available').map(player => (
+                          <div key={player.id} className="flex items-center space-x-3 p-3 hover:bg-secondary rounded-xl transition-colors">
+                            <Checkbox 
+                              id={player.id}
+                              checked={selectedPlayerIds.includes(player.id)}
+                              className="h-6 w-6"
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  if (selectedPlayerIds.length < 4) setSelectedPlayerIds([...selectedPlayerIds, player.id]);
+                                } else {
+                                  setSelectedPlayerIds(selectedPlayerIds.filter(id => id !== player.id));
+                                }
+                              }}
+                            />
+                            <label htmlFor={player.id} className="text-sm font-black cursor-pointer flex-1 flex items-center justify-between">
+                              <span>{player.name}</span>
+                              <Badge variant="outline" className={cn("text-[10px] font-black uppercase px-2 h-5", getSkillColor(player.skillLevel))}>
+                                {SKILL_LEVELS_SHORT[player.skillLevel]}
+                              </Badge>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
 
-              <Button 
-                className="w-full font-black uppercase h-16 text-base shadow-xl shadow-primary/20" 
-                disabled={selectedPlayerIds.length !== 4}
-                onClick={handleManualMatchSubmit}
-              >
-                Create Manual Match
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+                  <Button 
+                    className="w-full font-black uppercase h-16 text-base shadow-xl shadow-primary/20" 
+                    disabled={selectedPlayerIds.length !== 4}
+                    onClick={handleManualMatchSubmit}
+                  >
+                    Create Manual Match
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
-        <Button onClick={handleQuickMatch} className="gap-2 bg-primary font-black uppercase text-[10px] tracking-widest h-10 px-4 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
-          <Zap className="h-4 w-4 fill-white" /> Quick
-        </Button>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-10 w-10 border-2 hover:bg-secondary"
+              onClick={async () => {
+                try {
+                  await addCourt();
+                  toast({ title: "Court Added" });
+                } catch (error) {
+                  toast({
+                    title: "Could not add court",
+                    description: error instanceof Error ? error.message : "Database write failed.",
+                    variant: "destructive"
+                  });
+                }
+              }}
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+          </>
+        )}
 
-        <Button 
-          variant="outline" 
-          size="icon" 
-          className="h-10 w-10 border-2 hover:bg-secondary"
-          onClick={async () => {
-            try {
-              await addCourt();
-              toast({ title: "Court Added" });
-            } catch (error) {
-              toast({
-                title: "Could not add court",
-                description: error instanceof Error ? error.message : "Database write failed.",
-                variant: "destructive"
-              });
-            }
-          }}
-        >
-          <Plus className="h-5 w-5" />
+        <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout" className="text-muted-foreground hover:text-destructive">
+          <LogOut className="h-5 w-5" />
         </Button>
       </div>
     </header>
