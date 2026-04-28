@@ -145,7 +145,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 p-4 bg-secondary/10 rounded-xl border-2 border-dashed">
                   <div className="relative h-16 w-16 rounded-lg border bg-white overflow-hidden shadow-sm shrink-0">
                     <Image 
-                      src={clubLogo || "/assets/image/tbc_logo_loading.png"} 
+                      src={clubLogo || "/src/assets/image/tbc_logo_loading.png"} 
                       alt="Club Logo" 
                       fill 
                       className="object-cover p-1" 

@@ -37,7 +37,7 @@ export function Header() {
     { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  const logoSrc = clubLogo || "/assets/image/tbc_logo_loading.png";
+  const logoSrc = clubLogo || "/src/assets/image/tbc_logo_loading.png";
 
   const handleQuickMatch = () => {
     const availablePlayers = players.filter(p => p.status === 'available');

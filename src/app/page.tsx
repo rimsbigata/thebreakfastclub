@@ -74,6 +74,7 @@ export default function HomePage() {
   const [isQueueOver, setIsQueueOver] = useState(false);
   const [overCourtId, setOverCourtId] = useState<string | null>(null);
   const [isCourtPanelOver, setIsCourtPanelOver] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const loserScoreInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -233,7 +234,7 @@ export default function HomePage() {
     const loserScoreValue = winner === 'teamA' ? teamBScore : teamAScore;
 
     if (loserScoreValue === 0) {
-      setPendingMatchFinish({ courtId, winner, scoreA: teamAScore, scoreB: teamBScore });
+      openModal('zero-confirm', { courtId, winner, scoreA: teamAScore, scoreB: teamBScore });
     } else {
       completeMatch(courtId, winner, teamAScore, teamBScore);
     }
@@ -384,7 +385,7 @@ export default function HomePage() {
                               variant="ghost" 
                               size="icon" 
                               className="h-3.5 w-3.5 opacity-0 group-hover/p:opacity-100 shrink-0" 
-                              onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}
+                              onClick={() => openModal('swap', { matchId: match.id, oldPlayerId: id })}
                             >
                               <ArrowLeftRight className="h-2.5 w-2.5" />
                             </Button>
@@ -404,7 +405,7 @@ export default function HomePage() {
                               variant="ghost" 
                               size="icon" 
                               className="h-3.5 w-3.5 opacity-0 group-hover/p:opacity-100 shrink-0" 
-                              onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}
+                              onClick={() => openModal('swap', { matchId: match.id, oldPlayerId: id })}
                             >
                               <ArrowLeftRight className="h-2.5 w-2.5" />
                             </Button>
