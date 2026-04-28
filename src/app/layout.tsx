@@ -3,7 +3,6 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ClubProvider } from '@/context/ClubContext';
-import { ModalProvider } from '@/context/ModalContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Header } from '@/components/layout/Header';
@@ -31,17 +30,15 @@ export default function RootLayout({
       <body className="font-body antialiased bg-background text-foreground">
         <FirebaseClientProvider>
           <ThemeProvider>
-            <ModalProvider>
-              <ClubProvider>
-                <div className="flex flex-col min-h-screen w-full overflow-hidden">
-                  <Header />
-                  <main className="flex-1 overflow-auto">
-                    {children}
-                  </main>
-                </div>
-                <Toaster />
-              </ClubProvider>
-            </ModalProvider>
+            <ClubProvider>
+              <div className="flex flex-col min-h-screen w-full overflow-hidden">
+                <Header />
+                <main className="flex-1 overflow-auto">
+                  {children}
+                </main>
+              </div>
+              <Toaster />
+            </ClubProvider>
           </ThemeProvider>
         </FirebaseClientProvider>
       </body>

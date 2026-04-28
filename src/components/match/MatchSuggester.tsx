@@ -46,7 +46,7 @@ export function MatchSuggester({ playersInQueue }: MatchSuggesterProps) {
               AI Match Suggestion
             </CardTitle>
             <CardDescription>
-              We&apos;ll analyze skill levels and styles for the most competitive match.
+              We'll analyze skill levels and styles for the most competitive match.
             </CardDescription>
           </div>
           <Button 
