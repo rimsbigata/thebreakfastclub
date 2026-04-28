@@ -9,16 +9,12 @@ import {
   Player, 
   Court, 
   Match, 
-  Fee, 
-  PaymentMethod, 
-  MatchStatus, 
-  PlayerSnapshot 
+  MatchStatus
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { SplashScreen } from '@/components/layout/SplashScreen';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { usePathname } from 'next/navigation';
 
 interface ClubContextType {
   userProfile: UserProfile | null;
@@ -52,6 +48,7 @@ const ClubContext = createContext<ClubContextType | undefined>(undefined);
 export function ClubProvider({ children }: { children: ReactNode }) {
   const { firestore } = useFirebase();
   const { user, isUserLoading } = useUser();
+  const pathname = usePathname();
 
   const [activeSession, setActiveSession] = useState<QueueSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -89,7 +86,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   }, [firestore, activeSession?.id]);
   const { data: sessionMatches } = useCollection<Match>(matchesQuery);
 
-  // Map SessionPlayers to Player objects (denormalized for the rest of the app)
+  // Map SessionPlayers to Player objects
   const players: Player[] = (sessionPlayers || []).map(sp => ({
     id: sp.userId,
     name: sp.name || 'Unknown',
@@ -121,7 +118,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const sessionDoc = snapshot.docs[0];
     const session = { ...sessionDoc.data(), id: sessionDoc.id } as QueueSession;
 
-    // Join the session
     const playerRef = doc(firestore, 'sessions', session.id, 'players', user.uid);
     await setDoc(playerRef, {
       userId: user.uid,
@@ -195,7 +191,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // Update player statuses
     for (const pid of [...matchData.teamA, ...matchData.teamB]) {
       await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', pid), {
         status: 'playing'
@@ -222,7 +217,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       currentMatchId: null
     });
 
-    // Reset players in that match
     const match = matches.find(m => m.id === court.currentMatchId);
     if (match) {
       for (const pid of [...match.teamA, ...match.teamB]) {
@@ -248,7 +242,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  if (isUserLoading || isProfileLoading) {
+  // Only block with splash screen if we are authenticated and waiting for profile/essential context
+  const isAuthPage = pathname?.startsWith('/auth');
+  const isTransitioning = isUserLoading || (user && isProfileLoading);
+
+  if (isTransitioning && !isAuthPage) {
     return <SplashScreen />;
   }
 

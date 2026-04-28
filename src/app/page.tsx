@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -13,7 +14,7 @@ export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If auth state is settled and no user exists, send to login
+    // If auth state is settled and no user exists, send to login immediately
     if (!isUserLoading && !user) {
       router.replace('/auth');
       return;
@@ -21,17 +22,24 @@ export default function RootPage() {
 
     // If auth is settled, user exists, but no profile or no session (for players)
     if (!isUserLoading && user) {
+      // Wait for profile to load before making session-based redirect decisions
       if (userProfile && !isSessionActive && userProfile.role === 'player') {
         router.replace('/auth/session');
       }
     }
   }, [user, isUserLoading, userProfile, isSessionActive, router]);
 
-  if (isUserLoading || !user) {
+  // Show splash only while explicitly determining auth state
+  if (isUserLoading) {
     return <SplashScreen />;
   }
 
-  // If user exists but profile is still fetching (handled by ClubProvider splash)
+  // If we know user is null, we are redirecting in useEffect. Return null to keep UI clear.
+  if (!user) {
+    return null;
+  }
+
+  // If user exists but profile is still fetching (handled by ClubProvider)
   if (!userProfile) {
     return <SplashScreen />;
   }
