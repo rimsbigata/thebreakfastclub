@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardFooter, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Trash2, Timer, Zap, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -60,13 +61,15 @@ export default function HomePage() {
   const router = useRouter();
   const { 
     courts, players, matches, deleteCourt, 
-    role, activeSession, isSessionActive, createSession
+    role, activeSession, isSessionActive, createSession, joinSession
   } = useClub();
   
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [sortOption, setSortOption] = useState<string>('default');
   const [isCreating, setIsCreating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -107,6 +110,21 @@ export default function HomePage() {
     }
   };
 
+  const handleJoinSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinCode) return;
+    setIsJoining(true);
+    try {
+      await joinSession(joinCode);
+      toast({ title: "Joined Session!" });
+      setJoinCode('');
+    } catch (error: any) {
+      toast({ title: "Failed to join", description: error.message, variant: "destructive" });
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-background overflow-hidden">
       {!isSessionActive && (
@@ -121,9 +139,31 @@ export default function HomePage() {
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
               {isAdmin ? (
-                <Button className="w-full h-12 font-black uppercase" onClick={handleCreateSession} disabled={isCreating}>
-                  {isCreating ? "Initializing..." : "Start New Session"} <PlayCircle className="ml-2 h-5 w-5" />
-                </Button>
+                <div className="space-y-4 w-full">
+                  <Button className="w-full h-12 font-black uppercase" onClick={handleCreateSession} disabled={isCreating || isJoining}>
+                    {isCreating ? "Initializing..." : "Start New Session"} <PlayCircle className="ml-2 h-5 w-5" />
+                  </Button>
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                    <div className="relative flex justify-center text-[10px] uppercase">
+                      <span className="bg-background px-2 text-muted-foreground font-black">OR JOIN EXISTING</span>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleJoinSession} className="space-y-2">
+                    <Input 
+                      value={joinCode} 
+                      onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                      placeholder="ENTER CODE" 
+                      className="text-center font-black h-12"
+                      maxLength={6}
+                    />
+                    <Button variant="outline" type="submit" className="w-full h-12 font-black uppercase border-2" disabled={isCreating || isJoining || !joinCode}>
+                      {isJoining ? "Joining..." : "Join as Player"}
+                    </Button>
+                  </form>
+                </div>
               ) : (
                 <Button className="w-full h-12 font-black uppercase" variant="outline" onClick={() => router.push('/auth/session')}>
                   Go to Session Gate <KeyRound className="ml-2 h-5 w-5" />
