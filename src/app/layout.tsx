@@ -5,9 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { ClubProvider } from '@/context/ClubContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
-import { Header } from '@/components/layout/Header';
-import { PlayerMatchAlerts } from '@/components/player/PlayerMatchAlerts';
-import { PushNotificationInitializer } from '@/components/firebase/PushNotificationInitializer';
+import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
 
 export const metadata: Metadata = {
   title: 'TheBreakfastClub | Badminton Club',
@@ -33,14 +31,9 @@ export default function RootLayout({
         <FirebaseClientProvider>
           <ThemeProvider>
             <ClubProvider>
-              <div className="flex flex-col min-h-screen w-full overflow-hidden">
-                <Header />
-                <PlayerMatchAlerts />
-                <PushNotificationInitializer />
-                <main className="flex-1 overflow-auto">
-                  {children}
-                </main>
-              </div>
+              <LayoutWrapper>
+                {children}
+              </LayoutWrapper>
               <Toaster />
             </ClubProvider>
           </ThemeProvider>
