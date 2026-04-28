@@ -38,7 +38,7 @@ interface ClubContextType {
   isAdminRoleLoading: boolean;
   
   // Auth & Session
-  joinSession: (code: string) => Promise<void>;
+  joinSession: (code: string, participate?: boolean) => Promise<void>;
   createSession: () => Promise<string>;
   regenerateQueueSessionCode: () => Promise<string>;
   
@@ -166,7 +166,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const queueSessionCode = activeSession?.code || '';
 
   // Auth & Session Actions
-  const joinSession = async (code: string) => {
+  const joinSession = async (code: string, participate: boolean = true) => {
     if (!firestore || !user?.uid || !userProfile) return;
     const sessionsRef = collection(firestore, 'sessions');
     const q = query(sessionsRef, where('code', '==', code.toUpperCase()), where('status', '==', 'active'));
@@ -175,17 +175,21 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     
     const sessionDoc = snapshot.docs[0];
     const session = { ...sessionDoc.data(), id: sessionDoc.id } as QueueSession;
-    const playerRef = doc(firestore, 'sessions', session.id, 'players', user.uid);
-    const playerData = {
-      userId: user.uid,
-      sessionId: session.id,
-      status: 'available',
-      joinedAt: new Date().toISOString(),
-      lastAvailableAt: Date.now(),
-      name: userProfile.name,
-      skillLevel: userProfile.skillLevel || 3
-    };
-    await setDoc(playerRef, playerData);
+
+    if (participate) {
+      const playerRef = doc(firestore, 'sessions', session.id, 'players', user.uid);
+      const playerData = {
+        userId: user.uid,
+        sessionId: session.id,
+        status: 'available',
+        joinedAt: new Date().toISOString(),
+        lastAvailableAt: Date.now(),
+        name: userProfile.name,
+        skillLevel: userProfile.skillLevel || 3
+      };
+      await setDoc(playerRef, playerData);
+    }
+    
     setActiveSession(session);
   };
 

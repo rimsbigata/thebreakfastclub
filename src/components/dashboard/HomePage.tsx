@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardFooter, CardTitle } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Trash2, Timer, Zap, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound } from 'lucide-react';
+import { Trash2, Timer, Zap, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -110,12 +110,28 @@ export default function HomePage() {
     }
   };
 
-  const handleJoinSession = async (e: React.FormEvent) => {
+  const handleJoinSessionAsAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinCode) return;
     setIsJoining(true);
     try {
-      await joinSession(joinCode);
+      // Admins join as facilitator by default (not in bench)
+      await joinSession(joinCode, false);
+      toast({ title: "Session Joined as Admin" });
+      setJoinCode('');
+    } catch (error: any) {
+      toast({ title: "Failed to join", description: error.message, variant: "destructive" });
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handleJoinSessionAsPlayer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinCode) return;
+    setIsJoining(true);
+    try {
+      await joinSession(joinCode, true);
       toast({ title: "Joined Session!" });
       setJoinCode('');
     } catch (error: any) {
@@ -151,7 +167,7 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <form onSubmit={handleJoinSession} className="space-y-2">
+                  <div className="space-y-2">
                     <Input 
                       value={joinCode} 
                       onChange={e => setJoinCode(e.target.value.toUpperCase())}
@@ -159,10 +175,15 @@ export default function HomePage() {
                       className="text-center font-black h-12"
                       maxLength={6}
                     />
-                    <Button variant="outline" type="submit" className="w-full h-12 font-black uppercase border-2" disabled={isCreating || isJoining || !joinCode}>
-                      {isJoining ? "Joining..." : "Join as Player"}
-                    </Button>
-                  </form>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="outline" onClick={handleJoinSessionAsAdmin} className="h-12 font-black uppercase border-2 text-[10px]" disabled={isCreating || isJoining || !joinCode}>
+                        {isJoining ? "Joining..." : "Join as Admin"} <ShieldCheck className="ml-1 h-3 w-3" />
+                      </Button>
+                      <Button variant="outline" onClick={handleJoinSessionAsPlayer} className="h-12 font-black uppercase border-2 text-[10px]" disabled={isCreating || isJoining || !joinCode}>
+                        {isJoining ? "Joining..." : "Join as Player"} <User className="ml-1 h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <Button className="w-full h-12 font-black uppercase" variant="outline" onClick={() => router.push('/auth/session')}>
