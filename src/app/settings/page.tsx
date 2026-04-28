@@ -9,19 +9,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 
 export default function SettingsPage() {
   const { 
     paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard, 
-    wipeAllData, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
+    endSession, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
     autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,7 +61,7 @@ export default function SettingsPage() {
         const compressedData = canvas.toDataURL('image/jpeg', 0.7);
         callback(compressedData);
       };
-      img.src = reader.result;
+      img.src = reader.result as string;
     };
     reader.readAsDataURL(file);
   };
@@ -110,14 +112,15 @@ export default function SettingsPage() {
     }
   };
 
-  const handleWipeAction = async () => {
-    if (typeof window !== 'undefined' && window.confirm("Delete EVERYTHING? This cannot be undone.")) {
+  const handleEndSession = async () => {
+    if (typeof window !== 'undefined' && window.confirm("Terminate this session? All players will be disconnected and this code will expire.")) {
       try {
-        await wipeAllData();
-        toast({ title: "All data wiped" });
+        await endSession();
+        toast({ title: "Session Terminated" });
+        router.push('/');
       } catch (error) {
         toast({
-          title: "Wipe failed",
+          title: "Failed to end session",
           description: error instanceof Error ? error.message : "Database update failed.",
           variant: "destructive"
         });
@@ -175,7 +178,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 p-4 bg-secondary/10 rounded-xl border-2 border-dashed">
                   <div className="relative h-16 w-16 rounded-lg border bg-white overflow-hidden shadow-sm shrink-0">
                     <Image 
-                      src={clubLogo || tbcLogo} 
+                      src={clubLogo || tbcLogo.src} 
                       alt="Club Logo" 
                       fill 
                       className="object-cover p-1" 
@@ -250,12 +253,14 @@ export default function SettingsPage() {
               <CardTitle className="text-sm font-black uppercase tracking-widest text-destructive">Danger Zone</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
-                <RefreshCcw className="h-3 w-3 mr-2" /> Reset Daily Board
+              <Button onClick={handleEndSession} variant="destructive" className="w-full font-black uppercase text-[10px] h-12">
+                <Power className="h-4 w-4 mr-2" /> End Current Session
               </Button>
-              <Button onClick={handleWipeAction} variant="destructive" className="w-full font-black uppercase text-[10px]">
-                <Trash2 className="h-3 w-3 mr-2" /> Wipe All Club Data
-              </Button>
+              <div className="pt-2 border-t border-dashed">
+                <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
+                  <RefreshCcw className="h-3 w-3 mr-2" /> Reset Daily Board
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

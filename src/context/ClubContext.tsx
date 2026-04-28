@@ -36,11 +36,13 @@ interface ClubContextType {
   isSessionActive: boolean;
   isProfileLoading: boolean;
   isAdminRoleLoading: boolean;
+  currentPlayer: Player | null;
   
   // Auth & Session
   joinSession: (code: string, participate?: boolean) => Promise<void>;
   createSession: () => Promise<string>;
   regenerateQueueSessionCode: () => Promise<string>;
+  endSession: () => Promise<void>;
   
   // Admin Controls
   addCourt: (name?: string) => Promise<string>;
@@ -67,7 +69,6 @@ interface ClubContextType {
   
   // System
   resetDailyBoard: () => Promise<void>;
-  wipeAllData: () => Promise<void>;
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -79,14 +80,12 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [activeSession, setActiveSession] = useState<QueueSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
-  // 1. Load basic profile
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return doc(firestore, 'userProfiles', user.uid);
   }, [firestore, user?.uid]);
   const { data: profileData, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-  // 2. Check for administrative role
   const adminRoleRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return doc(firestore, 'admin_roles', user.uid);
@@ -101,7 +100,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }
   }, [profileData, user]);
 
-  // Session Data Hooks
   const playersQuery = useMemoFirebase(() => {
     if (!firestore || !activeSession?.id) return null;
     return collection(firestore, 'sessions', activeSession.id, 'players');
@@ -138,7 +136,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   }, [firestore, activeSession?.id]);
   const { data: sessionSettings } = useDoc<ClubSettings>(settingsRef);
 
-  // Derived Data
   const role: 'player' | 'admin' | null = adminRoleData ? 'admin' : (userProfile?.role as any || null);
   
   const players: Player[] = (sessionPlayers || []).map(sp => ({
@@ -155,6 +152,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     lastAvailableAt: sp.lastAvailableAt
   }));
 
+  const currentPlayer = players.find(p => p.id === user?.uid) || null;
   const courts: Court[] = sessionCourts || [];
   const matches: Match[] = sessionMatches || [];
   const fees: Fee[] = sessionFees || [];
@@ -165,7 +163,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const autoAdvanceEnabled = sessionSettings?.autoAdvanceEnabled ?? true;
   const queueSessionCode = activeSession?.code || '';
 
-  // Auth & Session Actions
   const joinSession = async (code: string, participate: boolean = true) => {
     if (!firestore || !user?.uid || !userProfile) return;
     const sessionsRef = collection(firestore, 'sessions');
@@ -217,7 +214,12 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     return newCode;
   };
 
-  // Admin Game Actions
+  const endSession = async () => {
+    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    await updateDoc(doc(firestore, 'sessions', activeSession.id), { status: 'inactive' });
+    setActiveSession(null);
+  };
+
   const addCourt = async (name?: string) => {
     if (!firestore || !activeSession?.id) return '';
     const courtId = Math.random().toString(36).substr(2, 9);
@@ -280,7 +282,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { status: 'occupied', currentMatchId: matchId });
   };
 
-  // Financial Actions
   const updateFee = async (feeData: Partial<Fee> & { id: string }) => {
     if (!firestore || !activeSession?.id) return;
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'fees', feeData.id), feeData, { merge: true });
@@ -305,7 +306,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id));
   };
 
-  // Setting Actions
   const setClubLogo = async (logo: string | null) => {
     if (!firestore || !activeSession?.id) return;
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'settings', 'config'), { clubLogo: logo }, { merge: true });
@@ -321,7 +321,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'settings', 'config'), { autoAdvanceEnabled: enabled }, { merge: true });
   };
 
-  // System Actions
   const resetDailyBoard = async () => {
     if (!firestore || !activeSession?.id) return;
     for (const match of matches.filter(m => !m.isCompleted)) {
@@ -335,23 +334,16 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const wipeAllData = async () => {
-    if (!firestore || !activeSession?.id) return;
-    // For MVP, we'll just deactivate the session
-    await updateDoc(doc(firestore, 'sessions', activeSession.id), { status: 'inactive' });
-    setActiveSession(null);
-  };
-
   return (
     <ClubContext.Provider value={{
       userProfile, activeSession, players, courts, matches, fees, paymentMethods, role,
-      isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading,
-      joinSession, createSession, regenerateQueueSessionCode,
+      isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, currentPlayer,
+      joinSession, createSession, regenerateQueueSessionCode, endSession,
       addCourt, deleteCourt, startMatch, endMatch, deleteMatch, assignMatchToCourt,
       updateFee, togglePayment, addPaymentMethod, deletePaymentMethod,
       clubLogo, setClubLogo, defaultWinningScore, setDefaultWinningScore,
       autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode,
-      resetDailyBoard, wipeAllData
+      resetDailyBoard
     }}>
       {children}
     </ClubContext.Provider>
