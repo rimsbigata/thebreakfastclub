@@ -13,6 +13,8 @@ import {
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface ClubContextType {
   userProfile: UserProfile | null;
@@ -51,10 +53,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [activeSession, setActiveSession] = useState<QueueSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
-  // Memoized query for User Profile
+  // Memoized query for User Profile - using 'userProfiles' collection to match security rules
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'users', user.uid);
+    return doc(firestore, 'userProfiles', user.uid);
   }, [firestore, user?.uid]);
   
   const { data: profileData, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
@@ -119,7 +121,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const session = { ...sessionDoc.data(), id: sessionDoc.id } as QueueSession;
 
     const playerRef = doc(firestore, 'sessions', session.id, 'players', user.uid);
-    await setDoc(playerRef, {
+    const playerData = {
       userId: user.uid,
       sessionId: session.id,
       status: 'available',
@@ -127,7 +129,16 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       lastAvailableAt: Date.now(),
       name: userProfile.name,
       skillLevel: userProfile.skillLevel || 3
-    });
+    };
+
+    setDoc(playerRef, playerData)
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: playerRef.path,
+          operation: 'create',
+          requestResourceData: playerData
+        }));
+      });
 
     setActiveSession(session);
   };
@@ -147,7 +158,16 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString()
     };
 
-    await setDoc(doc(firestore, 'sessions', sessionId), session);
+    const sessionRef = doc(firestore, 'sessions', sessionId);
+    setDoc(sessionRef, session)
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: sessionRef.path,
+          operation: 'create',
+          requestResourceData: session
+        }));
+      });
+
     setActiveSession(session);
     return code;
   };
@@ -163,13 +183,28 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       estimatedWaitMinutes: 0,
       currentPlayers: []
     };
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), court);
+    const courtRef = doc(firestore, 'sessions', activeSession.id, 'courts', courtId);
+    setDoc(courtRef, court)
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: courtRef.path,
+          operation: 'create',
+          requestResourceData: court
+        }));
+      });
     return courtId;
   };
 
   const deleteCourt = async (id: string) => {
     if (!firestore || !activeSession?.id) return;
-    await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id));
+    const courtRef = doc(firestore, 'sessions', activeSession.id, 'courts', id);
+    deleteDoc(courtRef)
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: courtRef.path,
+          operation: 'delete'
+        }));
+      });
   };
 
   const startMatch = async (matchData: any) => {
@@ -182,18 +217,40 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       isCompleted: false,
       status: 'ongoing'
     };
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), match);
+    const matchRef = doc(firestore, 'sessions', activeSession.id, 'matches', matchId);
+    setDoc(matchRef, match)
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: matchRef.path,
+          operation: 'create',
+          requestResourceData: match
+        }));
+      });
     
     if (matchData.courtId) {
-      await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', matchData.courtId), {
+      const courtRef = doc(firestore, 'sessions', activeSession.id, 'courts', matchData.courtId);
+      updateDoc(courtRef, {
         status: 'occupied',
         currentMatchId: matchId
+      }).catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: courtRef.path,
+          operation: 'update',
+          requestResourceData: { status: 'occupied', currentMatchId: matchId }
+        }));
       });
     }
 
     for (const pid of [...matchData.teamA, ...matchData.teamB]) {
-      await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', pid), {
+      const playerRef = doc(firestore, 'sessions', activeSession.id, 'players', pid);
+      updateDoc(playerRef, {
         status: 'playing'
+      }).catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: playerRef.path,
+          operation: 'update',
+          requestResourceData: { status: 'playing' }
+        }));
       });
     }
   };
@@ -203,26 +260,45 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const court = courts.find(c => c.id === courtId);
     if (!court?.currentMatchId) return;
 
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', court.currentMatchId), {
+    const matchRef = doc(firestore, 'sessions', activeSession.id, 'matches', court.currentMatchId);
+    updateDoc(matchRef, {
       isCompleted: status === 'completed',
       status,
       winner,
       teamAScore,
       teamBScore,
       endTime: new Date().toISOString()
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: matchRef.path,
+        operation: 'update',
+        requestResourceData: { status, winner, teamAScore, teamBScore }
+      }));
     });
 
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), {
+    const courtRef = doc(firestore, 'sessions', activeSession.id, 'courts', courtId);
+    updateDoc(courtRef, {
       status: 'available',
       currentMatchId: null
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: courtRef.path,
+        operation: 'update'
+      }));
     });
 
     const match = matches.find(m => m.id === court.currentMatchId);
     if (match) {
       for (const pid of [...match.teamA, ...match.teamB]) {
-        await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', pid), {
+        const playerRef = doc(firestore, 'sessions', activeSession.id, 'players', pid);
+        updateDoc(playerRef, {
           status: 'available',
           lastAvailableAt: Date.now()
+        }).catch(async () => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: playerRef.path,
+            operation: 'update'
+          }));
         });
       }
     }
@@ -230,15 +306,34 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const deleteMatch = async (matchId: string) => {
     if (!firestore || !activeSession?.id) return;
-    await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId));
+    const matchRef = doc(firestore, 'sessions', activeSession.id, 'matches', matchId);
+    deleteDoc(matchRef).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: matchRef.path,
+        operation: 'delete'
+      }));
+    });
   };
 
   const assignMatchToCourt = async (matchId: string, courtId: string) => {
     if (!firestore || !activeSession?.id) return;
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), { courtId });
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { 
+    const matchRef = doc(firestore, 'sessions', activeSession.id, 'matches', matchId);
+    updateDoc(matchRef, { courtId }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: matchRef.path,
+        operation: 'update'
+      }));
+    });
+    
+    const courtRef = doc(firestore, 'sessions', activeSession.id, 'courts', courtId);
+    updateDoc(courtRef, { 
       status: 'occupied', 
       currentMatchId: matchId 
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: courtRef.path,
+        operation: 'update'
+      }));
     });
   };
 

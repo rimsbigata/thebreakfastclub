@@ -13,6 +13,8 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'fire
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { LogIn, UserPlus, ShieldCheck } from 'lucide-react';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function AuthPage() {
   const { auth, firestore } = useFirebase();
@@ -33,13 +35,29 @@ export default function AuthPage() {
       const user = userCredential.user;
       
       // Default role is player. 
-      // In a real app, admin role would be assigned manually or via internal process.
-      await setDoc(doc(firestore, 'users', user.uid), {
+      // Using 'userProfiles' collection to match security rules
+      const profileData = {
         id: user.uid,
         name,
+        email,
         role: 'player',
+        skillLevel: 3, // Default intermediate
+        dateJoined: new Date().toISOString(),
+        lastActive: new Date().toISOString(),
         createdAt: new Date().toISOString()
-      });
+      };
+
+      const profileRef = doc(firestore, 'userProfiles', user.uid);
+      
+      setDoc(profileRef, profileData)
+        .catch(async (error) => {
+          const permissionError = new FirestorePermissionError({
+            path: profileRef.path,
+            operation: 'create',
+            requestResourceData: profileData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
 
       toast({ title: "Account created!", description: "Welcome to The Breakfast Club." });
       router.push('/auth/session');
@@ -72,8 +90,8 @@ export default function AuthPage() {
           <div className="mx-auto h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg">
             <ShieldCheck className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl font-black uppercase tracking-tighter">The Breakfast Club</CardTitle>
-          <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Badminton Command Center</CardDescription>
+          <CardTitle className="text-2xl font-black uppercase tracking-tighter text-foreground">The Breakfast Club</CardTitle>
+          <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-60">Badminton Command Center</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
@@ -85,11 +103,11 @@ export default function AuthPage() {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>Email</Label>
+                  <Label className="text-foreground">Email</Label>
                   <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="coach@club.com" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Password</Label>
+                  <Label className="text-foreground">Password</Label>
                   <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
                 </div>
                 <Button className="w-full h-12 font-black uppercase" disabled={loading}>
@@ -101,15 +119,15 @@ export default function AuthPage() {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>Full Name</Label>
+                  <Label className="text-foreground">Full Name</Label>
                   <Input value={name} onChange={e => setName(e.target.value)} required placeholder="John Doe" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Email</Label>
+                  <Label className="text-foreground">Email</Label>
                   <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="john@example.com" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Password</Label>
+                  <Label className="text-foreground">Password</Label>
                   <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
                 </div>
                 <Button className="w-full h-12 font-black uppercase" disabled={loading}>

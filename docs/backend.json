@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -19,13 +20,18 @@
           "description": "The player's contact email address.",
           "format": "email"
         },
-        "skillLevel": {
+        "role": {
           "type": "string",
-          "description": "The player's self-assessed skill level (e.g., 'Beginner', 'Intermediate', 'Advanced')."
+          "enum": ["player", "admin"],
+          "description": "The user's access level within the club."
+        },
+        "skillLevel": {
+          "type": "integer",
+          "description": "The player's numeric skill level (1-7)."
         },
         "playingPreferences": {
           "type": "array",
-          "description": "A list of the player's preferred match types or play styles (e.g., 'Doubles', 'Singles', 'Aggressive', 'Defensive').",
+          "description": "A list of the player's preferred match types or play styles.",
           "items": {
             "type": "string"
           }
@@ -47,7 +53,7 @@
         },
         "favoriteCourtIds": {
           "type": "array",
-          "description": "References to Courts that this user has marked as favorites. (Relationship: UserProfile N:N Court)",
+          "description": "References to Courts that this user has marked as favorites.",
           "items": {
             "type": "string"
           }
@@ -57,6 +63,7 @@
         "id",
         "name",
         "email",
+        "role",
         "skillLevel",
         "dateJoined"
       ]
@@ -73,287 +80,89 @@
         },
         "name": {
           "type": "string",
-          "description": "The name of the court (e.g., 'Court 1', 'Main Hall Court B')."
+          "description": "The name of the court (e.g., 'Court 1')."
         },
-        "location": {
+        "status": {
           "type": "string",
-          "description": "The physical address or a descriptive location of the court."
+          "enum": ["available", "occupied"],
+          "description": "Current status of the court."
         },
-        "type": {
+        "currentMatchId": {
           "type": "string",
-          "description": "The type of court (e.g., 'Indoor', 'Outdoor', 'Hardwood')."
-        },
-        "description": {
-          "type": "string",
-          "description": "Additional descriptive details about the court."
-        },
-        "hourlyRate": {
-          "type": "number",
-          "description": "The cost to book the court per hour."
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL to an image illustrating the court.",
-          "format": "uri"
-        },
-        "openingTime": {
-          "type": "string",
-          "description": "The daily opening time of the court (e.g., '08:00')."
-        },
-        "closingTime": {
-          "type": "string",
-          "description": "The daily closing time of the court (e.g., '22:00')."
+          "description": "ID of the match currently being played on this court."
         }
       },
       "required": [
         "id",
         "name",
-        "location",
-        "type",
-        "openingTime",
-        "closingTime"
+        "status"
       ]
     },
-    "Queue": {
+    "QueueSession": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Queue",
+      "title": "QueueSession",
       "type": "object",
-      "description": "Represents a dynamic waiting list for a specific court.",
+      "description": "Represents an active badminton queueing session.",
       "properties": {
         "id": {
-          "type": "string",
-          "description": "Unique identifier for the Queue entity."
+          "type": "string"
         },
-        "courtId": {
-          "type": "string",
-          "description": "Reference to the Court this queue is for. (Relationship: Court 1:N Queue)"
-        },
-        "name": {
-          "type": "string",
-          "description": "A descriptive name for the queue (e.g., 'Court 1 Morning Doubles Queue')."
+        "code": {
+          "type": "string"
         },
         "status": {
           "type": "string",
-          "description": "The current operational status of the queue (e.g., 'Active', 'Closed', 'Paused')."
+          "enum": ["active", "inactive"]
+        },
+        "createdBy": {
+          "type": "string"
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp when the queue was created.",
           "format": "date-time"
-        },
-        "estimatedWaitTimeMinutes": {
-          "type": "number",
-          "description": "The estimated time in minutes for a player to get a turn in this queue."
         }
       },
-      "required": [
-        "id",
-        "courtId",
-        "name",
-        "status",
-        "createdAt"
-      ]
-    },
-    "QueueEntry": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "QueueEntry",
-      "type": "object",
-      "description": "Represents a player's entry into a specific court queue.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the QueueEntry entity."
-        },
-        "queueId": {
-          "type": "string",
-          "description": "Reference to the Queue this entry belongs to. (Relationship: Queue 1:N QueueEntry)"
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who joined the queue. (Relationship: UserProfile 1:N QueueEntry)"
-        },
-        "joinTime": {
-          "type": "string",
-          "description": "Timestamp when the user joined the queue.",
-          "format": "date-time"
-        },
-        "leaveTime": {
-          "type": "string",
-          "description": "Timestamp when the user left the queue, if applicable (can be null if still active).",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the player within the queue (e.g., 'Waiting', 'Playing', 'Left', 'Skipped')."
-        }
-      },
-      "required": [
-        "id",
-        "queueId",
-        "userId",
-        "joinTime",
-        "status"
-      ]
+      "required": ["id", "code", "status", "createdBy", "createdAt"]
     },
     "Match": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Match",
       "type": "object",
-      "description": "Represents a badminton match, whether suggested by AI or actively played.",
+      "description": "Represents a badminton match.",
       "properties": {
         "id": {
-          "type": "string",
-          "description": "Unique identifier for the Match entity."
+          "type": "string"
         },
         "courtId": {
-          "type": "string",
-          "description": "Reference to the Court where the match is played. (Relationship: Court 1:N Match)"
+          "type": "string"
         },
-        "queueId": {
-          "type": "string",
-          "description": "Optional reference to the Queue from which this match was formed. (Relationship: Queue 1:N Match)"
+        "teamA": {
+          "type": "array",
+          "items": { "type": "string" }
         },
-        "matchType": {
-          "type": "string",
-          "description": "The type of match (e.g., 'Singles', 'Doubles', 'Mixed Doubles')."
+        "teamB": {
+          "type": "array",
+          "items": { "type": "string" }
         },
-        "startTime": {
-          "type": "string",
-          "description": "The actual or planned start time of the match.",
-          "format": "date-time"
+        "teamAScore": {
+          "type": "integer"
         },
-        "endTime": {
-          "type": "string",
-          "description": "The actual or planned end time of the match (can be null if not yet completed).",
-          "format": "date-time"
+        "teamBScore": {
+          "type": "integer"
         },
         "status": {
           "type": "string",
-          "description": "The current status of the match (e.g., 'Suggested', 'Scheduled', 'In Progress', 'Completed', 'Cancelled')."
+          "enum": ["ongoing", "completed", "cancelled"]
         },
-        "playerIds": {
-          "type": "array",
-          "description": "References to all UserProfiles participating in this match. (Relationship: UserProfile N:N Match)",
-          "items": {
-            "type": "string"
-          }
+        "isCompleted": {
+          "type": "boolean"
         },
-        "suggestedByAI": {
-          "type": "boolean",
-          "description": "Indicates if this match pairing was suggested by the AI-powered tool."
-        },
-        "score": {
+        "timestamp": {
           "type": "string",
-          "description": "The final score of the match, if completed (e.g., '21-15, 21-18')."
-        },
-        "winningPlayerIds": {
-          "type": "array",
-          "description": "References to UserProfiles in the winning team or side, if applicable. (Relationship: UserProfile N:N Match)",
-          "items": {
-            "type": "string"
-          }
+          "format": "date-time"
         }
       },
-      "required": [
-        "id",
-        "courtId",
-        "matchType",
-        "startTime",
-        "status",
-        "playerIds",
-        "suggestedByAI"
-      ]
-    },
-    "Booking": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Booking",
-      "type": "object",
-      "description": "Represents a direct reservation of a court for a specific time slot.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Booking entity."
-        },
-        "courtId": {
-          "type": "string",
-          "description": "Reference to the Court that has been booked. (Relationship: Court 1:N Booking)"
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who made the booking. (Relationship: UserProfile 1:N Booking)"
-        },
-        "startTime": {
-          "type": "string",
-          "description": "The exact start time of the booking.",
-          "format": "date-time"
-        },
-        "endTime": {
-          "type": "string",
-          "description": "The exact end time of the booking.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the booking (e.g., 'Confirmed', 'Pending', 'Cancelled', 'Completed')."
-        },
-        "bookedAt": {
-          "type": "string",
-          "description": "Timestamp when the booking was created.",
-          "format": "date-time"
-        },
-        "totalCost": {
-          "type": "number",
-          "description": "The total cost associated with this booking."
-        }
-      },
-      "required": [
-        "id",
-        "courtId",
-        "userId",
-        "startTime",
-        "endTime",
-        "status",
-        "bookedAt",
-        "totalCost"
-      ]
-    },
-    "MatchHistoryEntry": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "MatchHistoryEntry",
-      "type": "object",
-      "description": "Represents a user's specific participation and outcome in a past match, allowing for personalized feedback.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the MatchHistoryEntry entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the UserProfile this history entry belongs to. (Relationship: UserProfile 1:N MatchHistoryEntry)"
-        },
-        "matchId": {
-          "type": "string",
-          "description": "Reference to the Match this history entry pertains to. (Relationship: Match 1:N MatchHistoryEntry)"
-        },
-        "outcome": {
-          "type": "string",
-          "description": "The user's specific outcome in the match (e.g., 'Win', 'Loss', 'Draw')."
-        },
-        "performanceRating": {
-          "type": "number",
-          "description": "A rating of the user's performance in this specific match (e.g., 1-5 stars)."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any personal notes or reflections the user has about this match."
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "matchId",
-        "outcome"
-      ]
+      "required": ["id", "teamA", "teamB", "status", "isCompleted", "timestamp"]
     }
   },
   "auth": {
@@ -371,120 +180,68 @@
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores individual user profiles. Access is restricted to the user whose 'userId' matches 'request.auth.uid'. This path uses path-based ownership for authorization.",
+          "description": "Stores individual user profiles.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier (Firebase Auth UID) of the user whose profile is being stored or accessed."
+              "description": "Firebase Auth UID."
             }
           ]
         }
       },
       {
-        "path": "/courts/{courtId}",
+        "path": "/sessions/{sessionId}",
+        "definition": {
+          "entityName": "QueueSession",
+          "schema": {
+            "$ref": "#/backend/entities/QueueSession"
+          },
+          "description": "Active queueing sessions."
+        }
+      },
+      {
+        "path": "/sessions/{sessionId}/players/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Players joined to a specific session."
+        }
+      },
+      {
+        "path": "/sessions/{sessionId}/courts/{courtId}",
         "definition": {
           "entityName": "Court",
           "schema": {
             "$ref": "#/backend/entities/Court"
           },
-          "description": "Stores public information about badminton courts. Generally publicly readable for discovery. Write access is restricted to system administrators.",
-          "params": [
-            {
-              "name": "courtId",
-              "description": "The unique identifier for a specific court."
-            }
-          ]
+          "description": "Courts active in a session."
         }
       },
       {
-        "path": "/queues/{queueId}",
-        "definition": {
-          "entityName": "Queue",
-          "schema": {
-            "$ref": "#/backend/entities/Queue"
-          },
-          "description": "Stores information about active queues for specific courts. Includes 'courtId'. Publicly readable for real-time status updates. Write access restricted to system administrators.",
-          "params": [
-            {
-              "name": "queueId",
-              "description": "The unique identifier for a specific court queue."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/queues/{queueId}/queueEntries/{queueEntryId}",
-        "definition": {
-          "entityName": "QueueEntry",
-          "schema": {
-            "$ref": "#/backend/entities/QueueEntry"
-          },
-          "description": "Represents a user's entry into a specific queue. Includes 'userId' for authorization independence, allowing users to manage their own entries (read, update, delete) without parent lookups. Queue administrators can read all entries within 'their' queues.",
-          "params": [
-            {
-              "name": "queueId",
-              "description": "The unique identifier of the queue this entry belongs to."
-            },
-            {
-              "name": "queueEntryId",
-              "description": "The unique identifier for this specific queue entry."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/matches/{matchId}",
+        "path": "/sessions/{sessionId}/matches/{matchId}",
         "definition": {
           "entityName": "Match",
           "schema": {
             "$ref": "#/backend/entities/Match"
           },
-          "description": "Stores details about badminton matches. Includes 'playerIds' and 'courtId'. Player-participants (`request.auth.uid` in `playerIds`) can read/update their match details. Public can read completed matches. This includes denormalized 'playerIds' for authorization independence.",
-          "params": [
-            {
-              "name": "matchId",
-              "description": "The unique identifier for a specific match."
-            }
-          ]
+          "description": "Matches played in a session."
         }
       },
       {
-        "path": "/bookings/{bookingId}",
+        "path": "/admin_roles/{adminId}",
         "definition": {
-          "entityName": "Booking",
+          "entityName": "UserProfile",
           "schema": {
-            "$ref": "#/backend/entities/Booking"
-          },
-          "description": "Represents a direct court reservation. Includes 'userId' and 'courtId'. Users can only read/write their own bookings, enabled by denormalized 'userId'. System administrators can manage bookings for specific 'courtId's.",
-          "params": [
-            {
-              "name": "bookingId",
-              "description": "The unique identifier for a specific court booking."
+            "type": "object",
+            "properties": {
+              "uid": { "type": "string" }
             }
-          ]
-        }
-      },
-      {
-        "path": "/userProfiles/{userId}/matchHistory/{matchHistoryEntryId}",
-        "definition": {
-          "entityName": "MatchHistoryEntry",
-          "schema": {
-            "$ref": "#/backend/entities/MatchHistoryEntry"
           },
-          "description": "Stores individual user-specific match history entries. Access is strictly restricted to the user whose 'userId' matches 'request.auth.uid'. This path uses path-based ownership for authorization.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier (Firebase Auth UID) of the user this match history entry belongs to."
-            },
-            {
-              "name": "matchHistoryEntryId",
-              "description": "The unique identifier for this specific match history entry."
-            }
-          ]
+          "description": "DBAC for system administrators."
         }
       }
-    ],
-    "reasoning": "The Firestore data structure for ShuttleQueue prioritizes Authorization Independence, Structural Segregation, and consistent Access Modeling to ensure robust, debuggable security rules and efficient queries. The core principle is to avoid `get()` calls in security rules by denormalizing authorization-relevant data directly into the documents that require access control. This strategy also inherently supports Queryable Access Patterns (QAPs) by allowing rule-enforced queries (e.g., `where('userId', '==', request.auth.uid)`).\n\n**Authorization Independence via Denormalization:**\n*   **UserProfile:** Each user's profile is stored at `/userProfiles/{userId}`, where `{userId}` is the Firebase Authentication UID. Access is strictly path-based, meaning `request.auth.uid` must match `{userId}` for read/write operations. This makes authorization atomic and independent of other documents.\n*   **QueueEntry:** Documents in `/queues/{queueId}/queueEntries/{queueEntryId}` contain the `userId` of the participant. A user can read/write their own `QueueEntry` by verifying `request.auth.uid == resource.data.userId` without performing a `get()` on `/userProfiles/{userId}`. This enables secure user-specific operations and QAPs for listing a user's current queue entries.\n*   **Match:** Documents in `/matches/{matchId}` contain a `playerIds` array. Participants can access a match if `request.auth.uid` is present in `resource.data.playerIds`. This denormalization eliminates the need to `get()` user profiles or other related data for authorization, facilitating efficient queries for matches a user is involved in.\n*   **Booking:** Documents in `/bookings/{bookingId}` include both `userId` and `courtId`. A user can manage their booking if `request.auth.uid == resource.data.userId`. Court administrators (whose role is defined externally, see below) can manage bookings for a specific `courtId`. This supports QAPs for users to view their own bookings and for administrators to view bookings per court.\n*   **MatchHistoryEntry:** Stored under `/userProfiles/{userId}/matchHistory/{matchHistoryEntryId}`, its ownership is strictly defined by the path. `request.auth.uid` must match `{userId}` for access, ensuring privacy and atomic authorization.\n\n**Queryable Access Patterns (QAPs) and Structural Segregation:**\n*   **Publicly Readable Collections:** `/courts/{courtId}` and `/queues/{queueId}` are designed to be publicly readable, allowing users to discover available courts and view real-time queue statuses without authentication. Write access to these collections is restricted to system administrators, ensuring data integrity. This segregation ensures a homogeneous security posture.\n*   **User-Specific Data:** `UserProfile` and `MatchHistoryEntry` are stored in user-specific subcollections (`/userProfiles/{userId}/...`), which naturally enforces ownership and makes `list` operations simple for the authenticated user (`request.auth.uid`).\n*   **Collaborative/Shared Data:** `Match`, `QueueEntry`, and `Booking` are top-level collections or subcollections under shared entities (`/queues/{queueId}/queueEntries`). By denormalizing `userId` or `playerIds`, these collections can be securely queried (`list`) by users for their relevant entries, and by administrators for broader oversight, all while respecting security rules and avoiding filtering data on the client side.\n\n**Database Access Control (DBAC):**\n*   For system-wide administrative roles, a dedicated top-level collection like `/admin_roles/{adminId}` would be used. The mere existence of a document at `/admin_roles/$(request.auth.uid)` grants administrative privileges. This follows the \"Existence over Content\" principle and avoids custom claims, relying solely on `request.auth.uid` and database lookups in rules. While not represented as a formal 'entity' in the provided schema, this collection is crucial for securing administrative actions (e.g., creating/updating courts and queues)."
+    ]
   }
 }
