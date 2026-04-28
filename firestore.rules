@@ -6,26 +6,9 @@ service cloud.firestore {
      * SHUTTLEQUEUE SECURITY RULES
      *
      * Core Philosophy:
-     * This ruleset enforces a strict ownership and participant-based access model while facilitating
-     * discovery through public read access for shared resources like Courts and Queues. It relies
-     * heavily on denormalized authorization data (e.g., `userId` and `playerIds` fields) to ensure
-     * that security decisions are atomic, high-performance, and independent of complex document lookups.
-     *
-     * Data Structure:
-     * - /userProfiles/{userId}: Private user profile and nested match history (Path-based ownership).
-     * - /courts/{courtId}: Publicly readable directory of badminton courts.
-     * - /queues/{queueId}: Publicly readable queue status with user-specific entries.
-     * - /matches/{matchId}: Shared match documents accessible by participants.
-     * - /bookings/{bookingId}: Private court reservations accessible by the booking user and admins.
-     *
-     * Key Security Decisions:
-     * 1. Path-Based Authorization: User profiles and history are secured by matching the UID to the path.
-     * 2. Field-Based Authorization: Shared documents (Matches, Bookings, QueueEntries) use internal
-     *    UID fields to verify ownership or participation without requiring parent document reads.
-     * 3. Role-Based Access: Administrative actions (managing courts/queues) are secured by checking
-     *    for the existence of a document in a dedicated /admin_roles collection.
-     * 4. Public Discovery: Courts and active Queue status are readable by everyone to allow
-     *    seamless onboarding and real-time updates.
+     * This ruleset enforces a strict ownership and participant-based access model.
+     * It supports a global directory for user profiles and a session-based 
+     * isolation model for active queueing.
      */
 
     // --- Helper Functions ---
@@ -52,85 +35,59 @@ service cloud.firestore {
 
     // --- User Profile Rules ---
 
-    /**
-     * @description Rules for the UserProfile collection. Access is strictly path-based.
-     * @path /userProfiles/{userId}
-     * @allow User 'abc' to (get) their own profile /userProfiles/abc.
-     * @deny User 'xyz' to (list) the /userProfiles collection.
-     * @principle Restricts access to a user's own data tree via path-based ownership.
-     */
     match /userProfiles/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow get: if isSignedIn(); // Allow visibility for session rosters
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
 
-      /**
-       * @description Rules for user-specific match history entries. Nested under the profile.
-       * @path /userProfiles/{userId}/matchHistory/{matchHistoryEntryId}
-       * @allow User 'abc' to (create) a history entry at /userProfiles/abc/matchHistory/123.
-       * @deny User 'xyz' to (get) an entry at /userProfiles/abc/matchHistory/123.
-       * @principle Structural segregation of private user-specific logs.
-       */
-      match /matchHistory/{matchHistoryEntryId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && request.resource.data.userId == userId;
-        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-        allow delete: if isExistingOwner(userId);
+    // --- Session-Based Queueing (Main System) ---
+
+    match /sessions/{sessionId} {
+      // Admins manage sessions. Signed-in users can find sessions by code.
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+
+      match /players/{userId} {
+        // Everyone in the club can see who is in a session
+        allow get, list: if isSignedIn();
+        // Users can join a session (create their own entry)
+        allow create: if isOwner(userId);
+        // Users can update their own status (available/resting), admins can do anything
+        allow update, delete: if isOwner(userId) || isAdmin();
+      }
+
+      match /courts/{courtId} {
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if isAdmin();
+      }
+
+      match /matches/{matchId} {
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if isAdmin();
       }
     }
 
-    // --- Court and Queue Rules (Public Read / Admin Write) ---
+    // --- Legacy/Global Rules (Keep for compatibility) ---
 
-    /**
-     * @description Rules for Court information. Publicly readable for discovery.
-     * @path /courts/{courtId}
-     * @allow Anonymous user to (get) a court document.
-     * @deny Authenticated non-admin user to (update) a court's hourlyRate.
-     * @principle Public Read with Admin-Only Writes.
-     */
     match /courts/{courtId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for Queues. Publicly readable for real-time status.
-     * @path /queues/{queueId}
-     * @allow Any user to (list) all queues to see wait times.
-     * @deny Authenticated non-admin user to (delete) a queue.
-     * @principle Public Read with Admin-Only Writes.
-     */
     match /queues/{queueId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
 
-      /**
-       * @description Rules for entries within a specific queue.
-       * @path /queues/{queueId}/queueEntries/{queueEntryId}
-       * @allow User 'abc' to (update) their own entry status to 'Left'.
-       * @deny User 'abc' to (create) an entry for user 'xyz'.
-       * @principle Resource-specific ownership using denormalized userId.
-       */
       match /queueEntries/{queueEntryId} {
         allow get, list: if isSignedIn();
         allow create: if isOwner(request.resource.data.userId);
-        allow update: if isExistingOwner(resource.data.userId) || isAdmin();
-        allow delete: if isExistingOwner(resource.data.userId) || isAdmin();
+        allow update, delete: if isExistingOwner(resource.data.userId) || isAdmin();
       }
     }
 
-    // --- Match and Booking Rules (Collaborative & User-Owned) ---
-
-    /**
-     * @description Rules for Match documents. Access based on participant list or completion status.
-     * @path /matches/{matchId}
-     * @allow Participant 'abc' to (get) a match where 'abc' is in playerIds.
-     * @allow Anyone to (get) a match if status is 'Completed'.
-     * @deny User 'xyz' to (update) a match they are not participating in.
-     * @principle Shared access via denormalized member UIDs.
-     */
     match /matches/{matchId} {
       allow get, list: if (isSignedIn() && request.auth.uid in resource.data.playerIds) || resource.data.status == 'Completed';
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.playerIds;
@@ -138,31 +95,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for direct Court Bookings.
-     * @path /bookings/{bookingId}
-     * @allow User 'abc' to (create) a booking for themselves.
-     * @deny User 'abc' to (get) a booking belonging to user 'xyz'.
-     * @principle Owner-only writes with Admin oversight for resource management.
-     */
-    match /bookings/{bookingId} {
-      allow get: if isOwner(resource.data.userId) || isAdmin();
-      allow list: if isSignedIn(); // Queries must still filter by userId or courtId
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if (isExistingOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId) || isAdmin();
-      allow delete: if isExistingOwner(resource.data.userId) || isAdmin();
-    }
-
     // --- Admin Roles (System Collection) ---
 
-    /**
-     * @description Internal collection used to define administrative privileges.
-     * @path /admin_roles/{adminId}
-     * @principle DBAC - Existence of document determines role.
-     */
     match /admin_roles/{adminId} {
       allow read: if isSignedIn();
-      allow write: if false; // Roles must be managed via Cloud Functions or Console.
+      allow write: if false; // Roles must be managed via Console.
+    }
+
+    // --- Push Tokens ---
+    match /pushTokens/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
     }
   }
 }
