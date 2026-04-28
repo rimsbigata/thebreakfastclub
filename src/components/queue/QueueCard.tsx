@@ -26,7 +26,7 @@ export function QueueCard({ court, players, onJoin }: QueueCardProps) {
       <CardHeader className="bg-secondary/20 pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-bold">{court.name}</CardTitle>
-          <Badge variant={court.status === 'Available' ? 'secondary' : 'default'} className="uppercase">
+          <Badge variant={court.status === 'available' ? 'secondary' : 'default'} className="uppercase">
             {court.status}
           </Badge>
         </div>
@@ -79,7 +79,7 @@ export function QueueCard({ court, players, onJoin }: QueueCardProps) {
         </div>
       </CardContent>
       <CardFooter className="bg-secondary/10 border-t p-4">
-        <Button onClick={() => onJoin(court.id)} className="w-full gap-2" variant={court.status === 'Available' ? 'default' : 'secondary'}>
+        <Button onClick={() => onJoin(court.id)} className="w-full gap-2" variant={court.status === 'available' ? 'default' : 'secondary'}>
           <Play className="h-4 w-4" />
           Join Queue
         </Button>

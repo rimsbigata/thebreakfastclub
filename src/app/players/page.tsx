@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, User, TrendingUp, Users, Trash2, Pencil, Search } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, Cell } from 'recharts';
-import { SKILL_LEVELS_FULL, SKILL_LEVELS_SHORT, getSkillColor, Player } from '@/lib/types';
+import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -53,7 +53,7 @@ export default function PlayersPage() {
     }));
   }, [players]);
 
-  const handleAddPlayerAction = () => {
+  const handleAddPlayerAction = async () => {
     const trimmedName = newName.trim();
     if (!trimmedName) return;
     const isDuplicate = players.some(p => p.name.toLowerCase() === trimmedName.toLowerCase());
@@ -61,21 +61,37 @@ export default function PlayersPage() {
       toast({ title: "Duplicate Name", description: `${trimmedName} is already in the roster.`, variant: "destructive" });
       return;
     }
-    addPlayer({ name: trimmedName, skillLevel: parseInt(newSkill) });
-    setNewName('');
-    inputRef.current?.focus();
-    toast({ title: "Player Added" });
+    try {
+      await addPlayer({ name: trimmedName, skillLevel: parseInt(newSkill), playStyle: 'Unknown' });
+      setNewName('');
+      inputRef.current?.focus();
+      toast({ title: "Player Added" });
+    } catch (error) {
+      toast({
+        title: "Could not add player",
+        description: error instanceof Error ? error.message : "Database write failed.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleAddPlayerAction();
   };
 
-  const handleEditPlayerAction = () => {
+  const handleEditPlayerAction = async () => {
     if (!editingPlayer || !editName.trim()) return;
-    updatePlayer(editingPlayer.id, { name: editName.trim(), skillLevel: parseInt(editSkill) });
-    setEditingPlayer(null);
-    toast({ title: "Profile Updated" });
+    try {
+      await updatePlayer(editingPlayer.id, { name: editName.trim(), skillLevel: parseInt(editSkill) });
+      setEditingPlayer(null);
+      toast({ title: "Profile Updated" });
+    } catch (error) {
+      toast({
+        title: "Could not update player",
+        description: error instanceof Error ? error.message : "Database write failed.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -127,8 +143,8 @@ export default function PlayersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(SKILL_LEVELS_FULL).map(([val, label]) => (
-                      <SelectItem key={val} value={val} className="font-bold text-compact">{val} - {label}</SelectItem>
+                    {Object.entries(SKILL_LEVELS).map(([val, label]) => (
+                      <SelectItem key={val} value={val} className="font-bold text-compact">{val} - {label as string}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -179,7 +195,15 @@ export default function PlayersPage() {
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPlayer(player); setEditName(player.name); setEditSkill(player.skillLevel.toString()); }}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deletePlayer(player.id)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
+                          deletePlayer(player.id).catch(error => {
+                            toast({
+                              title: "Could not delete player",
+                              description: error instanceof Error ? error.message : "Database delete failed.",
+                              variant: "destructive"
+                            });
+                          });
+                        }}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -225,8 +249,8 @@ export default function PlayersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(SKILL_LEVELS_FULL).map(([val, label]) => (
-                    <SelectItem key={val} value={val} className="font-bold text-compact">{val} - {label}</SelectItem>
+                  {Object.entries(SKILL_LEVELS).map(([val, label]) => (
+                    <SelectItem key={val} value={val} className="font-bold text-compact">{val} - {label as string}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

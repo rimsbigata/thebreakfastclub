@@ -1,9 +1,10 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import { Loader2 } from 'lucide-react';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import clubLogo from '@/assets/images/tbc_logo_loading.png';
 
 interface SplashScreenProps {
   logo?: string | null;
@@ -11,25 +12,45 @@ interface SplashScreenProps {
 
 export function SplashScreen({ logo }: SplashScreenProps) {
   const [mounted, setMounted] = useState(false);
+  //const [showLogo, setShowLogo] = useState(false);
   
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const logoSrc = logo || "/src/assets/image/tbc_logo_loading.png";
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      //setShowLogo(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
+        {/* Empty state to prevent hydration mismatch */}
+      </div>
+    );
+  }
+
+  const placeholderLogo = PlaceHolderImages.find(img => img.id === 'logo');
+  const displayLogo = logo || clubLogo.src || placeholderLogo?.imageUrl;
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
       <div className="relative mb-8 flex flex-col items-center">
-        <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white overflow-hidden shadow-2xl flex items-center justify-center">
-          {mounted && (
+        <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl animate-pulse">
+          {displayLogo ? (
             <Image 
-              src={logoSrc} 
+              src={displayLogo} 
               alt="Club Logo" 
-              fill
-              className="object-cover p-2"
-              priority
+              fill 
+              className="object-cover"
             />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center bg-white/20">
+              <span className="text-2xl font-black">BC</span>
+            </div>
           )}
         </div>
         <div className="absolute -bottom-2 bg-white text-[#f76a01] px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
@@ -38,25 +59,25 @@ export function SplashScreen({ logo }: SplashScreenProps) {
       </div>
 
       <div className="flex flex-col items-center gap-4">
-        <div className="flex flex-col items-center text-center">
-          <h1 className="text-3xl font-black tracking-tighter leading-none mb-1 text-white">
+        <div className="flex flex-col items-center">
+          <h1 className="text-3xl font-black tracking-tighter leading-none mb-1">
             The Breakfast Club
           </h1>
-          <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-80 text-white">
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-80">
             Badminton Club
           </p>
         </div>
         
         <div className="flex items-center gap-2 mt-4">
-          <Loader2 className="h-5 w-5 animate-spin text-white opacity-80" />
-          <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 text-white">
+          <Loader2 className="h-5 w-5 animate-spin opacity-80" />
+          <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
             Initializing System...
           </span>
         </div>
       </div>
       
-      <div className="absolute bottom-8 text-[10px] font-bold opacity-40 uppercase tracking-widest text-white">
-        Built with ❤️ by rims
+      <div className="absolute bottom-8 text-[10px] font-bold opacity-40 uppercase tracking-widest">
+        Built with ❤️ by Rimuel
       </div>
     </div>
   );

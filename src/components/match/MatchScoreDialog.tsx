@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,15 @@ interface MatchScoreDialogProps {
 export function MatchScoreDialog({ open, onOpenChange, teamA, teamB, onScoreSubmit, onSkip }: MatchScoreDialogProps) {
   const [teamAScore, setTeamAScore] = useState<string>('');
   const [teamBScore, setTeamBScore] = useState<string>('');
+
+  // Cleanup when modal closes
+  useEffect(() => {
+    if (!open) {
+      // Reset state
+      reset();
+      
+    }
+  }, [open]);
 
   const handleSubmit = () => {
     const aVal = teamAScore.trim() === '' ? undefined : Math.max(0, Number(teamAScore));

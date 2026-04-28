@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Zap, Loader2, Trophy, Trash2 } from 'lucide-react';
@@ -23,36 +23,78 @@ export default function CourtsPage() {
   const [newCourtName, setNewCourtName] = useState('');
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
 
-  const handleAddCourt = () => {
+  const [activeModal, setActiveModal] = useState<
+    'score' | 'zeroConfirm' | null
+  >(null);
+
+  const [pendingScore, setPendingScore] = useState<{
+    courtId: string;
+    teamAScore: number;
+    teamBScore: number;
+    winner: 'teamA' | 'teamB';
+  } | null>(null);
+
+  const handleAddCourt = async () => {
     if (!newCourtName) return;
 
     // Validation: Duplicate check
     const formattedName = `Court ${newCourtName}`;
     const exists = courts.some(c => c.name.toLowerCase() === formattedName.toLowerCase());
-    
+
     if (exists) {
-      toast({ 
-        title: "Duplicate Court", 
+      toast({
+        title: "Duplicate Court",
         description: `There is already a court named "${formattedName}".`,
         variant: "destructive"
       });
       return;
     }
 
-    addCourt(newCourtName);
-    setNewCourtName('');
-    toast({ title: "Court Added" });
-  };
-
-  const handleScoreSubmit = (teamAScore: number | undefined, teamBScore: number | undefined, winner: 'teamA' | 'teamB') => {
-    if (scoringCourtId) {
-      endMatch(scoringCourtId, winner, teamAScore, teamBScore);
-      setScoringCourtId(null);
-      toast({ title: "Match Recorded" });
+    try {
+      await addCourt(newCourtName);
+      setNewCourtName('');
+      toast({ title: "Court Added" });
+    } catch (error) {
+      toast({
+        title: "Could not add court",
+        description: error instanceof Error ? error.message : "Database write failed.",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleGenerateMatch = () => {
+  const handleScoreSubmit = (
+    teamAScore: number | undefined,
+    teamBScore: number | undefined,
+    winner: 'teamA' | 'teamB'
+  ) => {
+    if (!scoringCourtId) return;
+
+    const a = teamAScore ?? 0;
+    const b = teamBScore ?? 0;
+
+    const losingScore = winner === 'teamA' ? b : a;
+
+    if (losingScore === 0) {
+      setPendingScore({
+        courtId: scoringCourtId,
+        teamAScore: a,
+        teamBScore: b,
+        winner,
+      });
+
+      setActiveModal('zeroConfirm');
+      return;
+    }
+
+    endMatch(scoringCourtId, 'completed', winner, a, b);
+    setActiveModal(null);
+    setScoringCourtId(null);
+
+    toast({ title: "Match Recorded" });
+  };
+
+  const handleGenerateMatch = async () => {
     const availablePlayers = players.filter(p => p.status === 'available');
     const availableCourts = courts.filter(c => c.status === 'available');
 
@@ -70,7 +112,7 @@ export default function CourtsPage() {
       const result = generateDeterministicMatch(availablePlayers, availableCourts);
 
       if (result.matchCreated && result.courtId && result.teamA && result.teamB) {
-        startMatch({
+        await startMatch({
           teamA: result.teamA,
           teamB: result.teamB,
           courtId: result.courtId,
@@ -85,6 +127,11 @@ export default function CourtsPage() {
     } finally {
       setLoadingMatch(false);
     }
+  };
+
+  const handleEditZeroScore = () => {
+    setActiveModal(null);
+    window.setTimeout(() => setActiveModal('score'), 0);
   };
 
   return (
@@ -107,10 +154,10 @@ export default function CourtsPage() {
                   <Label>Court Identifier</Label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-muted-foreground bg-secondary px-3 py-2 rounded-md">Court</span>
-                    <Input 
-                      placeholder="e.g. 1, A, or Blue" 
-                      value={newCourtName} 
-                      onChange={e => setNewCourtName(e.target.value)} 
+                    <Input
+                      placeholder="e.g. 1, A, or Blue"
+                      value={newCourtName}
+                      onChange={e => setNewCourtName(e.target.value)}
                     />
                   </div>
                 </div>
@@ -127,9 +174,9 @@ export default function CourtsPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-lg font-bold group-hover:text-primary transition-colors">{court.name}</CardTitle>
               <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90"
                   onClick={() => deleteCourt(court.id)}
                 >
@@ -148,8 +195,8 @@ export default function CourtsPage() {
                 <div className="space-y-4 animate-in fade-in duration-500">
                   <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase">
                     <span className="relative flex h-2 w-2">
-                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                       <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                     </span>
                     Live Match
                   </div>
@@ -159,17 +206,20 @@ export default function CourtsPage() {
                 </div>
               ) : (
                 <div className="h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-lg bg-secondary/10 group-hover:bg-secondary/20 transition-colors">
-                   <Trophy className="h-6 w-6 text-muted-foreground/30 mb-2 transition-colors group-hover:text-primary/30" />
-                   <p className="text-sm text-muted-foreground italic">Ready for next match</p>
+                  <Trophy className="h-6 w-6 text-muted-foreground/30 mb-2 transition-colors group-hover:text-primary/30" />
+                  <p className="text-sm text-muted-foreground italic">Ready for next match</p>
                 </div>
               )}
             </CardContent>
             <CardFooter className="flex justify-between gap-2 border-t pt-4">
-               {court.status === 'occupied' ? (
-                  <Button variant="outline" size="sm" onClick={() => setScoringCourtId(court.id)} className="w-full transition-all hover:bg-primary hover:text-white active:scale-95">End Match & Record Score</Button>
-               ) : (
-                 <p className="text-xs text-muted-foreground opacity-50">Idle</p>
-               )}
+              {court.status === 'occupied' ? (
+                <Button variant="outline" size="sm" onClick={() => {
+                  setScoringCourtId(court.id);
+                  setActiveModal('score');
+                }} className="w-full transition-all hover:bg-primary hover:text-white active:scale-95">End Match & Record Score</Button>
+              ) : (
+                <p className="text-xs text-muted-foreground opacity-50">Idle</p>
+              )}
             </CardFooter>
           </Card>
         ))}
@@ -180,24 +230,72 @@ export default function CourtsPage() {
         <MatchResults matches={matches} players={players} limit={10} />
       </section>
 
+      {/* Score Modal */}
       {scoringCourtId && (() => {
         const court = courts.find(c => c.id === scoringCourtId);
         const match = matches.find(m => m.id === court?.currentMatchId);
         if (!match) return null;
-        
+
         const teamA = players.filter(p => match.teamA.includes(p.id));
         const teamB = players.filter(p => match.teamB.includes(p.id));
 
         return (
           <MatchScoreDialog
-            open={!!scoringCourtId}
-            onOpenChange={(open) => !open && setScoringCourtId(null)}
+            open={activeModal === 'score'}
+            onOpenChange={(open) => {
+              if (!open) {
+                setActiveModal(null);
+                setScoringCourtId(null);
+              }
+            }}
             teamA={teamA}
             teamB={teamB}
             onScoreSubmit={handleScoreSubmit}
           />
         );
       })()}
+
+      {/* ✅ ADD THIS RIGHT AFTER */}
+      {activeModal === 'zeroConfirm' && (
+        <Dialog open={true} onOpenChange={(open) => !open && setActiveModal(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Zero Score</DialogTitle>
+            </DialogHeader>
+
+            <p className="text-sm">
+              The losing team has a score of 0. Is this correct?
+            </p>
+
+            <div className="flex gap-2 mt-4">
+              <Button
+                onClick={() => {
+                  if (pendingScore) {
+                    endMatch(
+                      pendingScore.courtId,
+                      'completed',
+                      pendingScore.winner,
+                      pendingScore.teamAScore,
+                      pendingScore.teamBScore
+                    );
+                  }
+
+                  setActiveModal(null);
+                  setScoringCourtId(null);
+                }}
+              >
+                Yes, Confirm
+              </Button>
+
+              <DialogClose asChild>
+                <Button variant="outline" onClick={handleEditZeroScore}>
+                  Edit Score
+                </Button>
+              </DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -182,7 +182,7 @@ export default function HomePage() {
     }
   };
 
-  const onDropInCourtPanel = (e: React.DragEvent) => {
+  const onDropInCourtPanel = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsCourtPanelOver(false);
     const matchId = e.dataTransfer.getData("matchId");
@@ -190,7 +190,7 @@ export default function HomePage() {
     if (matchId) { createCourtAndAssignMatch(matchId); return; }
     if (playerId) {
       if (allDraftedIds.includes(playerId)) return;
-      const newCourtId = addCourt();
+      const newCourtId = await addCourt();
       setCourtDrafts(prev => ({ ...prev, [newCourtId]: [playerId] }));
     }
   };
@@ -277,11 +277,7 @@ export default function HomePage() {
     // Clear winningTeam dialog first to prevent modal state lock
     setWinningTeam(null);
     
-    if (lScore === 0) {
-      setPendingMatchFinish({ courtId, winner, scoreA: tAScore, scoreB: tBScore });
-    } else {
-      completeMatch(courtId, winner, tAScore, tBScore);
-    }
+    completeMatch(courtId, winner, tAScore, tBScore);
   };
 
   return (
@@ -594,7 +590,7 @@ export default function HomePage() {
                             <Input 
                               type="number" min="0"
                               className={cn("h-12 text-2xl font-black text-center border-2 no-spinner", teamAScore > teamBScore ? "border-primary bg-primary/5" : "bg-card")}
-                              value={match.teamAScore === 0 ? "" : match.teamAScore}
+                              value={teamAScore === 0 ? "" : teamAScore}
                               placeholder="0"
                               onBlur={(e) => { if (e.target.value === "") handleScoreChange(match.id, 0, match.teamBScore || 0); }}
                               onChange={(e) => handleScoreChange(match.id, parseInt(e.target.value) || 0, match.teamBScore || 0)}
@@ -606,7 +602,7 @@ export default function HomePage() {
                             <Input 
                               type="number" min="0"
                               className={cn("h-12 text-2xl font-black text-center border-2 no-spinner", teamBScore > teamAScore ? "border-primary bg-primary/5" : "bg-card")}
-                              value={match.teamBScore === 0 ? "" : match.teamBScore}
+                              value={teamBScore === 0 ? "" : teamBScore}
                               placeholder="0"
                               onBlur={(e) => { if (e.target.value === "") handleScoreChange(match.id, match.teamAScore || 0, 0); }}
                               onChange={(e) => handleScoreChange(match.id, match.teamAScore || 0, parseInt(e.target.value) || 0)}
@@ -699,6 +695,11 @@ export default function HomePage() {
                   className="h-16 text-3xl font-black text-center border-2 no-spinner"
                   autoFocus
                 />
+                {(loserScore === '' || parseInt(loserScore, 10) === 0) && (
+                  <p className="text-[11px] font-bold text-destructive">
+                    Reminder: the losing team score will be recorded as 0.
+                  </p>
+                )}
              </div>
           </div>
           <DialogFooter>
@@ -716,13 +717,9 @@ export default function HomePage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setPendingMatchFinish(null)} 
-              className="font-black uppercase"
-            >
+            <AlertDialogCancel className="font-black uppercase">
               Edit Score
-            </Button>
+            </AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => {
                 if (pendingMatchFinish) {

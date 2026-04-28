@@ -39,9 +39,6 @@ const MatchSuggestionOutputSchema = z.object({
   error: z.string().optional(),
 });
 
-export type MatchSuggestionInput = z.infer<typeof MatchSuggestionInputSchema>;
-export type MatchSuggestionOutput = z.infer<typeof MatchSuggestionOutputSchema>;
-
 const matchSuggestionPrompt = ai.definePrompt({
   name: 'matchSuggestionPrompt',
   input: { schema: MatchSuggestionInputSchema },
@@ -74,6 +71,12 @@ STRICT MATCHMAKING RULES:
 
 Return teamA and teamB as arrays of Player IDs.`,
 });
+
+export type MatchSuggestionInput = z.infer<typeof MatchSuggestionInputSchema>;
+export type MatchSuggestionOutput = z.infer<typeof MatchSuggestionOutputSchema>;
+
+export const aiMatchSuggestions = matchSuggestionPrompt;
+export type AiMatchSuggestionsOutput = MatchSuggestionOutput;
 
 export async function generateMatch(input: MatchSuggestionInput): Promise<MatchSuggestionOutput> {
   const {output} = await matchSuggestionPrompt(input);

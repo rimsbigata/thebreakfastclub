@@ -23,6 +23,8 @@ export const SKILL_LEVELS_FULL: Record<number, string> = {
   7: "Expert",
 };
 
+export const SKILL_LEVELS = SKILL_LEVELS_FULL;
+
 /**
  * Centralized Skill Color Mapping (Single Source of Truth)
  * Standardized Hex Mapping with High-Contrast Accessible Colors.
@@ -71,7 +73,8 @@ export interface Player {
   status: PlayerStatus;
   improvementScore: number;
   totalPlayTimeMinutes: number;
-  lastAvailableAt?: number; 
+  lastAvailableAt?: number;
+  playStyle: string;
 }
 
 export interface Court {
@@ -79,6 +82,9 @@ export interface Court {
   name: string; 
   status: CourtStatus;
   currentMatchId?: string | null;
+  queue: string[];
+  estimatedWaitMinutes: number;
+  currentPlayers: string[];
 }
 
 export interface Match {

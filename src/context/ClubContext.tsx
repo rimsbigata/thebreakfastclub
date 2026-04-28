@@ -14,18 +14,25 @@ interface ClubContextType {
   clubLogo: string | null;
   defaultWinningScore: number;
   autoAdvanceEnabled: boolean;
-  addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes' | 'lastAvailableAt'>) => void;
-  updatePlayer: (id: string, updates: Partial<Player>) => void;
-  deletePlayer: (id: string) => void;
-  addCourt: (name?: string) => string;
-  deleteCourt: (id: string) => void;
-  startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted' | 'status' | 'teamASnapshots' | 'teamBSnapshots'>) => void;
+  queueSessionCode: string;
+  currentPlayer: Player | null;
+  addPlayer: (player: Omit<Player, 'id' | 'wins' | 'gamesPlayed' | 'partnerHistory' | 'status' | 'improvementScore' | 'totalPlayTimeMinutes' | 'lastAvailableAt'>) => Promise<void>;
+  signUpPlayer: (data: { name: string; pin: string; skillLevel: number; playStyle?: string; selfAssessment?: unknown }) => Promise<Player>;
+  logInPlayer: (name: string, pin: string) => Promise<Player>;
+  logOutPlayer: () => void;
+  joinQueueSession: (code: string) => Promise<Player>;
+  regenerateQueueSessionCode: () => Promise<string>;
+  updatePlayer: (id: string, updates: Partial<Player>) => Promise<void>;
+  deletePlayer: (id: string) => Promise<void>;
+  addCourt: (name?: string) => Promise<string>;
+  deleteCourt: (id: string) => Promise<void>;
+  startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted' | 'status' | 'teamASnapshots' | 'teamBSnapshots'>) => Promise<void>;
   startTimer: (courtId: string) => void;
   updateMatchScore: (matchId: string, teamAScore: number, teamBScore: number) => void;
   endMatch: (courtId: string, status: MatchStatus, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => void;
   swapPlayer: (matchId: string, oldPlayerId: string, newPlayerId: string) => void;
   assignMatchToCourt: (matchId: string, courtId: string) => void;
-  createCourtAndAssignMatch: (matchId: string) => void;
+  createCourtAndAssignMatch: (matchId: string) => Promise<void>;
   updateFee: (fee: Omit<Fee, 'payments'>) => void;
   togglePayment: (date: string, playerId: string) => void;
   addPaymentMethod: (name: string, imageData: string) => void;
@@ -33,8 +40,8 @@ interface ClubContextType {
   setClubLogo: (imageUrl: string | null) => void;
   setDefaultWinningScore: (score: number) => void;
   setAutoAdvanceEnabled: (enabled: boolean) => void;
-  resetDailyBoard: () => void;
-  wipeAllData: () => void;
+  resetDailyBoard: () => Promise<void>;
+  wipeAllData: () => Promise<void>;
   deleteMatch: (matchId: string) => void;
 }
 
@@ -51,6 +58,17 @@ const STORAGE_KEYS = {
   AUTO_ADVANCE: 'tbc_auto_advance'
 };
 
+const CURRENT_PLAYER_KEY = 'tbc_current_player_id';
+
+async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    const result = await response.json().catch(() => null);
+    throw new Error(result?.error || `Request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export function ClubProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [courts, setCourts] = useState<Court[]>([]);
@@ -60,7 +78,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [clubLogo, setClubLogoState] = useState<string | null>(null);
   const [defaultWinningScore, setDefaultWinningScoreState] = useState<number>(21);
   const [autoAdvanceEnabled, setAutoAdvanceEnabledState] = useState<boolean>(true);
+  const [queueSessionCode, setQueueSessionCodeState] = useState<string>('TBC001');
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const currentPlayer = players.find(p => p.id === currentPlayerId) ?? null;
 
   useEffect(() => {
     const load = (key: string, fallback: any) => {
@@ -79,10 +100,47 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     
     const savedAutoAdvance = localStorage.getItem(STORAGE_KEYS.AUTO_ADVANCE);
     setAutoAdvanceEnabledState(savedAutoAdvance !== null ? JSON.parse(savedAutoAdvance) : true);
+    setCurrentPlayerId(localStorage.getItem(CURRENT_PLAYER_KEY));
     
     const timer = setTimeout(() => {
       setIsLoaded(true);
     }, 1500);
+
+    apiRequest<{
+      players: Player[];
+      courts: Court[];
+      matches: Match[];
+      settings?: {
+        fees: Fee[];
+        paymentMethods: PaymentMethod[];
+        clubLogo: string | null;
+        defaultWinningScore: number;
+        autoAdvanceEnabled: boolean;
+        queueSessionCode: string;
+      };
+    }>('/api/club-state')
+      .then(data => {
+        if (Array.isArray(data.players)) {
+          setPlayers(data.players);
+        }
+        if (Array.isArray(data.courts)) {
+          setCourts(data.courts);
+        }
+        if (Array.isArray(data.matches)) {
+          setMatches(data.matches);
+        }
+        if (data.settings) {
+          setFees(data.settings.fees);
+          setPaymentMethods(data.settings.paymentMethods);
+          setClubLogoState(data.settings.clubLogo);
+          setDefaultWinningScoreState(data.settings.defaultWinningScore);
+          setAutoAdvanceEnabledState(data.settings.autoAdvanceEnabled);
+          setQueueSessionCodeState(data.settings.queueSessionCode);
+        }
+      })
+      .catch(error => {
+        console.error(error);
+      });
 
     return () => clearTimeout(timer);
   }, []);
@@ -102,56 +160,134 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
-  const addPlayer = (data: any) => {
-    const newPlayer: Player = {
-      ...data,
-      id: generateId(),
-      wins: 0,
-      gamesPlayed: 0,
-      partnerHistory: [],
-      status: 'available',
-      improvementScore: 0,
-      totalPlayTimeMinutes: 0,
-      lastAvailableAt: Date.now()
-    };
-    setPlayers(prev => [...prev, newPlayer]);
+  const addPlayer = async (data: any) => {
+    const result = await apiRequest<{ player: Player }>('/api/players', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    setPlayers(prev => [...prev, result.player]);
   };
 
-  const updatePlayer = (id: string, updates: Partial<Player>) => {
+  const rememberCurrentPlayer = (player: Player) => {
+    setCurrentPlayerId(player.id);
+    localStorage.setItem(CURRENT_PLAYER_KEY, player.id);
+  };
+
+  const signUpPlayer = async (data: { name: string; pin: string; skillLevel: number; playStyle?: string; selfAssessment?: unknown }) => {
+    const result = await apiRequest<{ player: Player }>('/api/player-auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    setPlayers(prev => [...prev, result.player]);
+    rememberCurrentPlayer(result.player);
+    return result.player;
+  };
+
+  const logInPlayer = async (name: string, pin: string) => {
+    const result = await apiRequest<{ player: Player }>('/api/player-auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, pin }),
+    });
+    setPlayers(prev => {
+      const exists = prev.some(p => p.id === result.player.id);
+      return exists ? prev.map(p => p.id === result.player.id ? result.player : p) : [...prev, result.player];
+    });
+    rememberCurrentPlayer(result.player);
+    return result.player;
+  };
+
+  const logOutPlayer = () => {
+    setCurrentPlayerId(null);
+    localStorage.removeItem(CURRENT_PLAYER_KEY);
+  };
+
+  const joinQueueSession = async (code: string) => {
+    if (!currentPlayerId) {
+      throw new Error('Log in before joining a queue session.');
+    }
+
+    const result = await apiRequest<{ player: Player }>('/api/player-auth/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId: currentPlayerId, code }),
+    });
+    setPlayers(prev => prev.map(p => p.id === result.player.id ? result.player : p));
+    return result.player;
+  };
+
+  const regenerateQueueSessionCode = async () => {
+    const result = await apiRequest<{ settings: { queueSessionCode: string } }>('/api/settings/session-code', {
+      method: 'POST',
+    });
+    setQueueSessionCodeState(result.settings.queueSessionCode);
+    return result.settings.queueSessionCode;
+  };
+
+  const persistSettings = (overrides: Partial<{
+    fees: Fee[];
+    paymentMethods: PaymentMethod[];
+    clubLogo: string | null;
+    defaultWinningScore: number;
+    autoAdvanceEnabled: boolean;
+    queueSessionCode: string;
+  }>) => {
+    apiRequest('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fees,
+        paymentMethods,
+        clubLogo,
+        defaultWinningScore,
+        autoAdvanceEnabled,
+        queueSessionCode,
+        ...overrides,
+      }),
+    }).catch(console.error);
+  };
+
+  const updatePlayer = async (id: string, updates: Partial<Player>) => {
     setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    await apiRequest(`/api/players/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
   };
 
-  const deletePlayer = (id: string) => {
+  const deletePlayer = async (id: string) => {
     setPlayers(prev => prev.filter(p => p.id !== id));
+    await apiRequest(`/api/players/${id}`, { method: 'DELETE' });
   };
 
-  const addCourt = (name?: string) => {
+  const addCourt = async (name?: string) => {
     const courtNumbers = courts
       .map(c => parseInt(c.name.replace('Court ', '')))
       .filter(n => !isNaN(n));
     const nextNum = courtNumbers.length > 0 ? Math.max(...courtNumbers) + 1 : 1;
-    
-    const id = generateId();
-    const newCourt: Court = {
-      id,
-      name: name ? `Court ${name}` : `Court ${nextNum}`,
-      status: 'available',
-      currentMatchId: null
-    };
-    setCourts(prev => [...prev, newCourt]);
-    return id;
+
+    const result = await apiRequest<{ court: Court }>('/api/courts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name ? `Court ${name}` : `Court ${nextNum}` }),
+    });
+    setCourts(prev => [...prev, result.court]);
+    return result.court.id;
   };
 
-  const deleteCourt = (id: string) => {
+  const deleteCourt = async (id: string) => {
     const court = courts.find(c => c.id === id);
     if (court?.currentMatchId) {
       deleteMatch(court.currentMatchId);
     }
     setCourts(prev => prev.filter(c => c.id !== id));
+    await apiRequest(`/api/courts/${id}`, { method: 'DELETE' });
   };
 
-  const startMatch = (matchData: any) => {
-    const newMatchId = generateId();
+  const startMatch = async (matchData: any) => {
     let targetCourtId = matchData.courtId;
 
     if (!targetCourtId) {
@@ -171,15 +307,22 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       return { id, name: p?.name || 'Unknown', skillLevel: p?.skillLevel || 3 };
     });
 
+    const result = await apiRequest<{ match: Match }>('/api/matches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...matchData,
+        courtId: targetCourtId,
+        teamASnapshots,
+        teamBSnapshots,
+      }),
+    });
+
     const newMatch: Match = {
-      ...matchData,
-      id: newMatchId,
+      ...result.match,
       courtId: targetCourtId,
       teamASnapshots,
       teamBSnapshots,
-      timestamp: new Date().toISOString(),
-      isCompleted: false,
-      status: 'ongoing'
     };
 
     setMatches(prev => [newMatch, ...prev]);
@@ -187,7 +330,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (targetCourtId) {
       setCourts(prev => prev.map(c => 
         c.id === targetCourtId 
-          ? { ...c, status: 'occupied', currentMatchId: newMatchId } 
+          ? { ...c, status: 'occupied', currentMatchId: result.match.id } 
           : c
       ));
     }
@@ -201,6 +344,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const updateMatchScore = (matchId: string, teamAScore: number, teamBScore: number) => {
     setMatches(prev => prev.map(m => m.id === matchId ? { ...m, teamAScore, teamBScore } : m));
+    apiRequest(`/api/matches/${matchId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teamAScore, teamBScore }),
+    }).catch(console.error);
   };
 
   const endMatch = (courtId: string, status: MatchStatus, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => {
@@ -213,24 +361,30 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const startTime = match.startTime ? new Date(match.startTime) : null;
     const playDuration = startTime ? Math.floor((Date.now() - startTime.getTime()) / 60000) : 0;
 
-    // Update the match state
+    const endTime = new Date().toISOString();
+    const completedMatch: Match = {
+      ...match,
+      isCompleted: status === 'completed',
+      status,
+      winner,
+      teamAScore,
+      teamBScore,
+      endTime,
+    };
+
     setMatches(prev => prev.map(m => 
-      m.id === court.currentMatchId 
-        ? { ...m, isCompleted: status === 'completed', status, winner, teamAScore, teamBScore, endTime: new Date().toISOString() } 
-        : m
+      m.id === court.currentMatchId ? completedMatch : m
     ));
 
-    // Free the court
     setCourts(prev => prev.map(c => 
       c.id === courtId ? { ...c, status: 'available', currentMatchId: null } : c
     ));
 
-    // Update the players
-    setPlayers(prev => prev.map(p => {
+    const updatedPlayers: Player[] = players.map(p => {
       if (![...match.teamA, ...match.teamB].includes(p.id)) return p;
 
       if (status === 'cancelled') {
-        return { ...p, status: 'available', lastAvailableAt: Date.now() };
+        return { ...p, status: 'available' as const, lastAvailableAt: Date.now() };
       }
 
       const isTeamA = match.teamA.includes(p.id);
@@ -246,7 +400,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
       return {
         ...p,
-        status: 'available',
+        status: 'available' as const,
         lastAvailableAt: Date.now(),
         wins: (p.wins || 0) + (won ? 1 : 0),
         gamesPlayed: (p.gamesPlayed || 0) + 1,
@@ -254,7 +408,26 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         improvementScore: Math.max(0, (p.improvementScore || 0) + (won ? 5 : -2)),
         totalPlayTimeMinutes: (p.totalPlayTimeMinutes || 0) + playDuration
       };
-    }));
+    });
+
+    setPlayers(updatedPlayers);
+
+    apiRequest(`/api/matches/${match.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        isCompleted: completedMatch.isCompleted,
+        status: completedMatch.status,
+        winner: completedMatch.winner,
+        teamAScore: completedMatch.teamAScore,
+        teamBScore: completedMatch.teamBScore,
+        endTime,
+        releaseCourtId: courtId,
+        players: updatedPlayers
+          .filter(p => [...match.teamA, ...match.teamB].includes(p.id))
+          .map(p => ({ id: p.id, updates: p })),
+      }),
+    }).catch(console.error);
 
     // Trigger Auto-Advance if enabled
     if (autoAdvanceEnabled && status === 'completed') {
@@ -318,6 +491,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }
 
     setMatches(prev => prev.filter(m => m.id !== matchId));
+    apiRequest(`/api/matches/${matchId}`, { method: 'DELETE' }).catch(console.error);
   };
 
   const swapPlayer = (matchId: string, oldPlayerId: string, newPlayerId: string) => {
@@ -347,6 +521,21 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       if (p.id === newPlayerId) return { ...p, status: 'playing', lastAvailableAt: undefined };
       return p;
     }));
+
+    apiRequest(`/api/matches/${matchId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        teamA: newTeamA,
+        teamB: newTeamB,
+        teamASnapshots: newTeamASnapshots,
+        teamBSnapshots: newTeamBSnapshots,
+        players: [
+          { id: oldPlayerId, updates: { status: 'available', lastAvailableAt: Date.now() } },
+          { id: newPlayerId, updates: { status: 'playing' } },
+        ],
+      }),
+    }).catch(console.error);
   };
 
   const assignMatchToCourt = (matchId: string, courtId: string) => {
@@ -356,63 +545,93 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         ? { ...c, status: 'occupied', currentMatchId: matchId } 
         : c
     ));
+    apiRequest(`/api/matches/${matchId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ courtId, status: 'ongoing' }),
+    }).catch(console.error);
   };
 
-  const createCourtAndAssignMatch = (matchId: string) => {
-    const newCourtId = addCourt();
+  const createCourtAndAssignMatch = async (matchId: string) => {
+    const newCourtId = await addCourt();
     assignMatchToCourt(matchId, newCourtId);
   };
 
   const startTimer = (courtId: string) => {
     const court = courts.find(c => c.id === courtId);
     if (court?.currentMatchId) {
+      const startTime = new Date().toISOString();
       setMatches(prev => prev.map(m => 
         m.id === court.currentMatchId 
-          ? { ...m, startTime: new Date().toISOString() } 
+          ? { ...m, startTime } 
           : m
       ));
+      apiRequest(`/api/matches/${court.currentMatchId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startTime }),
+      }).catch(console.error);
     }
   };
 
   const updateFee = (data: any) => {
+    let nextFees: Fee[] = [];
     setFees(prev => {
       const exists = prev.find(f => f.id === data.id);
-      if (exists) return prev.map(f => f.id === data.id ? { ...f, ...data } : f);
-      return [...prev, { ...data, payments: {} }];
+      nextFees = exists
+        ? prev.map(f => f.id === data.id ? { ...f, ...data } : f)
+        : [...prev, { ...data, payments: {} }];
+      persistSettings({ fees: nextFees });
+      return nextFees;
     });
   };
 
   const togglePayment = (date: string, playerId: string) => {
-    setFees(prev => prev.map(f => {
-      if (f.id !== date) return f;
-      const payments = { ...f.payments };
-      payments[playerId] = !payments[playerId];
-      return { ...f, payments };
-    }));
+    setFees(prev => {
+      const nextFees = prev.map(f => {
+        if (f.id !== date) return f;
+        const payments = { ...f.payments };
+        payments[playerId] = !payments[playerId];
+        return { ...f, payments };
+      });
+      persistSettings({ fees: nextFees });
+      return nextFees;
+    });
   };
 
   const addPaymentMethod = (name: string, imageData: string) => {
     const newMethod: PaymentMethod = { id: generateId(), name, imageUrl: imageData };
-    setPaymentMethods(prev => [...prev, newMethod]);
+    setPaymentMethods(prev => {
+      const nextMethods = [...prev, newMethod];
+      persistSettings({ paymentMethods: nextMethods });
+      return nextMethods;
+    });
   };
 
   const deletePaymentMethod = (id: string) => {
-    setPaymentMethods(prev => prev.filter(pm => pm.id !== id));
+    setPaymentMethods(prev => {
+      const nextMethods = prev.filter(pm => pm.id !== id);
+      persistSettings({ paymentMethods: nextMethods });
+      return nextMethods;
+    });
   };
 
   const setClubLogo = (imageUrl: string | null) => {
     setClubLogoState(imageUrl);
+    persistSettings({ clubLogo: imageUrl });
   };
 
   const setDefaultWinningScore = (score: number) => {
     setDefaultWinningScoreState(score);
+    persistSettings({ defaultWinningScore: score });
   };
 
   const setAutoAdvanceEnabled = (enabled: boolean) => {
     setAutoAdvanceEnabledState(enabled);
+    persistSettings({ autoAdvanceEnabled: enabled });
   };
 
-  const resetDailyBoard = () => {
+  const resetDailyBoard = async () => {
     setMatches(prev => prev.map(m => !m.isCompleted ? { ...m, isCompleted: true, status: 'cancelled' } : m));
     setPlayers(prev => prev.map(p => ({
       ...p,
@@ -424,9 +643,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       lastAvailableAt: Date.now()
     })));
     setCourts(prev => prev.map(c => ({ ...c, status: 'available', currentMatchId: null })));
+    await apiRequest('/api/club-state', { method: 'PATCH' });
   };
 
-  const wipeAllData = () => {
+  const wipeAllData = async () => {
     setPlayers([]);
     setCourts([]);
     setMatches([]);
@@ -435,7 +655,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setClubLogoState(null);
     setDefaultWinningScoreState(21);
     setAutoAdvanceEnabledState(true);
+    setQueueSessionCodeState('TBC001');
+    setCurrentPlayerId(null);
     localStorage.clear();
+    await apiRequest('/api/club-state', { method: 'DELETE' });
   };
 
   if (!isLoaded) {
@@ -444,8 +667,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   return (
     <ClubContext.Provider value={{
-      players, courts, matches, fees, paymentMethods, clubLogo, defaultWinningScore, autoAdvanceEnabled,
-      addPlayer, updatePlayer, deletePlayer, addCourt, deleteCourt,
+      players, courts, matches, fees, paymentMethods, clubLogo, defaultWinningScore, autoAdvanceEnabled, queueSessionCode, currentPlayer,
+      addPlayer, signUpPlayer, logInPlayer, logOutPlayer, joinQueueSession, regenerateQueueSessionCode, updatePlayer, deletePlayer, addCourt, deleteCourt,
       startMatch, startTimer, updateMatchScore, endMatch, swapPlayer, assignMatchToCourt, createCourtAndAssignMatch, updateFee, togglePayment,
       addPaymentMethod, deletePaymentMethod, resetDailyBoard, wipeAllData, setClubLogo, deleteMatch, setDefaultWinningScore, setAutoAdvanceEnabled
     }}>

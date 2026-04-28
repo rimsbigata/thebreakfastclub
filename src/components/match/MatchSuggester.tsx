@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Player } from '@/lib/types';
+import { Player, Court } from '@/lib/types';
 import { aiMatchSuggestions, AiMatchSuggestionsOutput } from '@/ai/flows/ai-match-suggestions-flow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge';
 
 interface MatchSuggesterProps {
   playersInQueue: Player[];
+  availableCourts: Court[];
 }
 
-export function MatchSuggester({ playersInQueue }: MatchSuggesterProps) {
+export function MatchSuggester({ playersInQueue, availableCourts }: MatchSuggesterProps) {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<AiMatchSuggestionsOutput | null>(null);
 
@@ -22,13 +23,19 @@ export function MatchSuggester({ playersInQueue }: MatchSuggesterProps) {
     setLoading(true);
     try {
       const result = await aiMatchSuggestions({
-        playersInQueue: playersInQueue.map(p => ({
+        availablePlayers: playersInQueue.map(p => ({
+          id: p.id,
           name: p.name,
           skillLevel: p.skillLevel,
-          playStyle: p.playStyle,
+          gamesPlayed: p.gamesPlayed,
+          partnerHistory: p.partnerHistory,
+        })),
+        availableCourts: availableCourts.map(c => ({
+          id: c.id,
+          name: c.name,
         })),
       });
-      setSuggestions(result);
+      setSuggestions(result.output);
     } catch (error) {
       console.error(error);
     } finally {
@@ -79,37 +86,38 @@ export function MatchSuggester({ playersInQueue }: MatchSuggesterProps) {
 
         {suggestions && !loading && (
           <div className="space-y-6">
-            {suggestions.suggestions.map((suggestion, idx) => (
-              <div key={idx} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                  {suggestion.players.map((team, tIdx) => (
-                    <div key={tIdx} className="p-4 bg-background rounded-lg border shadow-sm space-y-2">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Team {tIdx + 1}
-                        </span>
-                        <Users2 className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="space-y-1">
-                        {team.map((playerName) => (
-                          <div key={playerName} className="font-medium flex items-center gap-2">
-                            {playerName}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                {[suggestions.teamA, suggestions.teamB].map((team, tIdx) => (
+                  <div key={tIdx} className="p-4 bg-background rounded-lg border shadow-sm space-y-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Team {tIdx === 0 ? 'A' : 'B'}
+                      </span>
+                      <Users2 className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="space-y-1">
+                      {team.map((playerId: string) => {
+                        const player = playersInQueue.find(p => p.id === playerId);
+                        return (
+                          <div key={playerId} className="font-medium flex items-center gap-2">
+                            {player?.name || playerId}
                             <Badge variant="secondary" className="text-[10px] scale-90">
-                              {playersInQueue.find(p => p.name === playerName)?.skillLevel}
+                              {player?.skillLevel}
                             </Badge>
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                  <div className="absolute left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-2 py-1 rounded-full hidden md:block">VS</div>
-                </div>
-                <div className="bg-secondary/20 p-4 rounded-lg text-sm border italic">
-                  <span className="font-bold not-italic mr-1">Justification:</span>
-                  {suggestion.justification}
-                </div>
+                  </div>
+                ))}
+                <div className="absolute left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-2 py-1 rounded-full hidden md:block">VS</div>
               </div>
-            ))}
+              <div className="bg-secondary/20 p-4 rounded-lg text-sm border italic">
+                <span className="font-bold not-italic mr-1">Justification:</span>
+                {suggestions.analysis}
+              </div>
+            </div>
             <Button variant="outline" size="sm" onClick={() => setSuggestions(null)} className="w-full">
               Clear Suggestion
             </Button>

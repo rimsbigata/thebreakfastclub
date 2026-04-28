@@ -9,15 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 
 export default function SettingsPage() {
   const { 
     paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard, 
     wipeAllData, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
-    autoAdvanceEnabled, setAutoAdvanceEnabled
+    autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -96,15 +97,44 @@ export default function SettingsPage() {
     fileInputRef.current?.click();
   };
 
-  const handleResetAction = () => {
-    resetDailyBoard();
-    toast({ title: "Daily Board Reset" });
+  const handleResetAction = async () => {
+    try {
+      await resetDailyBoard();
+      toast({ title: "Daily Board Reset" });
+    } catch (error) {
+      toast({
+        title: "Reset failed",
+        description: error instanceof Error ? error.message : "Database update failed.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleWipeAction = () => {
+  const handleWipeAction = async () => {
     if (typeof window !== 'undefined' && window.confirm("Delete EVERYTHING? This cannot be undone.")) {
-      wipeAllData();
-      toast({ title: "All data wiped" });
+      try {
+        await wipeAllData();
+        toast({ title: "All data wiped" });
+      } catch (error) {
+        toast({
+          title: "Wipe failed",
+          description: error instanceof Error ? error.message : "Database update failed.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleRegenerateCode = async () => {
+    try {
+      const code = await regenerateQueueSessionCode();
+      toast({ title: "Session Code Updated", description: `New code: ${code}` });
+    } catch (error) {
+      toast({
+        title: "Could not update code",
+        description: error instanceof Error ? error.message : "Database update failed.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -145,7 +175,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 p-4 bg-secondary/10 rounded-xl border-2 border-dashed">
                   <div className="relative h-16 w-16 rounded-lg border bg-white overflow-hidden shadow-sm shrink-0">
                     <Image 
-                      src={clubLogo || "/src/assets/image/tbc_logo_loading.png"} 
+                      src={clubLogo || tbcLogo} 
                       alt="Club Logo" 
                       fill 
                       className="object-cover p-1" 
@@ -195,6 +225,23 @@ export default function SettingsPage() {
                 </div>
                 <Switch checked={autoAdvanceEnabled} onCheckedChange={setAutoAdvanceEnabled} />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <KeyRound className="h-4 w-4" /> Queue Session Code
+              </CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase">Share this code only with players joining today.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border-2 bg-secondary/10 p-5 text-center">
+                <p className="text-3xl font-black tracking-widest">{queueSessionCode}</p>
+              </div>
+              <Button onClick={handleRegenerateCode} variant="outline" className="w-full font-black uppercase text-[10px]">
+                Regenerate Code
+              </Button>
             </CardContent>
           </Card>
 

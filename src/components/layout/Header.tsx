@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useClub } from '@/context/ClubContext';
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { getSkillColor, SKILL_LEVELS_SHORT } from '@/lib/types';
 import Image from 'next/image';
+import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 
 export function Header() {
   const pathname = usePathname();
@@ -31,31 +32,32 @@ export function Header() {
 
   const navItems = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { label: 'Join', href: '/join', icon: UserPlus },
     { label: 'Players', href: '/players', icon: Users },
     { label: 'Rankings', href: '/rankings', icon: Trophy },
     { label: 'Fees', href: '/fees', icon: Banknote },
     { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  const logoSrc = clubLogo || "/src/assets/image/tbc_logo_loading.png";
+  const logoSrc = tbcLogo;
 
-  const handleQuickMatch = () => {
+  const handleQuickMatch = async () => {
     const availablePlayers = players.filter(p => p.status === 'available');
     const availableCourts = courts.filter(c => c.status === 'available');
     const result = generateDeterministicMatch(availablePlayers, availableCourts);
     
     if (result.matchCreated && result.teamA && result.teamB) {
-      startMatch({ teamA: result.teamA, teamB: result.teamB, courtId: result.courtId });
+      await startMatch({ teamA: result.teamA, teamB: result.teamB, courtId: result.courtId });
       toast({ title: result.courtId ? "Match Started!" : "Match Queued!" });
     } else {
       toast({ title: "Matchmaking Error", description: result.error || "Need 4 players.", variant: "destructive" });
     }
   };
 
-  const handleManualMatchSubmit = () => {
+  const handleManualMatchSubmit = async () => {
     if (selectedPlayerIds.length !== 4) return;
     
-    startMatch({
+    await startMatch({
       teamA: [selectedPlayerIds[0], selectedPlayerIds[1]],
       teamB: [selectedPlayerIds[2], selectedPlayerIds[3]],
       courtId: selectedCourtId === 'queue' ? undefined : selectedCourtId
@@ -80,8 +82,8 @@ export function Header() {
             />
           </div>
           <div className="hidden sm:block">
-            <h1 className="text-base font-black uppercase tracking-tighter leading-none text-primary">Command Center</h1>
-            <p className="text-[8px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">The Breakfast Club</p>
+            <h1 className="text-base font-black tracking-tighter leading-none" style={{color: '#f76a01'}}>The Breakfast Club</h1>
+            <p className="text-[8px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">Badminton Queuing System</p>
           </div>
         </Link>
 
@@ -188,9 +190,17 @@ export function Header() {
           variant="outline" 
           size="icon" 
           className="h-10 w-10 border-2 hover:bg-secondary"
-          onClick={() => {
-            addCourt();
-            toast({ title: "Court Added" });
+          onClick={async () => {
+            try {
+              await addCourt();
+              toast({ title: "Court Added" });
+            } catch (error) {
+              toast({
+                title: "Could not add court",
+                description: error instanceof Error ? error.message : "Database write failed.",
+                variant: "destructive"
+              });
+            }
           }}
         >
           <Plus className="h-5 w-5" />

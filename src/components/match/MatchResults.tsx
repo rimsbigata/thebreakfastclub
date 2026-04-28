@@ -51,7 +51,7 @@ export function MatchResults({ matches, players, limit }: MatchResultsProps) {
                   {format(new Date(match.timestamp), 'h:mm a')}
                 </div>
                 <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest">
-                  Court {match.courtId.slice(-1).toUpperCase()}
+                  Court {match.courtId ? match.courtId.slice(-1).toUpperCase() : 'Unknown'}
                 </Badge>
               </div>
               <CardContent className="p-4">
