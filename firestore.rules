@@ -68,6 +68,21 @@ service cloud.firestore {
         allow get, list: if isSignedIn();
         allow create, update, delete: if isAdmin();
       }
+
+      match /fees/{feeId} {
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if isAdmin();
+      }
+
+      match /paymentMethods/{methodId} {
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if isAdmin();
+      }
+
+      match /settings/{settingId} {
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if isAdmin();
+      }
     }
 
     // --- Legacy/Global Rules (Keep for compatibility) ---
