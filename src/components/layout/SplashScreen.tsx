@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import clubLogo from '@/assets/images/tbc_logo_loading.png';
 
 interface SplashScreenProps {
@@ -12,32 +11,25 @@ interface SplashScreenProps {
 
 export function SplashScreen({ logo }: SplashScreenProps) {
   const [mounted, setMounted] = useState(false);
-  //const [showLogo, setShowLogo] = useState(false);
   
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      //setShowLogo(true);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
-
   if (!mounted) {
     return (
       <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
-        {/* Empty state to prevent hydration mismatch */}
+        <div className="flex flex-col items-center">
+           <h1 className="text-3xl font-black tracking-tighter leading-none mb-1">The Breakfast Club</h1>
+        </div>
       </div>
     );
   }
 
-  const placeholderLogo = PlaceHolderImages.find(img => img.id === 'logo');
-  const displayLogo = logo || clubLogo.src || placeholderLogo?.imageUrl;
+  const displayLogo = logo || clubLogo.src;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white animate-in fade-in duration-300">
       <div className="relative mb-8 flex flex-col items-center">
         <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl animate-pulse">
           {displayLogo ? (
@@ -46,6 +38,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
               alt="Club Logo" 
               fill 
               className="object-cover"
+              priority
             />
           ) : (
             <div className="h-full w-full flex items-center justify-center bg-white/20">

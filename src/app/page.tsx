@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -14,38 +13,45 @@ export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If auth state is determined and no user exists, redirect to auth immediately
+    // 1. If auth state is determined and no user exists, go to Login
     if (!isUserLoading && !user) {
       router.replace('/auth');
       return;
     }
 
-    // If auth is settled and user exists, check profile and session
-    if (!isUserLoading && user) {
-      // If profile is also settled
-      if (!isProfileLoading) {
-        // If profile loaded successfully but no session, and user is a player
-        if (userProfile && !isSessionActive && userProfile.role === 'player') {
-          router.replace('/auth/session');
-        }
+    // 2. If user exists and profile is loaded
+    if (!isUserLoading && user && !isProfileLoading) {
+      // If no profile found in DB (edge case), could redirect to a setup page, 
+      // but for now we wait or show error.
+      if (!userProfile) return;
+
+      // 3. If Player and no active session, go to Session Gate
+      if (userProfile.role === 'player' && !isSessionActive) {
+        router.replace('/auth/session');
       }
     }
   }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, router]);
 
-  // Show splash only while determining initial auth state or profile state for an existing user
-  if (isUserLoading || (user && isProfileLoading)) {
+  // Priority 1: Show Splash while determining Auth state
+  if (isUserLoading) {
     return <SplashScreen />;
   }
 
-  // If we're waiting for redirect to auth
+  // Priority 2: If no user, we are redirecting to /auth (return null to hide content)
   if (!user) {
     return null;
   }
 
-  // If we're waiting for redirect to session (for players)
+  // Priority 3: Show Splash while loading user profile data
+  if (isProfileLoading) {
+    return <SplashScreen />;
+  }
+
+  // Priority 4: If Player and no session, we are redirecting to /auth/session
   if (userProfile?.role === 'player' && !isSessionActive) {
     return null;
   }
 
+  // Final: Render Dashboard (Admin or Player with Session)
   return <HomePage />;
 }
