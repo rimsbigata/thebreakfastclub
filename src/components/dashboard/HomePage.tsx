@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -9,11 +8,14 @@ import { Card, CardContent, CardHeader, CardFooter, CardTitle } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Trash2, Timer, Zap, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Trash2, Timer, Zap, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Trophy, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
+import { SKILL_LEVELS_SHORT, getSkillColor, MatchStatus } from '@/lib/types';
+import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
+import { generateDeterministicMatch } from '@/lib/matchmaking';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -60,8 +62,8 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 export default function HomePage() {
   const router = useRouter();
   const { 
-    courts, players, matches, deleteCourt, 
-    role, activeSession, isSessionActive, createSession, joinSession
+    courts, players, matches, endMatch, assignMatchToCourt, startMatch,
+    role, isSessionActive, createSession, joinSession
   } = useClub();
   
   const { toast } = useToast();
@@ -70,6 +72,17 @@ export default function HomePage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  const [loadingMatch, setLoadingMatch] = useState(false);
+
+  // Scoring Modal State
+  const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
+  const [activeModal, setActiveModal] = useState<'score' | 'zeroConfirm' | null>(null);
+  const [pendingScore, setPendingScore] = useState<{
+    courtId: string;
+    teamAScore: number;
+    teamBScore: number;
+    winner: 'teamA' | 'teamB';
+  } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -94,9 +107,59 @@ export default function HomePage() {
     return matches.filter(m => !m.isCompleted && !m.courtId).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [matches]);
 
-  if (!mounted) return null;
+  const handleScoreSubmit = (
+    teamAScore: number | undefined,
+    teamBScore: number | undefined,
+    winner: 'teamA' | 'teamB'
+  ) => {
+    if (!scoringCourtId) return;
 
-  const isAdmin = role === 'admin';
+    const a = teamAScore ?? 0;
+    const b = teamBScore ?? 0;
+    const losingScore = winner === 'teamA' ? b : a;
+
+    if (losingScore === 0) {
+      setPendingScore({ courtId: scoringCourtId, teamAScore: a, teamBScore: b, winner });
+      setActiveModal('zeroConfirm');
+      return;
+    }
+
+    endMatch(scoringCourtId, 'completed', winner, a, b);
+    setActiveModal(null);
+    setScoringCourtId(null);
+    toast({ title: "Match Recorded" });
+  };
+
+  const handleGenerateMatch = async () => {
+    const availablePlayers = players.filter(p => p.status === 'available');
+    const availableCourts = courts.filter(c => c.status === 'available');
+
+    if (availablePlayers.length < 4) {
+      toast({ title: "Not enough players", description: "Need at least 4 players on the bench.", variant: "destructive" });
+      return;
+    }
+
+    setLoadingMatch(true);
+    try {
+      const result = generateDeterministicMatch(availablePlayers, availableCourts);
+
+      if (result.matchCreated && result.teamA && result.teamB) {
+        await startMatch({
+          teamA: result.teamA,
+          teamB: result.teamB,
+          courtId: result.courtId,
+        });
+        toast({ title: "Match Started!", description: result.analysis });
+      } else {
+        toast({ title: "No optimal match", description: result.error || "Logic engine couldn't find a balance." });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Matchmaking Error", description: "Failed to generate match logic.", variant: "destructive" });
+    } finally {
+      setLoadingMatch(false);
+    }
+  };
 
   const handleCreateSession = async () => {
     setIsCreating(true);
@@ -115,7 +178,6 @@ export default function HomePage() {
     if (!joinCode) return;
     setIsJoining(true);
     try {
-      // Admins join as facilitator by default (not in bench)
       await joinSession(joinCode, false);
       toast({ title: "Session Joined as Admin" });
       setJoinCode('');
@@ -141,8 +203,12 @@ export default function HomePage() {
     }
   };
 
+  if (!mounted) return null;
+
+  const isAdmin = role === 'admin';
+
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-background overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-background overflow-hidden relative">
       {!isSessionActive && (
         <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="max-w-md w-full border-2 border-primary/20 shadow-2xl">
@@ -201,7 +267,7 @@ export default function HomePage() {
         <div className="md:col-span-3 border-r flex flex-col bg-secondary/5 min-h-0">
           <div className="p-3 bg-card border-b flex items-center justify-between sticky top-0 z-10 gap-2 h-14">
             <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2 shrink-0">
-              <User className="h-4 w-4 text-primary" /> The Bench
+              <User className="h-4 w-4 text-primary" /> Bench
             </h2>
             <div className="flex items-center gap-1.5 overflow-hidden">
               <Select value={sortOption} onValueChange={setSortOption}>
@@ -242,6 +308,14 @@ export default function HomePage() {
               )}
             </div>
           </ScrollArea>
+          {isAdmin && (
+            <div className="p-3 bg-card border-t">
+              <Button onClick={handleGenerateMatch} disabled={loadingMatch || sortedAvailablePlayers.length < 4} className="w-full gap-2 font-black uppercase">
+                {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />}
+                Quick Match
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* MATCH QUEUE */}
@@ -264,32 +338,47 @@ export default function HomePage() {
                        #{index + 1}
                     </Badge>
                   </div>
-                  <div className="p-3 pt-6 flex items-center justify-between gap-2">
-                    <div className="flex flex-col space-y-1.5 flex-1 min-w-0 border-l-4 border-orange-500/20 pl-2">
-                      <span className="text-[8px] font-black uppercase text-orange-500 opacity-50">T1</span>
-                      {match.teamA.map(id => {
-                        const p = players.find(player => player.id === id);
-                        return (
-                          <div key={id} className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
-                            {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
-                          </div>
-                        );
-                      })}
+                  <div className="p-3 pt-6 flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col space-y-1.5 flex-1 min-w-0 border-l-4 border-orange-500/20 pl-2">
+                        {match.teamA.map(id => {
+                          const p = players.find(player => player.id === id);
+                          return (
+                            <div key={id} className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="text-[9px] font-black opacity-30 px-1 shrink-0">VS</div>
+                      <div className="flex flex-col space-y-1.5 flex-1 min-w-0 items-end text-right border-r-4 border-orange-500/20 pr-2">
+                        {match.teamB.map(id => {
+                          const p = players.find(player => player.id === id);
+                          return (
+                            <div key={id} className="flex items-center gap-1.5 min-w-0 justify-end">
+                              <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="text-[9px] font-black opacity-30 px-1 shrink-0">VS</div>
-                    <div className="flex flex-col space-y-1.5 flex-1 min-w-0 items-end text-right border-r-4 border-orange-500/20 pr-2">
-                      <span className="text-[8px] font-black uppercase text-orange-500 opacity-50">T2</span>
-                      {match.teamB.map(id => {
-                        const p = players.find(player => player.id === id);
-                        return (
-                          <div key={id} className="flex items-center gap-1.5 min-w-0 justify-end">
-                            {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
-                            <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {isAdmin && (
+                      <div className="pt-2 border-t border-orange-500/10">
+                        <Select onValueChange={(courtId) => assignMatchToCourt(match.id, courtId)}>
+                          <SelectTrigger className="h-8 text-[9px] font-black uppercase tracking-widest bg-orange-500/10 border-orange-500/20 text-orange-600">
+                            <SelectValue placeholder="Assign Court" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {courts.filter(c => c.status === 'available').map(c => (
+                              <SelectItem key={c.id} value={c.id} className="text-[9px] font-bold uppercase">{c.name}</SelectItem>
+                            ))}
+                            {courts.filter(c => c.status === 'available').length === 0 && (
+                              <SelectItem value="none" disabled>No Courts Free</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -304,7 +393,7 @@ export default function HomePage() {
         <div className="md:col-span-6 flex flex-col bg-secondary/5 min-h-0">
           <div className="p-3 bg-card border-b flex items-center justify-between h-14">
             <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
-              <DoorOpen className="h-4 w-4 text-green-600" /> Active Courts
+              <DoorOpen className="h-4 w-4 text-green-600" /> Courts
             </h2>
             <Badge variant="outline" className="font-black h-6 px-2.5 text-compact">{courts.filter(c => c.status === 'occupied').length}/{courts.length}</Badge>
           </div>
@@ -312,54 +401,48 @@ export default function HomePage() {
             <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pb-24">
               {courts.map(court => {
                 const match = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
-                const teamAScore = match?.teamAScore || 0;
-                const teamBScore = match?.teamBScore || 0;
+                const isOccupied = court.status === 'occupied';
                 
                 return (
                   <Card 
                     key={court.id} 
                     className={cn(
-                      "border-2 transition-all duration-200 overflow-hidden flex flex-col min-h-[380px]",
-                      court.status === 'occupied' ? "bg-card border-primary/20" : "bg-muted/10 border-border"
+                      "border-2 transition-all duration-200 overflow-hidden flex flex-col min-h-[340px]",
+                      isOccupied ? "bg-card border-primary/20" : "bg-muted/10 border-border"
                     )}
                   >
-                    <div className={cn("p-2 px-3 flex justify-between items-center border-b", court.status === 'occupied' ? "bg-primary/5" : "bg-muted/20")}>
+                    <div className={cn("p-2 px-3 flex justify-between items-center border-b", isOccupied ? "bg-primary/5" : "bg-muted/20")}>
                       <span className="text-compact font-black uppercase truncate max-w-[120px]">{court.name}</span>
                       <Badge variant={court.status === 'available' ? 'outline' : 'default'} className="text-[9px] font-black uppercase px-2 h-5 shrink-0">
                         {court.status}
                       </Badge>
                     </div>
                     <CardContent className="p-3 flex-1 flex flex-col space-y-3 min-h-0">
-                      {court.status === 'occupied' && match ? (
+                      {isOccupied && match ? (
                         <>
                           <div className="flex justify-between items-center mb-1">
                             <LiveTimer startTime={match.startTime || match.timestamp} />
                           </div>
                           <div className="grid grid-cols-1 gap-2 flex-1">
-                            <div className={cn("p-3 rounded-lg border-l-4 space-y-1.5 transition-colors relative", teamAScore > teamBScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/10")}>
-                              <span className="text-[8px] font-black uppercase text-primary opacity-50">Team 1 (T1)</span>
+                            <div className="p-3 rounded-lg border-l-4 border-primary/20 bg-primary/5 space-y-1.5">
                               {match.teamA.map(id => {
                                 const p = players.find(player => player.id === id);
                                 return (
                                   <div key={id} className="flex justify-between items-center gap-1">
-                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                      <span className="text-compact font-black truncate flex-1 leading-tight">{p?.name}</span>
-                                      {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
-                                    </div>
+                                    <span className="text-compact font-black truncate flex-1 leading-tight">{p?.name}</span>
+                                    {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                   </div>
                                 );
                               })}
                             </div>
-                            <div className={cn("p-3 rounded-lg border-l-4 space-y-1.5 transition-colors relative", teamBScore > teamAScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/10")}>
-                              <span className="text-[8px] font-black uppercase text-primary opacity-50">Team 2 (T2)</span>
+                            <div className="flex items-center justify-center py-1 opacity-20"><span className="text-[10px] font-black">VS</span></div>
+                            <div className="p-3 rounded-lg border-l-4 border-primary/20 bg-primary/5 space-y-1.5">
                               {match.teamB.map(id => {
                                 const p = players.find(player => player.id === id);
                                 return (
                                   <div key={id} className="flex justify-between items-center gap-1">
-                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                      <span className="text-compact font-black truncate flex-1 leading-tight">{p?.name}</span>
-                                      {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
-                                    </div>
+                                    <span className="text-compact font-black truncate flex-1 leading-tight">{p?.name}</span>
+                                    {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                   </div>
                                 );
                               })}
@@ -375,9 +458,23 @@ export default function HomePage() {
                     </CardContent>
                     
                     <CardFooter className="p-2.5 border-t mt-auto gap-2">
-                      <p className="text-[8px] font-bold uppercase opacity-30 text-center w-full">
-                        {isAdmin ? "Admin Controls via Command Center" : "View Only Mode"}
-                      </p>
+                      {isOccupied && isAdmin ? (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full font-black uppercase text-[10px] h-9 border-2"
+                          onClick={() => {
+                            setScoringCourtId(court.id);
+                            setActiveModal('score');
+                          }}
+                        >
+                          End Match & Score
+                        </Button>
+                      ) : (
+                        <p className="text-[8px] font-bold uppercase opacity-30 text-center w-full">
+                          {isOccupied ? "Match Ongoing" : "Ready for Play"}
+                        </p>
+                      )}
                     </CardFooter>
                   </Card>
                 );
@@ -386,6 +483,65 @@ export default function HomePage() {
           </ScrollArea>
         </div>
       </div>
+
+      {/* MODALS */}
+      {scoringCourtId && (() => {
+        const court = courts.find(c => c.id === scoringCourtId);
+        const match = matches.find(m => m.id === court?.currentMatchId);
+        if (!match) return null;
+
+        const teamA = players.filter(p => match.teamA.includes(p.id));
+        const teamB = players.filter(p => match.teamB.includes(p.id));
+
+        return (
+          <MatchScoreDialog
+            open={activeModal === 'score'}
+            onOpenChange={(open) => {
+              if (!open) {
+                setActiveModal(null);
+                setScoringCourtId(null);
+              }
+            }}
+            teamA={teamA}
+            teamB={teamB}
+            onScoreSubmit={handleScoreSubmit}
+            onSkip={() => {
+              endMatch(scoringCourtId, 'completed');
+              setActiveModal(null);
+              setScoringCourtId(null);
+            }}
+          />
+        );
+      })()}
+
+      {activeModal === 'zeroConfirm' && (
+        <Dialog open={true} onOpenChange={(open) => !open && setActiveModal(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-black uppercase">Confirm Zero Score</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm font-medium">The losing team has a score of 0. Is this correct?</p>
+            <div className="flex gap-2 mt-4">
+              <Button
+                className="flex-1 font-black uppercase"
+                onClick={() => {
+                  if (pendingScore) {
+                    endMatch(pendingScore.courtId, 'completed', pendingScore.winner, pendingScore.teamAScore, pendingScore.teamBScore);
+                  }
+                  setActiveModal(null);
+                  setScoringCourtId(null);
+                  toast({ title: "Results Confirmed" });
+                }}
+              >
+                Yes, Confirm
+              </Button>
+              <Button variant="outline" className="flex-1 font-black uppercase" onClick={() => setActiveModal('score')}>
+                Edit Score
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
