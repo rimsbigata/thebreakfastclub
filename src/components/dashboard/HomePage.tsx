@@ -1,16 +1,14 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useClub } from '@/context/ClubContext';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardFooter, CardTitle } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Timer, Play, Zap, ArrowLeftRight, User, DoorOpen, ListOrdered, X, Trophy, Ban, ShieldAlert } from 'lucide-react';
+import { Trash2, Timer, Zap, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -59,15 +57,16 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const { 
-    courts, players, matches, deleteCourt, startMatch, 
-    endMatch, assignMatchToCourt, addCourt, deleteMatch,
-    role, activeSession, isSessionActive
+    courts, players, matches, deleteCourt, 
+    role, activeSession, isSessionActive, createSession
   } = useClub();
   
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [sortOption, setSortOption] = useState<string>('default');
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -96,11 +95,23 @@ export default function HomePage() {
 
   const isAdmin = role === 'admin';
 
+  const handleCreateSession = async () => {
+    setIsCreating(true);
+    try {
+      const code = await createSession();
+      toast({ title: "Session Created!", description: `Code: ${code}` });
+    } catch (error: any) {
+      toast({ title: "Failed to create", description: error.message, variant: "destructive" });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-background overflow-hidden">
       {!isSessionActive && (
         <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="max-w-md border-2 border-primary/20 shadow-2xl">
+          <Card className="max-w-md w-full border-2 border-primary/20 shadow-2xl">
             <CardHeader className="text-center">
               <ShieldAlert className="mx-auto h-12 w-12 text-primary mb-2" />
               <CardTitle className="text-xl font-black uppercase">No Active Session</CardTitle>
@@ -108,6 +119,17 @@ export default function HomePage() {
             <CardContent className="text-center text-sm font-bold opacity-60">
               Please join or create a session to access the command center.
             </CardContent>
+            <CardFooter className="flex flex-col gap-3">
+              {isAdmin ? (
+                <Button className="w-full h-12 font-black uppercase" onClick={handleCreateSession} disabled={isCreating}>
+                  {isCreating ? "Initializing..." : "Start New Session"} <PlayCircle className="ml-2 h-5 w-5" />
+                </Button>
+              ) : (
+                <Button className="w-full h-12 font-black uppercase" variant="outline" onClick={() => router.push('/auth/session')}>
+                  Go to Session Gate <KeyRound className="ml-2 h-5 w-5" />
+                </Button>
+              )}
+            </CardFooter>
           </Card>
         </div>
       )}
@@ -181,16 +203,6 @@ export default function HomePage() {
                        #{index + 1}
                     </Badge>
                   </div>
-                  {isAdmin && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive hover:text-white z-10"
-                      onClick={() => deleteMatch(match.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
                   <div className="p-3 pt-6 flex items-center justify-between gap-2">
                     <div className="flex flex-col space-y-1.5 flex-1 min-w-0 border-l-4 border-orange-500/20 pl-2">
                       <span className="text-[8px] font-black uppercase text-orange-500 opacity-50">T1</span>
@@ -302,17 +314,9 @@ export default function HomePage() {
                     </CardContent>
                     
                     <CardFooter className="p-2.5 border-t mt-auto gap-2">
-                      {isAdmin && (
-                        <div className="flex w-full justify-between items-center px-1 h-10">
-                          <p className="text-[9px] font-black uppercase opacity-40 truncate">Admin Tools Active</p>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white shrink-0" onClick={() => deleteCourt(court.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                      {!isAdmin && (
-                         <p className="text-[8px] font-bold uppercase opacity-30 text-center w-full">View Only</p>
-                      )}
+                      <p className="text-[8px] font-bold uppercase opacity-30 text-center w-full">
+                        {isAdmin ? "Admin Controls via Command Center" : "View Only Mode"}
+                      </p>
                     </CardFooter>
                   </Card>
                 );

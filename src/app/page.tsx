@@ -22,10 +22,7 @@ export default function RootPage() {
 
     // 2. If user exists and critical profile/role data is loaded
     if (!isUserLoading && user && !isProfileLoading && !isAdminRoleLoading) {
-      // If no profile found in DB (edge case), wait for it or redirect
-      if (!userProfile) return;
-
-      // 3. Access Control Logic
+      // Access Control Logic
       // Admins are never redirected to session gate - they can see the dashboard anytime.
       // Players without an active session are forced to the session gate.
       if (role === 'player' && !isSessionActive) {
