@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -15,8 +14,6 @@ import {
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 interface ClubSettings {
   clubLogo: string | null;
@@ -45,6 +42,9 @@ interface ClubContextType {
   endSession: () => Promise<void>;
   
   // Admin Controls
+  addPlayer: (input: { name: string; skillLevel: number; playStyle: string }) => Promise<void>;
+  updatePlayer: (id: string, updates: Partial<Player>) => Promise<void>;
+  deletePlayer: (id: string) => Promise<void>;
   addCourt: (name?: string) => Promise<string>;
   deleteCourt: (id: string) => Promise<void>;
   startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted' | 'status' | 'teamASnapshots' | 'teamBSnapshots'>) => Promise<void>;
@@ -92,7 +92,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   }, [firestore, user?.uid]);
   const { data: adminRoleData, isLoading: isAdminRoleLoading } = useDoc(adminRoleRef);
 
-  // Clear state on logout to prevent permission errors on listeners
   useEffect(() => {
     if (!user) {
       setActiveSession(null);
@@ -222,6 +221,37 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setActiveSession(null);
   };
 
+  const addPlayer = async (input: { name: string; skillLevel: number; playStyle: string }) => {
+    if (!firestore || !activeSession?.id) return;
+    const userId = 'member_' + Math.random().toString(36).substr(2, 9);
+    const playerRef = doc(firestore, 'sessions', activeSession.id, 'players', userId);
+    const playerData = {
+      userId,
+      sessionId: activeSession.id,
+      status: 'available',
+      joinedAt: new Date().toISOString(),
+      lastAvailableAt: Date.now(),
+      name: input.name,
+      skillLevel: input.skillLevel
+    };
+    await setDoc(playerRef, playerData);
+  };
+
+  const updatePlayer = async (id: string, updates: Partial<Player>) => {
+    if (!firestore || !activeSession?.id) return;
+    const playerRef = doc(firestore, 'sessions', activeSession.id, 'players', id);
+    const sessionUpdates: any = {};
+    if (updates.name) sessionUpdates.name = updates.name;
+    if (updates.skillLevel) sessionUpdates.skillLevel = updates.skillLevel;
+    if (updates.status) sessionUpdates.status = updates.status;
+    await updateDoc(playerRef, sessionUpdates);
+  };
+
+  const deletePlayer = async (id: string) => {
+    if (!firestore || !activeSession?.id) return;
+    await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'players', id));
+  };
+
   const addCourt = async (name?: string) => {
     if (!firestore || !activeSession?.id) return '';
     const courtId = Math.random().toString(36).substr(2, 9);
@@ -341,6 +371,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       userProfile, activeSession, players, courts, matches, fees, paymentMethods, role,
       isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, currentPlayer,
       joinSession, createSession, regenerateQueueSessionCode, endSession,
+      addPlayer, updatePlayer, deletePlayer,
       addCourt, deleteCourt, startMatch, endMatch, deleteMatch, assignMatchToCourt,
       updateFee, togglePayment, addPaymentMethod, deletePaymentMethod,
       clubLogo, setClubLogo, defaultWinningScore, setDefaultWinningScore,

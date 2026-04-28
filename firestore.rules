@@ -53,9 +53,9 @@ service cloud.firestore {
       match /players/{userId} {
         // Everyone in the club can see who is in a session
         allow get, list: if isSignedIn();
-        // Users can join a session (create their own entry)
-        allow create: if isOwner(userId);
-        // Users can update their own status (available/resting), admins can do anything
+        // Users can join a session, and admins can add players to the roster
+        allow create: if isOwner(userId) || isAdmin();
+        // Users can update their own status, admins can manage anyone
         allow update, delete: if isOwner(userId) || isAdmin();
       }
 
@@ -83,31 +83,6 @@ service cloud.firestore {
         allow get, list: if isSignedIn();
         allow create, update, delete: if isAdmin();
       }
-    }
-
-    // --- Legacy/Global Rules (Keep for compatibility) ---
-
-    match /courts/{courtId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /queues/{queueId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
-
-      match /queueEntries/{queueEntryId} {
-        allow get, list: if isSignedIn();
-        allow create: if isOwner(request.resource.data.userId);
-        allow update, delete: if isExistingOwner(resource.data.userId) || isAdmin();
-      }
-    }
-
-    match /matches/{matchId} {
-      allow get, list: if (isSignedIn() && request.auth.uid in resource.data.playerIds) || resource.data.status == 'Completed';
-      allow create: if isSignedIn() && request.auth.uid in request.resource.data.playerIds;
-      allow update: if (isSignedIn() && request.auth.uid in resource.data.playerIds) || isAdmin();
-      allow delete: if isAdmin();
     }
 
     // --- Admin Roles (System Collection) ---
