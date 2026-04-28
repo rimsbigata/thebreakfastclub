@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -9,7 +10,7 @@ import { SplashScreen } from '@/components/layout/SplashScreen';
 
 export default function RootPage() {
   const { user, isUserLoading } = useUser();
-  const { userProfile, isSessionActive, isProfileLoading } = useClub();
+  const { userProfile, isSessionActive, isProfileLoading, role, isAdminRoleLoading } = useClub();
   const router = useRouter();
 
   useEffect(() => {
@@ -19,36 +20,32 @@ export default function RootPage() {
       return;
     }
 
-    // 2. If user exists and profile is loaded
-    if (!isUserLoading && user && !isProfileLoading) {
-      // If no profile found in DB (edge case), could redirect to a setup page, 
-      // but for now we wait or show error.
+    // 2. If user exists and critical profile/role data is loaded
+    if (!isUserLoading && user && !isProfileLoading && !isAdminRoleLoading) {
+      // If no profile found in DB (edge case), wait for it or redirect
       if (!userProfile) return;
 
-      // 3. If Player and no active session, go to Session Gate
-      if (userProfile.role === 'player' && !isSessionActive) {
+      // 3. Access Control Logic
+      // Admins are never redirected to session gate - they can see the dashboard anytime.
+      // Players without an active session are forced to the session gate.
+      if (role === 'player' && !isSessionActive) {
         router.replace('/auth/session');
       }
     }
-  }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, router]);
+  }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, role, isAdminRoleLoading, router]);
 
-  // Priority 1: Show Splash while determining Auth state
-  if (isUserLoading) {
+  // Priority 1: Show Splash while determining basic state
+  if (isUserLoading || isProfileLoading || isAdminRoleLoading) {
     return <SplashScreen />;
   }
 
-  // Priority 2: If no user, we are redirecting to /auth (return null to hide content)
+  // Priority 2: If no user, we are redirecting to /auth
   if (!user) {
     return null;
   }
 
-  // Priority 3: Show Splash while loading user profile data
-  if (isProfileLoading) {
-    return <SplashScreen />;
-  }
-
-  // Priority 4: If Player and no session, we are redirecting to /auth/session
-  if (userProfile?.role === 'player' && !isSessionActive) {
+  // Priority 3: If Player and no session, we are redirecting to /auth/session
+  if (role === 'player' && !isSessionActive) {
     return null;
   }
 

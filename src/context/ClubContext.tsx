@@ -25,6 +25,7 @@ interface ClubContextType {
   role: 'player' | 'admin' | null;
   isSessionActive: boolean;
   isProfileLoading: boolean;
+  isAdminRoleLoading: boolean;
   
   // Auth & Session
   joinSession: (code: string) => Promise<void>;
@@ -53,13 +54,19 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [activeSession, setActiveSession] = useState<QueueSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
-  // Memoized query for User Profile - using 'userProfiles' collection to match security rules
+  // 1. Load basic profile
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return doc(firestore, 'userProfiles', user.uid);
   }, [firestore, user?.uid]);
-  
   const { data: profileData, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+
+  // 2. Check for administrative role (overrides profile role)
+  const adminRoleRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'admin_roles', user.uid);
+  }, [firestore, user?.uid]);
+  const { data: adminRoleData, isLoading: isAdminRoleLoading } = useDoc(adminRoleRef);
 
   useEffect(() => {
     if (profileData) {
@@ -87,6 +94,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     return collection(firestore, 'sessions', activeSession.id, 'matches');
   }, [firestore, activeSession?.id]);
   const { data: sessionMatches } = useCollection<Match>(matchesQuery);
+
+  // Determine role: admin_roles collection has priority
+  const role: 'player' | 'admin' | null = adminRoleData ? 'admin' : (userProfile?.role as any || null);
 
   // Map SessionPlayers to Player objects
   const players: Player[] = (sessionPlayers || []).map(sp => ({
@@ -144,7 +154,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const createSession = async () => {
-    if (!firestore || !user?.uid || userProfile?.role !== 'admin') {
+    if (!firestore || !user?.uid || role !== 'admin') {
       throw new Error('Unauthorized');
     }
 
@@ -344,9 +354,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       players,
       courts,
       matches,
-      role: userProfile?.role || null,
+      role,
       isSessionActive: !!activeSession,
       isProfileLoading,
+      isAdminRoleLoading,
       joinSession,
       createSession,
       addCourt,
