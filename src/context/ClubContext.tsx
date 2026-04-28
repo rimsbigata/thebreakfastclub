@@ -13,8 +13,6 @@ import {
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { SplashScreen } from '@/components/layout/SplashScreen';
-import { usePathname } from 'next/navigation';
 
 interface ClubContextType {
   userProfile: UserProfile | null;
@@ -24,6 +22,7 @@ interface ClubContextType {
   matches: Match[];
   role: 'player' | 'admin' | null;
   isSessionActive: boolean;
+  isProfileLoading: boolean;
   
   // Auth & Session
   joinSession: (code: string) => Promise<void>;
@@ -47,8 +46,7 @@ const ClubContext = createContext<ClubContextType | undefined>(undefined);
 
 export function ClubProvider({ children }: { children: ReactNode }) {
   const { firestore } = useFirebase();
-  const { user, isUserLoading } = useUser();
-  const pathname = usePathname();
+  const { user } = useUser();
 
   const [activeSession, setActiveSession] = useState<QueueSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -64,8 +62,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (profileData) {
       setUserProfile(profileData);
+    } else if (!user) {
+      setUserProfile(null);
     }
-  }, [profileData]);
+  }, [profileData, user]);
 
   // Session Data Hooks
   const playersQuery = useMemoFirebase(() => {
@@ -242,14 +242,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // Only block with splash screen if we are authenticated and waiting for profile/essential context
-  const isAuthPage = pathname?.startsWith('/auth');
-  const isTransitioning = isUserLoading || (user && isProfileLoading);
-
-  if (isTransitioning && !isAuthPage) {
-    return <SplashScreen />;
-  }
-
   return (
     <ClubContext.Provider value={{
       userProfile,
@@ -259,6 +251,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       matches,
       role: userProfile?.role || null,
       isSessionActive: !!activeSession,
+      isProfileLoading,
       joinSession,
       createSession,
       addCourt,
