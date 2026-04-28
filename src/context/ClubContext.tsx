@@ -92,48 +92,50 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   }, [firestore, user?.uid]);
   const { data: adminRoleData, isLoading: isAdminRoleLoading } = useDoc(adminRoleRef);
 
+  // Clear state on logout to prevent permission errors on listeners
   useEffect(() => {
-    if (profileData) {
-      setUserProfile(profileData);
-    } else if (!user) {
+    if (!user) {
+      setActiveSession(null);
       setUserProfile(null);
+    } else if (profileData) {
+      setUserProfile(profileData);
     }
   }, [profileData, user]);
 
   const playersQuery = useMemoFirebase(() => {
-    if (!firestore || !activeSession?.id) return null;
+    if (!firestore || !activeSession?.id || !user?.uid) return null;
     return collection(firestore, 'sessions', activeSession.id, 'players');
-  }, [firestore, activeSession?.id]);
+  }, [firestore, activeSession?.id, user?.uid]);
   const { data: sessionPlayers } = useCollection<SessionPlayer>(playersQuery);
 
   const courtsQuery = useMemoFirebase(() => {
-    if (!firestore || !activeSession?.id) return null;
+    if (!firestore || !activeSession?.id || !user?.uid) return null;
     return collection(firestore, 'sessions', activeSession.id, 'courts');
-  }, [firestore, activeSession?.id]);
+  }, [firestore, activeSession?.id, user?.uid]);
   const { data: sessionCourts } = useCollection<Court>(courtsQuery);
 
   const matchesQuery = useMemoFirebase(() => {
-    if (!firestore || !activeSession?.id) return null;
+    if (!firestore || !activeSession?.id || !user?.uid) return null;
     return collection(firestore, 'sessions', activeSession.id, 'matches');
-  }, [firestore, activeSession?.id]);
+  }, [firestore, activeSession?.id, user?.uid]);
   const { data: sessionMatches } = useCollection<Match>(matchesQuery);
 
   const feesQuery = useMemoFirebase(() => {
-    if (!firestore || !activeSession?.id) return null;
+    if (!firestore || !activeSession?.id || !user?.uid) return null;
     return collection(firestore, 'sessions', activeSession.id, 'fees');
-  }, [firestore, activeSession?.id]);
+  }, [firestore, activeSession?.id, user?.uid]);
   const { data: sessionFees } = useCollection<Fee>(feesQuery);
 
   const paymentMethodsQuery = useMemoFirebase(() => {
-    if (!firestore || !activeSession?.id) return null;
+    if (!firestore || !activeSession?.id || !user?.uid) return null;
     return collection(firestore, 'sessions', activeSession.id, 'paymentMethods');
-  }, [firestore, activeSession?.id]);
+  }, [firestore, activeSession?.id, user?.uid]);
   const { data: sessionPaymentMethods } = useCollection<PaymentMethod>(paymentMethodsQuery);
 
   const settingsRef = useMemoFirebase(() => {
-    if (!firestore || !activeSession?.id) return null;
+    if (!firestore || !activeSession?.id || !user?.uid) return null;
     return doc(firestore, 'sessions', activeSession.id, 'settings', 'config');
-  }, [firestore, activeSession?.id]);
+  }, [firestore, activeSession?.id, user?.uid]);
   const { data: sessionSettings } = useDoc<ClubSettings>(settingsRef);
 
   const role: 'player' | 'admin' | null = adminRoleData ? 'admin' : (userProfile?.role as any || null);
