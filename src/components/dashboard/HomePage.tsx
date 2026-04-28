@@ -8,14 +8,13 @@ import { Card, CardContent, CardHeader, CardFooter, CardTitle } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trash2, Timer, Zap, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Trophy, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Timer, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { SKILL_LEVELS_SHORT, getSkillColor, MatchStatus } from '@/lib/types';
+import { SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
-import { generateDeterministicMatch } from '@/lib/matchmaking';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -62,7 +61,7 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 export default function HomePage() {
   const router = useRouter();
   const { 
-    courts, players, matches, endMatch, assignMatchToCourt, startMatch,
+    courts, players, matches, endMatch, assignMatchToCourt,
     role, isSessionActive, createSession, joinSession
   } = useClub();
   
@@ -72,7 +71,6 @@ export default function HomePage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [joinCode, setJoinCode] = useState('');
-  const [loadingMatch, setLoadingMatch] = useState(false);
 
   // Scoring Modal State
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
@@ -128,37 +126,6 @@ export default function HomePage() {
     setActiveModal(null);
     setScoringCourtId(null);
     toast({ title: "Match Recorded" });
-  };
-
-  const handleGenerateMatch = async () => {
-    const availablePlayers = players.filter(p => p.status === 'available');
-    const availableCourts = courts.filter(c => c.status === 'available');
-
-    if (availablePlayers.length < 4) {
-      toast({ title: "Not enough players", description: "Need at least 4 players on the bench.", variant: "destructive" });
-      return;
-    }
-
-    setLoadingMatch(true);
-    try {
-      const result = generateDeterministicMatch(availablePlayers, availableCourts);
-
-      if (result.matchCreated && result.teamA && result.teamB) {
-        await startMatch({
-          teamA: result.teamA,
-          teamB: result.teamB,
-          courtId: result.courtId,
-        });
-        toast({ title: "Match Started!", description: result.analysis });
-      } else {
-        toast({ title: "No optimal match", description: result.error || "Logic engine couldn't find a balance." });
-      }
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Matchmaking Error", description: "Failed to generate match logic.", variant: "destructive" });
-    } finally {
-      setLoadingMatch(false);
-    }
   };
 
   const handleCreateSession = async () => {
@@ -308,14 +275,6 @@ export default function HomePage() {
               )}
             </div>
           </ScrollArea>
-          {isAdmin && (
-            <div className="p-3 bg-card border-t">
-              <Button onClick={handleGenerateMatch} disabled={loadingMatch || sortedAvailablePlayers.length < 4} className="w-full gap-2 font-black uppercase">
-                {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />}
-                Quick Match
-              </Button>
-            </div>
-          )}
         </div>
 
         {/* MATCH QUEUE */}

@@ -1,15 +1,13 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Zap, Loader2, Trophy, Trash2 } from 'lucide-react';
-import { generateDeterministicMatch } from '@/lib/matchmaking';
+import { Plus, Trophy, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
@@ -17,9 +15,8 @@ import { MatchResults } from '@/components/match/MatchResults';
 import { cn } from '@/lib/utils';
 
 export default function CourtsPage() {
-  const { courts, players, matches, addCourt, deleteCourt, startMatch, endMatch } = useClub();
+  const { courts, players, matches, addCourt, deleteCourt, endMatch } = useClub();
   const { toast } = useToast();
-  const [loadingMatch, setLoadingMatch] = useState(false);
   const [newCourtName, setNewCourtName] = useState('');
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
 
@@ -37,7 +34,6 @@ export default function CourtsPage() {
   const handleAddCourt = async () => {
     if (!newCourtName) return;
 
-    // Validation: Duplicate check
     const formattedName = `Court ${newCourtName}`;
     const exists = courts.some(c => c.name.toLowerCase() === formattedName.toLowerCase());
 
@@ -72,7 +68,6 @@ export default function CourtsPage() {
 
     const a = teamAScore ?? 0;
     const b = teamBScore ?? 0;
-
     const losingScore = winner === 'teamA' ? b : a;
 
     if (losingScore === 0) {
@@ -90,43 +85,7 @@ export default function CourtsPage() {
     endMatch(scoringCourtId, 'completed', winner, a, b);
     setActiveModal(null);
     setScoringCourtId(null);
-
     toast({ title: "Match Recorded" });
-  };
-
-  const handleGenerateMatch = async () => {
-    const availablePlayers = players.filter(p => p.status === 'available');
-    const availableCourts = courts.filter(c => c.status === 'available');
-
-    if (availablePlayers.length < 4) {
-      toast({ title: "Not enough players", description: "Need at least 4 available players.", variant: "destructive" });
-      return;
-    }
-    if (availableCourts.length === 0) {
-      toast({ title: "No courts", description: "All courts are occupied.", variant: "destructive" });
-      return;
-    }
-
-    setLoadingMatch(true);
-    try {
-      const result = generateDeterministicMatch(availablePlayers, availableCourts);
-
-      if (result.matchCreated && result.courtId && result.teamA && result.teamB) {
-        await startMatch({
-          teamA: result.teamA,
-          teamB: result.teamB,
-          courtId: result.courtId,
-        });
-        toast({ title: "Match Started!", description: result.analysis });
-      } else {
-        toast({ title: "No optimal match", description: result.error || "Logic engine couldn't find a balance." });
-      }
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Matchmaking Error", description: "Failed to generate match logic.", variant: "destructive" });
-    } finally {
-      setLoadingMatch(false);
-    }
   };
 
   const handleEditZeroScore = () => {
@@ -139,10 +98,6 @@ export default function CourtsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Courts</h1>
         <div className="flex gap-2">
-          <Button onClick={handleGenerateMatch} disabled={loadingMatch || !courts.length} className="gap-2 bg-primary transition-all active:scale-95 shadow-md shadow-primary/10">
-            {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />}
-            Quick Match
-          </Button>
           <Dialog>
             <DialogTrigger asChild>
               <Button size="icon" variant="outline" className="transition-all hover:bg-secondary"><Plus className="h-4 w-4" /></Button>
@@ -225,12 +180,10 @@ export default function CourtsPage() {
         ))}
       </div>
 
-      {/* Match History Section */}
       <section className="pt-8 animate-in slide-in-from-bottom-8 duration-1000">
         <MatchResults matches={matches} players={players} limit={10} />
       </section>
 
-      {/* Score Modal */}
       {scoringCourtId && (() => {
         const court = courts.find(c => c.id === scoringCourtId);
         const match = matches.find(m => m.id === court?.currentMatchId);
@@ -255,18 +208,13 @@ export default function CourtsPage() {
         );
       })()}
 
-      {/* ✅ ADD THIS RIGHT AFTER */}
       {activeModal === 'zeroConfirm' && (
         <Dialog open={true} onOpenChange={(open) => !open && setActiveModal(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Confirm Zero Score</DialogTitle>
             </DialogHeader>
-
-            <p className="text-sm">
-              The losing team has a score of 0. Is this correct?
-            </p>
-
+            <p className="text-sm">The losing team has a score of 0. Is this correct?</p>
             <div className="flex gap-2 mt-4">
               <Button
                 onClick={() => {
@@ -279,18 +227,14 @@ export default function CourtsPage() {
                       pendingScore.teamBScore
                     );
                   }
-
                   setActiveModal(null);
                   setScoringCourtId(null);
                 }}
               >
                 Yes, Confirm
               </Button>
-
               <DialogClose asChild>
-                <Button variant="outline" onClick={handleEditZeroScore}>
-                  Edit Score
-                </Button>
+                <Button variant="outline" onClick={handleEditZeroScore}>Edit Score</Button>
               </DialogClose>
             </div>
           </DialogContent>

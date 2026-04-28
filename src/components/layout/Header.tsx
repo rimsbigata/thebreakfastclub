@@ -1,9 +1,8 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, UserPlus, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useClub } from '@/context/ClubContext';
@@ -17,21 +16,24 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { getSkillColor, SKILL_LEVELS_SHORT } from '@/lib/types';
-import Image from 'next/image';
 import { useFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { generateDeterministicMatch } from '@/lib/matchmaking';
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { auth } = useFirebase();
-  const { courts, players, addCourt, startMatch, role, activeSession, userProfile } = useClub();
+  const { 
+    courts, players, addCourt, startMatch, role, activeSession 
+  } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('queue');
+  const [loadingMatch, setLoadingMatch] = useState(false);
 
   const isAdmin = role === 'admin';
 
@@ -65,6 +67,48 @@ export function Header() {
     setIsManualOpen(false);
     setSelectedPlayerIds([]);
     toast({ title: "Manual Match Created" });
+  };
+
+  const handleQuickMatch = async () => {
+    const availablePlayers = players.filter(p => p.status === 'available');
+    const availableCourts = courts.filter(c => c.status === 'available');
+
+    if (availablePlayers.length < 4) {
+      toast({ 
+        title: "Not enough players", 
+        description: "Need at least 4 players on the bench.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setLoadingMatch(true);
+    try {
+      const result = generateDeterministicMatch(availablePlayers, availableCourts);
+
+      if (result.matchCreated && result.teamA && result.teamB) {
+        await startMatch({
+          teamA: result.teamA,
+          teamB: result.teamB,
+          courtId: result.courtId,
+        });
+        toast({ title: "Match Started!", description: result.analysis });
+      } else {
+        toast({ 
+          title: "No optimal match", 
+          description: result.error || "Logic engine couldn't find a balance." 
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ 
+        title: "Matchmaking Error", 
+        description: "Failed to generate match logic.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setLoadingMatch(false);
+    }
   };
 
   return (
@@ -117,10 +161,20 @@ export function Header() {
 
         {isAdmin && activeSession && (
           <>
+            <Button 
+              onClick={handleQuickMatch} 
+              disabled={loadingMatch} 
+              variant="default"
+              className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 shadow-md shadow-primary/10 px-4"
+            >
+              {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />}
+              <span className="hidden md:inline">Quick Match</span>
+            </Button>
+
             <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 border-2 hover:bg-secondary px-4">
-                  <Swords className="h-4 w-4" /> Match
+                  <Swords className="h-4 w-4" /> <span className="hidden md:inline">Match</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
