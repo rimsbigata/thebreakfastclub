@@ -57,7 +57,7 @@ export default function AuthPage() {
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
   const router = useRouter();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -90,7 +90,7 @@ export default function AuthPage() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      
+
       const profileData = {
         id: user.uid,
         name,
@@ -103,7 +103,7 @@ export default function AuthPage() {
       };
 
       const profileRef = doc(firestore, 'userProfiles', user.uid);
-      
+
       setDoc(profileRef, profileData)
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
@@ -154,7 +154,7 @@ export default function AuthPage() {
               <TabsTrigger value="login" className="font-bold uppercase text-[10px]">Login</TabsTrigger>
               <TabsTrigger value="signup" className="font-bold uppercase text-[10px]">Join Club</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-1.5">
@@ -174,7 +174,7 @@ export default function AuthPage() {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label className="text-foreground">Full Name</Label>
+                  <Label className="text-foreground">Name</Label>
                   <Input value={name} onChange={e => setName(e.target.value)} required placeholder="John Doe" />
                 </div>
                 <div className="space-y-1.5">
@@ -185,18 +185,18 @@ export default function AuthPage() {
                   <Label className="text-foreground">Password</Label>
                   <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
                 </div>
-                
+
                 <div className="pt-2 space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-black uppercase opacity-60">Skill Tier</Label>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
                       className="h-7 text-[9px] font-black uppercase tracking-widest text-primary gap-1"
                       onClick={() => setIsAssessmentOpen(!isAssessmentOpen)}
                     >
-                      <Sparkles className="h-3 w-3" /> 
+                      <Sparkles className="h-3 w-3" />
                       {isAssessmentOpen ? "Hide Tools" : "Evaluate My Skill"}
                       {isAssessmentOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                     </Button>
@@ -208,8 +208,8 @@ export default function AuthPage() {
                         {assessmentQuestions.map(q => (
                           <div key={q.id} className="space-y-1.5">
                             <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{q.label}</Label>
-                            <Select 
-                              value={answers[q.id].toString()} 
+                            <Select
+                              value={answers[q.id].toString()}
                               onValueChange={(val) => setAnswers(prev => ({ ...prev, [q.id]: parseInt(val) }))}
                             >
                               <SelectTrigger className="h-9 text-xs font-bold bg-background">
@@ -226,8 +226,8 @@ export default function AuthPage() {
                           </div>
                         ))}
                         <div className="pt-2">
-                          <Button 
-                            type="button" 
+                          <Button
+                            type="button"
                             className="w-full h-10 font-black uppercase text-[10px] bg-primary/20 text-primary hover:bg-primary/30 border-none"
                             onClick={handleApplyRecommendation}
                           >
@@ -246,10 +246,10 @@ export default function AuthPage() {
                       {Object.entries(SKILL_LEVELS).map(([val, label]) => (
                         <SelectItem key={val} value={val} className="font-bold">
                           <div className="flex items-center gap-2">
-                             <Badge className={cn("h-4 px-1 text-[9px] font-black uppercase shrink-0", getSkillColor(parseInt(val)))}>
-                               {SKILL_LEVELS_SHORT[parseInt(val)]}
-                             </Badge>
-                             <span className="text-xs uppercase">{label}</span>
+                            <Badge className={cn("h-4 px-1 text-[9px] font-black uppercase shrink-0", getSkillColor(parseInt(val)))}>
+                              {SKILL_LEVELS_SHORT[parseInt(val)]}
+                            </Badge>
+                            <span className="text-xs uppercase">{label}</span>
                           </div>
                         </SelectItem>
                       ))}
