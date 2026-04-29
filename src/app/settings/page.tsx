@@ -12,14 +12,15 @@ import { Switch } from '@/components/ui/switch';
 import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 
 export default function SettingsPage() {
-  const { 
-    paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard, 
+  const {
+    paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard,
     endSession, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
-    autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode
+    autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode,
+    defaultCourtCount, setDefaultCourtCount, clearClubData
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -34,10 +35,10 @@ export default function SettingsPage() {
   const processAndUpload = (file: File, callback: (data: string) => void) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      const img = new (window as any).Image();
+      const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 400; 
+        const MAX_SIZE = 400;
         let width = img.width;
         let height = img.height;
 
@@ -57,7 +58,7 @@ export default function SettingsPage() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        
+
         const compressedData = canvas.toDataURL('image/jpeg', 0.7);
         callback(compressedData);
       };
@@ -128,6 +129,31 @@ export default function SettingsPage() {
     }
   };
 
+  const handleClearClubData = async () => {
+    if (typeof window !== 'undefined') {
+      const confirmation = window.prompt(
+        "This removes every queue session plus all session players, courts, matches, fees, and payment methods. Type CLEAR ALL to continue."
+      );
+
+      if (confirmation !== 'CLEAR ALL') {
+        toast({ title: "Clear cancelled", description: "Club data was not changed." });
+        return;
+      }
+
+      try {
+        await clearClubData();
+        toast({ title: "Club Data Cleared" });
+        router.push('/');
+      } catch (error) {
+        toast({
+          title: "Failed to clear club data",
+          description: error instanceof Error ? error.message : "Database update failed.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
   const handleRegenerateCode = async () => {
     try {
       const code = await regenerateQueueSessionCode();
@@ -172,16 +198,16 @@ export default function SettingsPage() {
                 </div>
                 <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
               </div>
-              
+
               <div className="space-y-2 pt-2">
                 <Label className="text-[10px] font-black uppercase opacity-60">Club Logo</Label>
                 <div className="flex items-center gap-4 p-4 bg-secondary/10 rounded-xl border-2 border-dashed">
                   <div className="relative h-16 w-16 rounded-lg border bg-white overflow-hidden shadow-sm shrink-0">
-                    <Image 
-                      src={clubLogo || tbcLogo.src} 
-                      alt="Club Logo" 
-                      fill 
-                      className="object-cover p-1" 
+                    <NextImage
+                      src={clubLogo || tbcLogo.src}
+                      alt="Club Logo"
+                      fill
+                      className="object-cover p-1"
                     />
                   </div>
                   <div className="flex-1 space-y-2">
@@ -207,9 +233,9 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Default Winning Score</Label>
-                <Input 
-                  type="number" 
-                  value={defaultWinningScore} 
+                <Input
+                  type="number"
+                  value={defaultWinningScore}
                   onChange={(e) => setDefaultWinningScore(parseInt(e.target.value) || 21)}
                   className="font-black text-lg h-12"
                 />
@@ -228,6 +254,19 @@ export default function SettingsPage() {
                 </div>
                 <Switch checked={autoAdvanceEnabled} onCheckedChange={setAutoAdvanceEnabled} />
               </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Default Courts Per Session</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={defaultCourtCount}
+                  onChange={(e) => setDefaultCourtCount(parseInt(e.target.value) || 0)}
+                  className="font-black text-lg h-12"
+                />
+                <p className="text-[9px] text-muted-foreground uppercase font-bold">New sessions will automatically create this many courts.</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -240,9 +279,9 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg border-2 bg-secondary/10 p-5 text-center">
-                <p className="text-3xl font-black tracking-widest">{queueSessionCode}</p>
+                <p className="text-3xl font-black tracking-widest">{queueSessionCode || 'NO SESSION'}</p>
               </div>
-              <Button onClick={handleRegenerateCode} variant="outline" className="w-full font-black uppercase text-[10px]">
+              <Button onClick={handleRegenerateCode} variant="outline" className="w-full font-black uppercase text-[10px]" disabled={!queueSessionCode}>
                 Regenerate Code
               </Button>
             </CardContent>
@@ -253,12 +292,17 @@ export default function SettingsPage() {
               <CardTitle className="text-sm font-black uppercase tracking-widest text-destructive">Danger Zone</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button onClick={handleEndSession} variant="destructive" className="w-full font-black uppercase text-[10px] h-12">
+              <Button onClick={handleEndSession} variant="destructive" className="w-full font-black uppercase text-[10px] h-12" disabled={!queueSessionCode}>
                 <Power className="h-4 w-4 mr-2" /> End Current Session
               </Button>
               <div className="pt-2 border-t border-dashed">
                 <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
                   <RefreshCcw className="h-3 w-3 mr-2" /> Reset Daily Board
+                </Button>
+              </div>
+              <div className="pt-2 border-t border-dashed">
+                <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
+                  <Trash2 className="h-3 w-3 mr-2" /> Clear Club Data
                 </Button>
               </div>
             </CardContent>
@@ -277,9 +321,9 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase opacity-60">Account Name</Label>
                 <div className="flex gap-2">
-                  <Input 
-                    placeholder="e.g. GCash" 
-                    value={newMethodName} 
+                  <Input
+                    placeholder="e.g. GCash"
+                    value={newMethodName}
                     onChange={e => setNewMethodName(e.target.value)}
                     className="font-bold text-xs"
                   />
@@ -293,16 +337,16 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-2 pt-2">
                 {paymentMethods.map(method => (
                   <div key={method.id} className="relative group border-2 rounded-xl p-2 bg-secondary/10 flex flex-col items-center">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute top-1 right-1 h-5 w-5 hover:bg-destructive hover:text-white"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-1 right-1 h-5 w-5 hover:bg-destructive hover:text-destructive-foreground"
                       onClick={() => deletePaymentMethod(method.id)}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
                     <div className="relative h-20 w-full border bg-white rounded-lg overflow-hidden mb-1 shadow-inner">
-                      <Image src={method.imageUrl} alt={method.name} fill className="object-contain p-1" />
+                      <NextImage src={method.imageUrl} alt={method.name} fill className="object-contain p-1" />
                     </div>
                     <span className="font-black text-[9px] uppercase truncate w-full text-center">{method.name}</span>
                   </div>

@@ -10,16 +10,16 @@ import { useClub } from '@/context/ClubContext';
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
-  const { isProfileLoading, isSessionActive, userProfile } = useClub();
-  
+  const { isProfileLoading, isSessionActive, role } = useClub();
+
   // Routes where global layout elements should be hidden
   const isAuthPage = pathname?.startsWith('/auth');
 
   // Logic to hide header during transition states or when on auth pages
   const showNav = !isAuthPage && !isUserLoading && user && !isProfileLoading;
-  
-  // Players shouldn't see the nav if they haven't joined a session yet
-  const shouldHideNavForSession = userProfile?.role === 'player' && !isSessionActive;
+
+  // Hide nav for all users when there's no active session
+  const shouldHideNavForSession = !isSessionActive;
 
   return (
     <div className="flex flex-col min-h-screen w-full overflow-hidden">

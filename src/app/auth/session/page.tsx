@@ -24,16 +24,21 @@ export default function SessionGatePage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (role === 'admin') {
+      router.replace('/');
+      return;
+    }
+
     if (activeSession) {
       router.push('/');
     }
-  }, [activeSession, router]);
+  }, [activeSession, role, router]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await joinSession(code);
+      await joinSession(code, true);
       toast({ title: "Joined Session!" });
       router.push('/');
     } catch (error: any) {

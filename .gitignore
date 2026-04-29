@@ -23,6 +23,9 @@
 # misc
 .DS_Store
 *.pem
+debug.log
+.modified
+.idx/
 
 # debug
 npm-debug.log*
@@ -39,7 +42,12 @@ next-env.d.ts
 
 .genkit/*
 .env*
+local.env
 
 # firebase
+.firebase/
 firebase-debug.log
 firestore-debug.log
+firebase-admin-key.json
+*-admin-key.json
+serviceAccountKey.json

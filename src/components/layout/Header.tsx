@@ -36,6 +36,7 @@ export function Header() {
   const [loadingMatch, setLoadingMatch] = useState(false);
 
   const isAdmin = role === 'admin';
+  const skillLevelOf = (player: { skillLevel?: number }) => player.skillLevel || 3;
 
   const navItems = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -213,8 +214,8 @@ export function Header() {
                             />
                             <label htmlFor={player.id} className="text-sm font-black cursor-pointer flex-1 flex items-center justify-between">
                               <span>{player.name}</span>
-                              <Badge variant="outline" className={cn("text-[10px] font-black uppercase px-2 h-5", getSkillColor(player.skillLevel))}>
-                                {SKILL_LEVELS_SHORT[player.skillLevel]}
+                              <Badge variant="outline" className={cn("text-[10px] font-black uppercase px-2 h-5", getSkillColor(skillLevelOf(player)))}>
+                                {SKILL_LEVELS_SHORT[skillLevelOf(player)]}
                               </Badge>
                             </label>
                           </div>

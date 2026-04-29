@@ -34,33 +34,33 @@ function StatItem({ icon: Icon, label, value, subValue, color }: StatItemProps) 
 export function CourtStats() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <StatItem 
-        icon={Users} 
-        label="Total Players" 
-        value="24" 
-        subValue="+4 today" 
-        color="bg-blue-500" 
+      <StatItem
+        icon={Users}
+        label="Total Players"
+        value="24"
+        subValue="+4 today"
+        color="bg-blue-500"
       />
-      <StatItem 
-        icon={Timer} 
-        label="Avg. Wait Time" 
-        value="15m" 
-        subValue="-2m since 8 AM" 
-        color="bg-primary" 
+      <StatItem
+        icon={Timer}
+        label="Avg. Wait Time"
+        value="15m"
+        subValue="-2m since 8 AM"
+        color="bg-primary"
       />
-      <StatItem 
-        icon={DoorOpen} 
-        label="Available Courts" 
-        value="3" 
-        subValue="of 8 total" 
-        color="bg-green-500" 
+      <StatItem
+        icon={DoorOpen}
+        label="Available Courts"
+        value="3"
+        subValue="of 8 total"
+        color="bg-green-500"
       />
-      <StatItem 
-        icon={Activity} 
-        label="Queue Size" 
-        value="12" 
-        subValue="Active teams" 
-        color="bg-orange-500" 
+      <StatItem
+        icon={Activity}
+        label="Queue Size"
+        value="12"
+        subValue="Active teams"
+        color="bg-orange-500"
       />
     </div>
   );

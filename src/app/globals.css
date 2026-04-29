@@ -10,19 +10,19 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 8 85% 55%;
+    --primary: 26 99% 48%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222 47% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 8 85% 55%;
+    --accent: 26 99% 48%;
     --accent-foreground: 222 47% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 8 85% 55%;
+    --ring: 26 99% 48%;
     --radius: 0.75rem;
   }
 
@@ -33,19 +33,19 @@
     --card-foreground: 210 40% 98%;
     --popover: 222 47% 6%;
     --popover-foreground: 210 40% 98%;
-    --primary: 8 85% 55%;
+    --primary: 26 99% 48%;
     --primary-foreground: 222 47% 11%;
     --secondary: 217.2 32.6% 12%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 12%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 8 85% 55%;
+    --accent: 26 99% 48%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 8 85% 55%;
+    --ring: 26 99% 48%;
   }
 }
 
@@ -53,21 +53,25 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground font-body antialiased;
     font-size: clamp(14px, 1.2vw, 18px);
     line-height: 1.6;
   }
-  h1 { 
-    @apply font-black tracking-tighter; 
+
+  h1 {
+    @apply font-black tracking-tighter;
     font-size: clamp(24px, 3vw, 42px);
   }
-  h2 { 
-    @apply font-black tracking-tight; 
+
+  h2 {
+    @apply font-black tracking-tight;
     font-size: clamp(20px, 2.5vw, 32px);
   }
-  h3 { 
-    @apply font-black; 
+
+  h3 {
+    @apply font-black;
     font-size: clamp(18px, 2vw, 24px);
   }
 
@@ -75,28 +79,32 @@
   .text-primary-content {
     @apply text-foreground;
   }
+
   .text-secondary-content {
     @apply text-muted-foreground;
   }
 }
 
 @layer utilities {
-  .text-tiny { 
-    font-size: clamp(10px, 0.8vw, 12px); 
+  .text-tiny {
+    font-size: clamp(10px, 0.8vw, 12px);
   }
-  .text-compact { 
-    font-size: clamp(12px, 1vw, 14px); 
+
+  .text-compact {
+    font-size: clamp(12px, 1vw, 14px);
   }
+
   .text-responsive {
     font-size: clamp(14px, 1.2vw, 18px);
   }
-  
+
   /* Hide number input spinners */
   .no-spinner::-webkit-inner-spin-button,
   .no-spinner::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
+
   .no-spinner {
     -moz-appearance: textfield;
   }
