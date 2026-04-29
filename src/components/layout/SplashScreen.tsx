@@ -31,7 +31,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-primary text-primary-foreground animate-in fade-in duration-300">
       <div className="relative mb-8 flex flex-col items-center">
-        <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl animate-pulse">
+        <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl">
           {displayLogo ? (
             <Image 
               src={displayLogo} 
