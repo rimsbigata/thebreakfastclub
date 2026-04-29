@@ -10,7 +10,7 @@ import { useClub } from '@/context/ClubContext';
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
-  const { isProfileLoading, isSessionActive, userProfile } = useClub();
+  const { isProfileLoading, isSessionActive, role } = useClub();
   
   // Routes where global layout elements should be hidden
   const isAuthPage = pathname?.startsWith('/auth');
@@ -19,7 +19,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const showNav = !isAuthPage && !isUserLoading && user && !isProfileLoading;
   
   // Players shouldn't see the nav if they haven't joined a session yet
-  const shouldHideNavForSession = userProfile?.role === 'player' && !isSessionActive;
+  const shouldHideNavForSession = role === 'player' && !isSessionActive;
 
   return (
     <div className="flex flex-col min-h-screen w-full overflow-hidden">
