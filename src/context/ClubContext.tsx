@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { 
   UserProfile, 
   QueueSession, 
@@ -195,7 +195,14 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   }, [firestore, user?.uid]);
   const { data: clubSettings } = useDoc<ClubSettings>(clubSettingsRef);
 
-  const role: 'player' | 'admin' | null = adminRoleData ? 'admin' : (userProfile?.role as any || null);
+  const role: 'player' | 'admin' | null = useMemo(() => {
+    // Priority 1: Explicitly assigned in admin_roles collection
+    if (adminRoleData) return 'admin';
+    // Priority 2: Set within user profile document
+    if (userProfile?.role === 'admin') return 'admin';
+    if (userProfile?.role === 'player') return 'player';
+    return null;
+  }, [adminRoleData, userProfile]);
   
   const players: Player[] = (sessionPlayers || []).map(sp => ({
     id: sp.userId,
