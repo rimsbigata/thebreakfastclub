@@ -140,12 +140,12 @@ export default function HomePage() {
     }
   };
 
-  const handleJoinSessionAsAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!joinCode) return;
+  const handleJoinSessionAsAdmin = async () => {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) return;
     setIsJoining(true);
     try {
-      await joinSession(joinCode, false);
+      await joinSession(code, false);
       toast({ title: "Session Joined as Admin" });
       setJoinCode('');
     } catch (error: any) {
@@ -155,12 +155,12 @@ export default function HomePage() {
     }
   };
 
-  const handleJoinSessionAsPlayer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!joinCode) return;
+  const handleJoinSessionAsPlayer = async () => {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) return;
     setIsJoining(true);
     try {
-      await joinSession(joinCode, true);
+      await joinSession(code, true);
       toast({ title: "Joined Session!" });
       setJoinCode('');
     } catch (error: any) {
@@ -184,7 +184,7 @@ export default function HomePage() {
               <CardTitle className="text-xl font-black uppercase">No Active Session</CardTitle>
             </CardHeader>
             <CardContent className="text-center text-sm font-bold opacity-60">
-              Please join or create a session to access the command center.
+              Start a new club session, or enter an existing session code to unlock the command center.
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
               {isAdmin ? (
@@ -201,6 +201,9 @@ export default function HomePage() {
                   </div>
 
                   <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">
+                      Have a code already?
+                    </p>
                     <Input 
                       value={joinCode} 
                       onChange={e => setJoinCode(e.target.value.toUpperCase())}
@@ -209,10 +212,10 @@ export default function HomePage() {
                       maxLength={6}
                     />
                     <div className="grid grid-cols-2 gap-2">
-                      <Button variant="outline" onClick={handleJoinSessionAsAdmin} className="h-12 font-black uppercase border-2 text-[10px]" disabled={isCreating || isJoining || !joinCode}>
+                      <Button type="button" variant="outline" onClick={handleJoinSessionAsAdmin} className="h-12 font-black uppercase border-2 text-[10px]" disabled={isCreating || isJoining || !joinCode.trim()}>
                         {isJoining ? "Joining..." : "Join as Admin"} <ShieldCheck className="ml-1 h-3 w-3" />
                       </Button>
-                      <Button variant="outline" onClick={handleJoinSessionAsPlayer} className="h-12 font-black uppercase border-2 text-[10px]" disabled={isCreating || isJoining || !joinCode}>
+                      <Button type="button" variant="outline" onClick={handleJoinSessionAsPlayer} className="h-12 font-black uppercase border-2 text-[10px]" disabled={isCreating || isJoining || !joinCode.trim()}>
                         {isJoining ? "Joining..." : "Join as Player"} <User className="ml-1 h-3 w-3" />
                       </Button>
                     </div>
@@ -283,7 +286,7 @@ export default function HomePage() {
             <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
               <ListOrdered className="h-4 w-4 text-orange-500" /> Queue
             </h2>
-            <Badge variant="secondary" className="font-black h-6 px-2.5 text-compact bg-orange-500 text-white border-none">{waitingMatches.length}</Badge>
+            <Badge variant="secondary" className="font-black h-6 px-2.5 text-compact bg-orange-500 text-white dark:bg-orange-400 dark:text-orange-950 border-none">{waitingMatches.length}</Badge>
           </div>
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-3 pb-24">
@@ -293,7 +296,7 @@ export default function HomePage() {
                   className="border-2 border-orange-500/30 bg-orange-500/5 shadow-sm overflow-hidden group relative"
                 >
                   <div className="absolute top-1 left-1 z-10">
-                    <Badge variant="secondary" className="bg-orange-500 text-white text-[9px] h-4 px-1 font-black">
+                    <Badge variant="secondary" className="bg-orange-500 text-white dark:bg-orange-400 dark:text-orange-950 text-[9px] h-4 px-1 font-black">
                        #{index + 1}
                     </Badge>
                   </div>

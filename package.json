@@ -6,10 +6,17 @@
     "dev": "next dev -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "NODE_ENV=production next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "club:data:inspect": "node scripts/inspect-club-data.mjs",
+    "club:data:dry-run": "node scripts/clear-club-data.mjs",
+    "club:data:clear": "node scripts/clear-club-data.mjs --confirm-clear-club-data",
+    "legacy:data:inspect": "node scripts/inspect-legacy-collections.mjs",
+    "legacy:data:clear": "node scripts/clear-legacy-collections.mjs --confirm-clear-legacy-collections",
+    "auth:anonymous:dry-run": "node scripts/delete-anonymous-users.mjs --dry-run",
+    "auth:anonymous:delete": "node scripts/delete-anonymous-users.mjs --confirm-delete-anonymous-users"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.28.0",

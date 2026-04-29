@@ -17,7 +17,7 @@ function StatItem({ icon: Icon, label, value, subValue, color }: StatItemProps) 
     <Card className="bg-background">
       <CardContent className="flex items-center gap-4 p-6">
         <div className={`flex h-12 w-12 items-center justify-center rounded-full ${color}`}>
-          <Icon className="h-6 w-6 text-white" />
+          <Icon className="h-6 w-6 text-primary-foreground" />
         </div>
         <div className="space-y-0.5">
           <p className="text-sm text-muted-foreground">{label}</p>

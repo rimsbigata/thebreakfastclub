@@ -12,13 +12,13 @@
     --popover-foreground: 24 60% 10%;
     /* Main Brand Color: #f8791a (HSL: 26, 99%, 49%) */
     --primary: 26, 99%, 49%;
-    --primary-foreground: 24 60% 10%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 24 40% 94%;
     --secondary-foreground: 24 60% 10%;
     --muted: 24 40% 94%;
     --muted-foreground: 24 15% 45%;
     --accent: 26, 99%, 49%;
-    --accent-foreground: 24 60% 10%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 24 30% 90%;
@@ -35,13 +35,13 @@
     --popover: 24 20% 8%;
     --popover-foreground: 24 10% 98%;
     --primary: 26, 99%, 49%;
-    --primary-foreground: 24 10% 10%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 24 20% 14%;
     --secondary-foreground: 24 10% 98%;
     --muted: 24 20% 14%;
     --muted-foreground: 24 10% 65%;
     --accent: 26, 99%, 49%;
-    --accent-foreground: 24 10% 10%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 24 10% 98%;
     --border: 24 20% 18%;

@@ -142,7 +142,7 @@ export default function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4 py-12">
       <Card className="w-full max-w-md border-2 shadow-xl">
         <CardHeader className="text-center space-y-2">
-          <div className="mx-auto h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg">
+          <div className="mx-auto h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg">
             <ShieldCheck className="h-8 w-8" />
           </div>
           <CardTitle className="text-2xl font-black uppercase tracking-tighter text-foreground">The Breakfast Club</CardTitle>

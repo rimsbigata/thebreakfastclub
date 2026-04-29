@@ -20,7 +20,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
     return (
       <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-primary text-primary-foreground">
         <div className="flex flex-col items-center">
-          <h1 className="text-3xl font-black tracking-tighter leading-none mb-1">The Breakfast Club</h1>
+          <h1 className="text-3xl font-black text-white tracking-tighter leading-none mb-1">The Breakfast Club</h1>
         </div>
       </div>
     );
@@ -46,31 +46,31 @@ export function SplashScreen({ logo }: SplashScreenProps) {
             </div>
           )}
         </div>
-        <div className="absolute -bottom-2 bg-background text-primary px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+        <div className="absolute -bottom-2 bg-white text-primary px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
           EST. 2025
         </div>
       </div>
 
       <div className="flex flex-col items-center gap-4">
         <div className="flex flex-col items-center">
-          <h1 className="text-3xl font-white tracking-tighter leading-none mb-1">
+          <h1 className="text-3xl font-black tracking-tighter text-white leading-none mb-1">
             The Breakfast Club
           </h1>
-          <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-80">
+          <p className="text-[10px] font-bold text-white uppercase tracking-[0.3em] opacity-80">
             Badminton Club
           </p>
         </div>
 
         <div className="flex items-center gap-2 mt-4">
-          <Loader2 className="h-5 w-5 animate-spin opacity-80" />
-          <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
+          <Loader2 className="h-5 w-5 animate-spin text-white opacity-80" />
+          <span className="text-[10px] font-bold text-white uppercase tracking-widest opacity-60">
             Initializing System...
           </span>
         </div>
       </div>
 
       <div className="absolute bottom-8 text-[10px] font-bold opacity-40 uppercase tracking-widest">
-        Built with ❤️ by Rimuel
+        Built with care by Rimuel
       </div>
     </div>
   );

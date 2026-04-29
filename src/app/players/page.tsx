@@ -18,8 +18,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 function StatusBadge({ status }: { status: string }) {
   const colors = {
-    available: "bg-green-500 text-white",
-    playing: "bg-primary text-white animate-pulse",
+    available: "bg-green-600 text-white dark:bg-green-500 dark:text-green-950",
+    playing: "bg-primary text-primary-foreground animate-pulse",
     resting: "bg-muted text-muted-foreground"
   };
   return (
