@@ -18,7 +18,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
 
   if (!mounted) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white">
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-primary text-primary-foreground">
         <div className="flex flex-col items-center">
            <h1 className="text-3xl font-black tracking-tighter leading-none mb-1">The Breakfast Club</h1>
         </div>
@@ -29,7 +29,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
   const displayLogo = logo || clubLogo.src;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f76a01] text-white animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-primary text-primary-foreground animate-in fade-in duration-300">
       <div className="relative mb-8 flex flex-col items-center">
         <div className="relative h-32 w-32 rounded-2xl border-4 border-white/30 p-1 bg-white/10 backdrop-blur-sm overflow-hidden shadow-2xl animate-pulse">
           {displayLogo ? (
@@ -46,7 +46,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
             </div>
           )}
         </div>
-        <div className="absolute -bottom-2 bg-white text-[#f76a01] px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+        <div className="absolute -bottom-2 bg-background text-primary px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
           EST. 2025
         </div>
       </div>

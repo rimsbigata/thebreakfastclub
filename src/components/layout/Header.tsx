@@ -116,7 +116,7 @@ export function Header() {
       <div className="flex items-center gap-6">
         <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="hidden sm:block">
-            <h1 className="text-base font-black tracking-tighter leading-none" style={{color: '#f76a01'}}>TBC</h1>
+            <h1 className="text-base font-black tracking-tighter leading-none text-primary">TBC</h1>
             <p className="text-[8px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">Command Center</p>
           </div>
         </Link>
@@ -167,7 +167,7 @@ export function Header() {
               variant="default"
               className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 shadow-md shadow-primary/10 px-4"
             >
-              {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />}
+              {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-primary-foreground" />}
               <span className="hidden md:inline">Quick Match</span>
             </Button>
 
