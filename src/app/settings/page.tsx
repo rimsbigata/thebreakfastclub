@@ -3,6 +3,7 @@
 
 import { useState, useRef } from 'react';
 import { useClub } from '@/context/ClubContext';
+import { PaymentMethod } from '@/lib/types';
 import { useTheme } from '@/context/ThemeContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,8 +20,6 @@ export default function SettingsPage() {
   const {
     paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard,
     endSession, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
-    autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode,
-    defaultCourtCount, setDefaultCourtCount, clearClubData
     autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode,
     defaultCourtCount, setDefaultCourtCount, clearClubData
   } = useClub();
@@ -124,31 +123,6 @@ export default function SettingsPage() {
       } catch (error) {
         toast({
           title: "Failed to end session",
-          description: error instanceof Error ? error.message : "Database update failed.",
-          variant: "destructive"
-        });
-      }
-    }
-  };
-
-  const handleClearClubData = async () => {
-    if (typeof window !== 'undefined') {
-      const confirmation = window.prompt(
-        "This removes every queue session plus all session players, courts, matches, fees, and payment methods. Type CLEAR ALL to continue."
-      );
-
-      if (confirmation !== 'CLEAR ALL') {
-        toast({ title: "Clear cancelled", description: "Club data was not changed." });
-        return;
-      }
-
-      try {
-        await clearClubData();
-        toast({ title: "Club Data Cleared" });
-        router.push('/');
-      } catch (error) {
-        toast({
-          title: "Failed to clear club data",
           description: error instanceof Error ? error.message : "Database update failed.",
           variant: "destructive"
         });
@@ -320,12 +294,10 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="rounded-lg border-2 bg-secondary/10 p-5 text-center">
                 <p className="text-3xl font-black tracking-widest">{queueSessionCode || 'NO SESSION'}</p>
-                <p className="text-3xl font-black tracking-widest">{queueSessionCode || 'NO SESSION'}</p>
               </div>
               <Button onClick={handleRegenerateCode} variant="outline" className="w-full font-black uppercase text-[10px]" disabled={!queueSessionCode}>
-                <Button onClick={handleRegenerateCode} variant="outline" className="w-full font-black uppercase text-[10px]" disabled={!queueSessionCode}>
-                  Regenerate Code
-                </Button>
+                Regenerate Code
+              </Button>
             </CardContent>
           </Card>
 
@@ -335,24 +307,18 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Button onClick={handleEndSession} variant="destructive" className="w-full font-black uppercase text-[10px] h-12" disabled={!queueSessionCode}>
-                <Button onClick={handleEndSession} variant="destructive" className="w-full font-black uppercase text-[10px] h-12" disabled={!queueSessionCode}>
-                  <Power className="h-4 w-4 mr-2" /> End Current Session
+                <Power className="h-4 w-4 mr-2" /> End Current Session
+              </Button>
+              <div className="pt-2 border-t border-dashed">
+                <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
+                  <RefreshCcw className="h-3 w-3 mr-2" /> Reset Daily Board
                 </Button>
-                <div className="pt-2 border-t border-dashed">
-                  <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
-                    <RefreshCcw className="h-3 w-3 mr-2" /> Reset Daily Board
-                  </Button>
-                </div>
-                <div className="pt-2 border-t border-dashed">
-                  <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
-                    <Trash2 className="h-3 w-3 mr-2" /> Clear Club Data
-                  </Button>
-                </div>
-                <div className="pt-2 border-t border-dashed">
-                  <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
-                    <Trash2 className="h-3 w-3 mr-2" /> Clear Club Data
-                  </Button>
-                </div>
+              </div>
+              <div className="pt-2 border-t border-dashed">
+                <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
+                  <Trash2 className="h-3 w-3 mr-2" /> Clear Club Data
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -383,7 +349,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-2">
-                {paymentMethods.map(method => (
+                {paymentMethods.map((method: PaymentMethod) => (
                   <div key={method.id} className="relative group border-2 rounded-xl p-2 bg-secondary/10 flex flex-col items-center">
                     <Button
                       variant="ghost"
