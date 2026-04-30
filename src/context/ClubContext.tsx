@@ -34,6 +34,7 @@ interface ClubContextType {
   isSessionActive: boolean;
   isProfileLoading: boolean;
   isAdminRoleLoading: boolean;
+  isRestoringSession: boolean;
   currentPlayer: Player | null;
 
   // Auth & Session
@@ -88,6 +89,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const [activeSession, setActiveSession] = useState<QueueSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isRestoringSession, setIsRestoringSession] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -122,6 +124,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     let isCancelled = false;
 
     const restoreSession = async () => {
+      setIsRestoringSession(true);
       try {
         const sessionSnapshot = await getDoc(doc(firestore, 'sessions', storedSessionId));
 
@@ -143,6 +146,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('Failed to restore active session:', error);
         window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+      } finally {
+        setIsRestoringSession(false);
       }
     };
 
@@ -616,7 +621,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   return (
     <ClubContext.Provider value={{
       userProfile, activeSession, players, courts, matches, fees, paymentMethods, role,
-      isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, currentPlayer,
+      isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, isRestoringSession, currentPlayer,
       joinSession, createSession, regenerateQueueSessionCode, endSession,
       addPlayer, updatePlayer, deletePlayer,
       addCourt, deleteCourt, startMatch, startTimer, updateMatchScore, endMatch,

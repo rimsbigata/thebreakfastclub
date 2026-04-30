@@ -14,12 +14,12 @@ import { useFirebase, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 
 export default function SessionGatePage() {
-  const { userProfile, activeSession, joinSession, createSession, role } = useClub();
+  const { userProfile, activeSession, joinSession, createSession, role, isRestoringSession } = useClub();
   const { auth } = useFirebase();
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
-  
+
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -29,10 +29,12 @@ export default function SessionGatePage() {
       return;
     }
 
+    if (isRestoringSession) return;
+
     if (activeSession) {
       router.push('/');
     }
-  }, [activeSession, role, router]);
+  }, [activeSession, role, router, isRestoringSession]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,10 +85,10 @@ export default function SessionGatePage() {
           <form onSubmit={handleJoin} className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase opacity-60">Session Code</Label>
-              <Input 
-                value={code} 
-                onChange={e => setCode(e.target.value.toUpperCase())} 
-                placeholder="ABCDEF" 
+              <Input
+                value={code}
+                onChange={e => setCode(e.target.value.toUpperCase())}
+                placeholder="ABCDEF"
                 className="h-14 text-center text-2xl font-black tracking-[0.5em]"
                 maxLength={6}
                 required
