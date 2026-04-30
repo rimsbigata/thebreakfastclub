@@ -9,22 +9,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import tbcLogo from '@/assets/images/tbc_logo_loading.png';
+import { sendBoostCodeEmail } from '@/app/actions/email';
+import { useUser } from '@/firebase';
 
 export default function SettingsPage() {
   const {
     paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard,
     endSession, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
     autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode,
-    defaultCourtCount, setDefaultCourtCount, clearClubData
+    defaultCourtCount, setDefaultCourtCount, deuceEnabled, setDeuceEnabled,
+    boostSchedules, addBoostSchedule, deleteBoostSchedule, upcomingBoost, clearClubData
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -32,6 +36,7 @@ export default function SettingsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isClearingClubData, setIsClearingClubData] = useState(false);
+  const [newBoostDate, setNewBoostDate] = useState('');
 
   const processAndUpload = (file: File, callback: (data: string) => void) => {
     const reader = new FileReader();
@@ -171,6 +176,82 @@ export default function SettingsPage() {
     }
   };
 
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+  const handleAddBoostSchedule = async () => {
+    if (!newBoostDate) {
+      toast({ title: "Missing date", description: "Please select a date for the boost schedule.", variant: "destructive" });
+      return;
+    }
+    setIsSendingEmail(true);
+    try {
+      const { sessionCode, sessionId } = await addBoostSchedule(newBoostDate);
+      const sessionLink = `${window.location.origin}/session/${sessionId}`;
+      toast({
+        title: "Boost Schedule Added",
+        description: `Session Code: ${sessionCode} - Session Link: ${sessionLink}`
+      });
+
+      // Send email notification with the boost details to the admin who scheduled it
+      try {
+        const adminEmail = user?.email;
+        if (!adminEmail) {
+          console.warn('No admin email found, skipping email notification');
+          toast({
+            title: "Email Notification Skipped",
+            description: "No email found for current user.",
+            variant: "destructive",
+          });
+        } else {
+          const emailResult = await sendBoostCodeEmail(sessionCode, newBoostDate, sessionLink, adminEmail);
+          if (emailResult.success) {
+            toast({
+              title: "Email Notification Sent",
+              description: `Notification sent to ${adminEmail} with the session code and link.`,
+            });
+          } else {
+            console.error('Email sending failed:', emailResult.message);
+            toast({
+              title: "Email Notification Failed",
+              description: emailResult.message,
+              variant: "destructive",
+            });
+          }
+        }
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError);
+        toast({
+          title: "Email Notification Failed",
+          description: emailError instanceof Error ? emailError.message : "Could not send email notification.",
+          variant: "destructive",
+        });
+      }
+
+      setNewBoostDate('');
+    } catch (error) {
+      toast({
+        title: "Could not add boost schedule",
+        description: error instanceof Error ? error.message : "Database update failed.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleDeleteBoostSchedule = async (id: string) => {
+    try {
+      await deleteBoostSchedule(id);
+      toast({ title: "Boost Schedule Removed" });
+    } catch (error) {
+      toast({
+        title: "Could not remove boost schedule",
+        description: error instanceof Error ? error.message : "Database update failed.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24 max-w-5xl animate-in fade-in duration-500">
       <header className="space-y-1">
@@ -246,7 +327,7 @@ export default function SettingsPage() {
                 <p className="text-[9px] text-muted-foreground uppercase font-bold">This score is automatically applied when marking a winner.</p>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl border-2 border-primary/20">
+              <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-lg border-2">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
                     <Zap className="h-5 w-5 fill-primary" />
@@ -257,6 +338,19 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <Switch checked={autoAdvanceEnabled} onCheckedChange={setAutoAdvanceEnabled} />
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-lg border-2">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                    <Target className="h-5 w-5 fill-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-tight">Deuce Rule</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Must win by 2 points at deuce</p>
+                  </div>
+                </div>
+                <Switch checked={deuceEnabled} onCheckedChange={setDeuceEnabled} />
               </div>
 
               <div className="space-y-1.5">
@@ -288,6 +382,68 @@ export default function SettingsPage() {
               <Button onClick={handleRegenerateCode} variant="outline" className="w-full font-black uppercase text-[10px]" disabled={!queueSessionCode}>
                 Regenerate Code
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <Target className="h-4 w-4" /> Double Star Boost Scheduler
+              </CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase">Create a Double Star Boost session for a specific date.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Date</Label>
+                  <Input
+                    type="date"
+                    value={newBoostDate}
+                    onChange={(e) => setNewBoostDate(e.target.value)}
+                    className="font-black text-sm h-10"
+                  />
+                </div>
+                <Button
+                  onClick={handleAddBoostSchedule}
+                  className="w-full font-black uppercase text-[10px] h-10"
+                  disabled={isSendingEmail}
+                >
+                  {isSendingEmail ? (
+                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                  ) : (
+                    <Target className="h-3 w-3 mr-2" />
+                  )}
+                  {isSendingEmail ? "Saving & Notifying..." : "Add Boost Schedule"}
+                </Button>
+              </div>
+
+              {boostSchedules.length > 0 && (
+                <div className="pt-4 border-t space-y-2">
+                  <p className="text-[9px] font-black uppercase text-muted-foreground">Scheduled Boosts</p>
+                  {boostSchedules.map((boost) => (
+                    <div key={boost.id} className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg border">
+                      <div className="flex-1">
+                        <a href={`/session/${boost.sessionId}`} className="text-xs font-black text-primary hover:underline">
+                          Session Link
+                        </a>
+                        <p className="text-[9px] text-muted-foreground font-bold">{boost.date}</p>
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="text-[8px] font-black uppercase text-primary">Code:</span>
+                          <span className="text-xs font-mono font-bold text-primary">{boost.sessionCode}</span>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleDeleteBoostSchedule(boost.id)}
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 

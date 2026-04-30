@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, User, TrendingUp, Users, Trash2, Pencil, Search, Clock, Target, Activity, Filter, ArrowUpDown, RefreshCw, CheckSquare, Square, X, FileText, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { Plus, User, TrendingUp, Users, Trash2, Pencil, Search, Clock, Target, Activity, Filter, ArrowUpDown, RefreshCw, CheckSquare, Square, X, FileText, ArrowUp, ArrowDown, Minus, Shield, ShieldCheck, ShieldAlert, Timer } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, Cell } from 'recharts';
 import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -68,9 +68,10 @@ function ImprovementSparkline({ score }: { score: number }) {
 }
 
 export default function PlayersPage() {
-  const { players, addPlayer, updatePlayer, deletePlayer } = useClub();
+  const { players, addPlayer, updatePlayer, deletePlayer, role } = useClub();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
+  const isAdmin = role === 'admin';
 
   const [newName, setNewName] = useState('');
   const [newSkill, setNewSkill] = useState('3');
@@ -85,6 +86,8 @@ export default function PlayersPage() {
   const [editNotes, setEditNotes] = useState('');
   const [viewingPlayer, setViewingPlayer] = useState<Player | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set());
+  const [roleDialogPlayer, setRoleDialogPlayer] = useState<Player | null>(null);
+  const [tempRoleHours, setTempRoleHours] = useState('2');
 
   const filteredPlayers = useMemo(() => {
     let result = players.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -369,8 +372,16 @@ export default function PlayersPage() {
                         <p className="font-black text-compact truncate leading-tight group-hover:text-primary transition-colors">
                           {player.name}
                         </p>
-                        <div className="mt-1">
+                        <div className="mt-1 flex items-center gap-1">
                           <StatusBadge status={player.status} />
+                          {player.role !== 'player' && (
+                            <Badge className={cn(
+                              "text-[8px] font-black uppercase px-1 h-3 border-none",
+                              player.role === 'admin' ? "bg-violet-600 text-white" : "bg-amber-500 text-white"
+                            )}>
+                              {player.role === 'admin' ? 'Admin' : 'Queue'}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
@@ -380,6 +391,11 @@ export default function PlayersPage() {
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPlayer(player); setEditName(player.name); setEditSkill(player.skillLevel.toString()); setEditNotes(player.notes || ''); }}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
+                        {isAdmin && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setRoleDialogPlayer(player)} title="Manage role">
+                            <Shield className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
                           deletePlayer(player.id).catch(error => {
                             toast({
@@ -577,6 +593,123 @@ export default function PlayersPage() {
                   </p>
                 </div>
               )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Management Dialog */}
+      <Dialog open={!!roleDialogPlayer} onOpenChange={(open) => !open && setRoleDialogPlayer(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-compact font-black uppercase flex items-center gap-2">
+              <Shield className="h-5 w-5" /> Manage Role
+            </DialogTitle>
+          </DialogHeader>
+          {roleDialogPlayer && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-3 pb-4 border-b">
+                <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center text-xl font-black text-white", getSkillColor(roleDialogPlayer.skillLevel))}>
+                  {roleDialogPlayer.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-black">{roleDialogPlayer.name}</h3>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Current Role: <span className={cn(
+                      "font-black",
+                      roleDialogPlayer.role === 'admin' ? "text-violet-600" : roleDialogPlayer.role === 'queueMaster' ? "text-amber-600" : "text-muted-foreground"
+                    )}>{roleDialogPlayer.role === 'admin' ? 'Admin' : roleDialogPlayer.role === 'queueMaster' ? 'Queue Master' : 'Player'}</span>
+                  </p>
+                  {roleDialogPlayer.roleExpiresAt && (
+                    <p className="text-[10px] font-bold text-muted-foreground">
+                      Expires: {new Date(roleDialogPlayer.roleExpiresAt).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase text-muted-foreground">Assign Role</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <Button
+                    variant={roleDialogPlayer.role === 'admin' ? 'default' : 'outline'}
+                    className="w-full justify-start gap-2 font-black uppercase text-compact h-11"
+                    onClick={() => {
+                      updatePlayer(roleDialogPlayer.id, { role: 'admin', roleExpiresAt: undefined })
+                        .then(() => {
+                          toast({ title: `${roleDialogPlayer.name} is now Admin` });
+                          setRoleDialogPlayer(null);
+                        })
+                        .catch(error => toast({
+                          title: "Could not update role",
+                          description: error instanceof Error ? error.message : "Database update failed.",
+                          variant: "destructive"
+                        }));
+                    }}
+                  >
+                    <ShieldCheck className="h-4 w-4" /> Admin (Permanent)
+                  </Button>
+
+                  <div className="space-y-2">
+                    <Button
+                      variant={roleDialogPlayer.role === 'queueMaster' ? 'default' : 'outline'}
+                      className="w-full justify-start gap-2 font-black uppercase text-compact h-11"
+                      onClick={() => {
+                        const hours = parseInt(tempRoleHours);
+                        const expiresAt = new Date(Date.now() + hours * 3600000).toISOString();
+                        updatePlayer(roleDialogPlayer.id, { role: 'queueMaster', roleExpiresAt: expiresAt })
+                          .then(() => {
+                            toast({ title: `${roleDialogPlayer.name} is now Queue Master for ${hours}h` });
+                            setRoleDialogPlayer(null);
+                          })
+                          .catch(error => toast({
+                            title: "Could not update role",
+                            description: error instanceof Error ? error.message : "Database update failed.",
+                            variant: "destructive"
+                          }));
+                      }}
+                    >
+                      <ShieldAlert className="h-4 w-4" /> Queue Master (Temporary)
+                    </Button>
+                    <div className="flex items-center gap-2 px-1">
+                      <Timer className="h-3 w-3 text-muted-foreground" />
+                      <Select value={tempRoleHours} onValueChange={setTempRoleHours}>
+                        <SelectTrigger className="h-8 text-compact font-bold w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1" className="font-bold text-compact">1 hour</SelectItem>
+                          <SelectItem value="2" className="font-bold text-compact">2 hours</SelectItem>
+                          <SelectItem value="4" className="font-bold text-compact">4 hours</SelectItem>
+                          <SelectItem value="8" className="font-bold text-compact">8 hours</SelectItem>
+                          <SelectItem value="24" className="font-bold text-compact">24 hours</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {roleDialogPlayer.role !== 'player' && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2 font-black uppercase text-compact h-11 text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        updatePlayer(roleDialogPlayer.id, { role: 'player', roleExpiresAt: undefined })
+                          .then(() => {
+                            toast({ title: `${roleDialogPlayer.name} role removed` });
+                            setRoleDialogPlayer(null);
+                          })
+                          .catch(error => toast({
+                            title: "Could not update role",
+                            description: error instanceof Error ? error.message : "Database update failed.",
+                            variant: "destructive"
+                          }));
+                      }}
+                    >
+                      <X className="h-4 w-4" /> Remove Role (Set to Player)
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>

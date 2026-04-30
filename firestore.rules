@@ -99,6 +99,14 @@ service cloud.firestore {
       allow write: if false; // Roles must be managed via Console.
     }
 
+    // --- Boost Schedules ---
+
+    match /boost_schedules/{scheduleId} {
+      allow get, list: if isSignedIn(); // All authenticated users can see upcoming boosts
+      allow create: if isAdmin() && request.resource.data.sessionCode is string && request.resource.data.sessionCode.length == 6;
+      allow update, delete: if isAdmin(); // Only admins can manage boost schedules
+    }
+
     // --- Push Tokens ---
     match /pushTokens/{userId} {
       allow read, write: if isOwner(userId) || isAdmin();

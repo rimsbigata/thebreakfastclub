@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, ArrowLeftRight, Trophy, Ban } from 'lucide-react';
+import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, ArrowLeftRight, Trophy, Ban, Target } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -66,7 +67,7 @@ export default function HomePage() {
     courts, players, matches, deleteCourt, startMatch, startTimer,
     updateMatchScore, endMatch, swapPlayer, assignMatchToCourt,
     createCourtAndAssignMatch, addCourt, deleteMatch, defaultWinningScore,
-    role, isSessionActive, createSession, joinSession
+    role, isSessionActive, createSession, joinSession, deuceEnabled, upcomingBoost
   } = useClub();
 
   const { toast } = useToast();
@@ -91,6 +92,8 @@ export default function HomePage() {
     scoreA: number;
     scoreB: number;
   } | null>(null);
+  const [isDoubleStarSession, setIsDoubleStarSession] = useState(false);
+  const [sessionCodeInput, setSessionCodeInput] = useState('');
 
   // Scoring Modal State
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
@@ -133,6 +136,8 @@ export default function HomePage() {
   }, [matches]);
 
   const isAdmin = role === 'admin';
+  const isQueueMaster = role === 'queueMaster';
+  const isStaff = isAdmin || isQueueMaster;
 
   const handleScoreSubmit = (
     teamAScore: number | undefined,
@@ -160,8 +165,10 @@ export default function HomePage() {
   const handleCreateSession = async () => {
     setIsCreating(true);
     try {
-      const code = await createSession();
-      toast({ title: "Session Created!", description: `Code: ${code}` });
+      const code = await createSession(isDoubleStarSession, sessionCodeInput);
+      toast({ title: "Session Created!", description: `Code: ${code}${isDoubleStarSession ? ' (Double Star Active!)' : ''}` });
+      setIsDoubleStarSession(false);
+      setSessionCodeInput('');
     } catch (error: any) {
       toast({ title: "Failed to create", description: error.message, variant: "destructive" });
     } finally {
@@ -200,7 +207,7 @@ export default function HomePage() {
   };
 
   const handleAssignMatchToCourt = async (matchId: string, courtId: string) => {
-    if (!isAdmin) return;
+    if (!isStaff) return;
 
     const targetCourt = courts.find(court => court.id === courtId);
     if (!targetCourt || targetCourt.status !== 'available') {
@@ -227,7 +234,7 @@ export default function HomePage() {
   };
 
   const handleMatchDragStart = (event: React.DragEvent<HTMLElement>, matchId: string) => {
-    if (!isAdmin) return;
+    if (!isStaff) return;
 
     event.dataTransfer.setData('application/x-tbc-match-id', matchId);
     event.dataTransfer.setData('text/plain', matchId);
@@ -240,7 +247,7 @@ export default function HomePage() {
   };
 
   const onDragStartPlayer = (event: React.DragEvent<HTMLElement>, playerId: string) => {
-    if (!isAdmin) return;
+    if (!isStaff) return;
     event.dataTransfer.setData('application/x-tbc-player-id', playerId);
     event.dataTransfer.setData('playerId', playerId);
     event.dataTransfer.effectAllowed = 'move';
@@ -263,7 +270,7 @@ export default function HomePage() {
   };
 
   const onDropInQueue = async (event: React.DragEvent<HTMLElement>) => {
-    if (!isAdmin) return;
+    if (!isStaff) return;
     event.preventDefault();
     setIsQueueOver(false);
 
@@ -280,7 +287,7 @@ export default function HomePage() {
   };
 
   const onDropInCourt = async (event: React.DragEvent<HTMLElement>, courtId: string) => {
-    if (!isAdmin) return;
+    if (!isStaff) return;
     event.preventDefault();
     event.stopPropagation();
     setDragOverCourtId(null);
@@ -312,7 +319,7 @@ export default function HomePage() {
   };
 
   const onDropInCourtPanel = async (event: React.DragEvent<HTMLElement>) => {
-    if (!isAdmin) return;
+    if (!isStaff) return;
     event.preventDefault();
     setIsCourtPanelOver(false);
 
@@ -357,11 +364,13 @@ export default function HomePage() {
     if (scoreA === scoreB) {
       return { valid: false, message: "Scores cannot be equal." };
     }
-    if (higher === defaultWinningScore && lower === defaultWinningScore - 1) {
-      return { valid: false, message: `Must win by 2 points.` };
-    }
-    if (higher > defaultWinningScore && higher - lower < 2) {
-      return { valid: false, message: "Must win by 2 points in deuce." };
+    if (deuceEnabled) {
+      if (higher === defaultWinningScore && lower === defaultWinningScore - 1) {
+        return { valid: false, message: `Must win by 2 points.` };
+      }
+      if (higher > defaultWinningScore && higher - lower < 2) {
+        return { valid: false, message: "Must win by 2 points in deuce." };
+      }
     }
     return { valid: true };
   };
@@ -415,6 +424,16 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-background overflow-hidden relative">
+      {upcomingBoost && (
+        <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-b-2 border-yellow-500/30 px-4 py-2">
+          <div className="flex items-center justify-center gap-2">
+            <Target className="h-4 w-4 text-yellow-600" />
+            <p className="text-sm font-black uppercase tracking-widest text-yellow-700 dark:text-yellow-500">
+              Double Star Boost on {new Date(upcomingBoost.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}! ⭐️ x2
+            </p>
+          </div>
+        </div>
+      )}
       {!isSessionActive && (
         <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="max-w-md w-full border-2 border-primary/20 shadow-2xl">
@@ -428,6 +447,33 @@ export default function HomePage() {
             <CardFooter className="flex flex-col gap-3">
               {isAdmin ? (
                 <div className="space-y-4 w-full">
+                  <div className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg border-2">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                        <Target className="h-4 w-4 fill-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-tight">Double Star Boost</p>
+                        <p className="text-[9px] text-muted-foreground uppercase font-bold">2x stars for all matches</p>
+                      </div>
+                    </div>
+                    <Switch checked={isDoubleStarSession} onCheckedChange={setIsDoubleStarSession} />
+                  </div>
+
+                  {isDoubleStarSession && (
+                    <div className="space-y-2 p-3 bg-yellow-500/10 border-2 border-yellow-500/30 rounded-lg">
+                      <Label className="text-[9px] font-black uppercase text-yellow-700 dark:text-yellow-500">Session Code (Optional)</Label>
+                      <Input
+                        value={sessionCodeInput}
+                        onChange={e => setSessionCodeInput(e.target.value)}
+                        placeholder="Enter 6-digit code"
+                        className="text-center font-mono font-black h-10 border-yellow-500/30"
+                        maxLength={6}
+                      />
+                      <p className="text-[8px] text-muted-foreground font-bold text-center">Optional: Enter code from scheduled boost to link session</p>
+                    </div>
+                  )}
+
                   <Button className="w-full h-12 font-black uppercase" onClick={handleCreateSession} disabled={isCreating || isJoining}>
                     {isCreating ? "Initializing..." : "Start New Session"} <PlayCircle className="ml-2 h-5 w-5" />
                   </Button>
@@ -499,11 +545,11 @@ export default function HomePage() {
               {sortedAvailablePlayers.map((player) => (
                 <Card
                   key={player.id}
-                  draggable={isAdmin}
+                  draggable={isStaff}
                   onDragStart={(event) => onDragStartPlayer(event, player.id)}
                   className={cn(
                     "p-3 border-2 shadow-sm group bg-card min-w-0",
-                    isAdmin && "cursor-grab active:cursor-grabbing hover:border-primary"
+                    isStaff && "cursor-grab active:cursor-grabbing hover:border-primary"
                   )}
                 >
                   <div className="flex items-center justify-between mb-1.5 gap-2">
@@ -532,7 +578,7 @@ export default function HomePage() {
             isQueueOver && "ring-4 ring-inset ring-primary/20 bg-primary/5"
           )}
           onDragOver={(event) => {
-            if (!isAdmin) return;
+            if (!isStaff) return;
             event.preventDefault();
             setIsQueueOver(true);
           }}
@@ -587,23 +633,21 @@ export default function HomePage() {
                     </Badge>
                   </div>
                   <div className="p-3 pt-6 flex flex-col gap-3">
-                    {isAdmin && (
+                    {isStaff && (
                       <div
                         draggable
                         onDragStart={(event) => handleMatchDragStart(event, match.id)}
-                        className="absolute top-1 right-1 h-7 w-7 cursor-grab active:cursor-grabbing rounded-md border border-orange-500/20 bg-background/80 text-orange-600 flex items-center justify-center hover:bg-orange-500/10"
-                        title="Drag match to an available court"
+                        className="flex items-center gap-1.5 p-1.5 rounded-md bg-muted/50 cursor-grab active:cursor-grabbing hover:bg-muted"
                       >
                         <GripVertical className="h-4 w-4" />
                       </div>
                     )}
-                    {isAdmin && (
+                    {isStaff && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute top-1 right-9 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive hover:text-white z-10"
-                        onClick={() => handleDeleteMatch(match.id)}
-                        title="Remove match"
+                        className="h-7 w-7"
+                        onClick={() => deleteMatch(match.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -615,7 +659,7 @@ export default function HomePage() {
                           return (
                             <div key={id} className="flex items-center gap-1.5 min-w-0">
                               <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
-                              {isAdmin && (
+                              {isStaff && (
                                 <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
                                   <ArrowLeftRight className="h-3 w-3" />
                                 </Button>
@@ -624,13 +668,12 @@ export default function HomePage() {
                           );
                         })}
                       </div>
-                      <div className="text-[9px] font-black opacity-30 px-1 shrink-0">VS</div>
-                      <div className="flex flex-col space-y-1.5 flex-1 min-w-0 items-end text-right border-r-4 border-orange-500/20 pr-2">
-                        {match.teamB.map((id: string) => {
+                      <div className="flex-1 flex flex-col gap-1">
+                        {match.teamB.map((id) => {
                           const p = players.find(player => player.id === id);
                           return (
                             <div key={id} className="flex items-center gap-1.5 min-w-0 justify-end">
-                              {isAdmin && (
+                              {isStaff && (
                                 <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
                                   <ArrowLeftRight className="h-3 w-3" />
                                 </Button>
@@ -641,7 +684,7 @@ export default function HomePage() {
                         })}
                       </div>
                     </div>
-                    {isAdmin && (
+                    {isStaff && (
                       <div className="pt-2 border-t border-orange-500/10">
                         <Select onValueChange={(courtId) => handleAssignMatchToCourt(match.id, courtId)}>
                           <SelectTrigger className="h-8 text-[9px] font-black uppercase tracking-widest bg-orange-500/10 border-orange-500/20 text-orange-600">
@@ -675,7 +718,7 @@ export default function HomePage() {
             isCourtPanelOver ? "bg-green-500/5" : "bg-secondary/5"
           )}
           onDragOver={(event) => {
-            if (!isAdmin) return;
+            if (!isStaff) return;
             event.preventDefault();
             setIsCourtPanelOver(true);
           }}
@@ -701,24 +744,24 @@ export default function HomePage() {
                   <Card
                     key={court.id}
                     onDragOver={(event) => {
-                      if (!isAdmin || isOccupied) return;
+                      if (!isStaff || isOccupied) return;
                       event.preventDefault();
                       event.dataTransfer.dropEffect = 'move';
                     }}
                     onDragEnter={(event) => {
-                      if (!isAdmin || isOccupied) return;
+                      if (!isStaff || isOccupied) return;
                       event.preventDefault();
                       event.stopPropagation();
                       setDragOverCourtId(court.id);
                     }}
                     onDragLeave={(event) => {
-                      if (!isAdmin || isOccupied) return;
+                      if (!isStaff || isOccupied) return;
                       if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                         setDragOverCourtId(null);
                       }
                     }}
                     onDrop={(event) => {
-                      if (!isAdmin || isOccupied) return;
+                      if (!isStaff || isOccupied) return;
                       setDraggedMatchId(null);
                       setDragOverCourtId(null);
                       onDropInCourt(event, court.id);
@@ -726,7 +769,7 @@ export default function HomePage() {
                     className={cn(
                       "border-2 transition-all duration-200 overflow-hidden flex flex-col min-h-[380px]",
                       isOccupied ? "bg-card border-primary/20" : "bg-muted/10 border-border",
-                      isAdmin && !isOccupied && draggedMatchId && "border-orange-500 bg-orange-500/10",
+                      isStaff && !isOccupied && draggedMatchId && "border-orange-500 bg-orange-500/10",
                       dragOverCourtId === court.id && "ring-2 ring-orange-500 ring-offset-2"
                     )}
                   >
@@ -741,7 +784,7 @@ export default function HomePage() {
                         <>
                           <div className="flex justify-between items-center mb-1">
                             <LiveTimer startTime={match.startTime || match.timestamp} />
-                            {isAdmin && (
+                            {isStaff && (
                               <div className="flex gap-1">
                                 <Button size="sm" variant="outline" className="h-6 text-[8px] font-black px-1.5" disabled={!match.startTime} onClick={() => setWinningTeam({ courtId: court.id, team: 'teamA' })}>
                                   T1 WIN
@@ -760,7 +803,7 @@ export default function HomePage() {
                                   <div key={id} className="flex justify-between items-center gap-1 group/p">
                                     <span className="text-compact font-black truncate flex-1 leading-tight">{p?.name}</span>
                                     {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(p)))}>{SKILL_LEVELS_SHORT[skillLevelOf(p)]}</Badge>}
-                                    {isAdmin && <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}><ArrowLeftRight className="h-3 w-3" /></Button>}
+                                    {isStaff && <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}><ArrowLeftRight className="h-3 w-3" /></Button>}
                                   </div>
                                 );
                               })}
@@ -773,7 +816,7 @@ export default function HomePage() {
                                   <div key={id} className="flex justify-between items-center gap-1 group/p">
                                     <span className="text-compact font-black truncate flex-1 leading-tight">{p?.name}</span>
                                     {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(p)))}>{SKILL_LEVELS_SHORT[skillLevelOf(p)]}</Badge>}
-                                    {isAdmin && <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}><ArrowLeftRight className="h-3 w-3" /></Button>}
+                                    {isStaff && <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover/p:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}><ArrowLeftRight className="h-3 w-3" /></Button>}
                                   </div>
                                 );
                               })}
@@ -810,7 +853,7 @@ export default function HomePage() {
                       )}
                     </CardContent>
 
-                    {isOccupied && match && isAdmin && (
+                    {isOccupied && match && isStaff && (
                       <div className="p-3 bg-secondary/20 border-t space-y-2">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex-1 flex flex-col gap-1">
@@ -841,7 +884,7 @@ export default function HomePage() {
                     )}
 
                     <CardFooter className="p-2.5 border-t mt-auto gap-2">
-                      {isOccupied && match && isAdmin ? (
+                      {isOccupied && match && isStaff ? (
                         !match.startTime ? (
                           <Button onClick={() => startTimer(court.id)} className="w-full h-10 bg-green-600 hover:bg-green-700 font-black text-tiny uppercase px-2 truncate">
                             <Play className="h-3.5 w-3.5 mr-1.5 shrink-0" /> START

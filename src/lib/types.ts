@@ -1,5 +1,5 @@
 
-export type UserRole = 'player' | 'admin';
+export type UserRole = 'player' | 'admin' | 'queueMaster';
 export type PlayerStatus = 'available' | 'playing' | 'resting';
 export type CourtStatus = 'available' | 'occupied';
 export type MatchStatus = 'ongoing' | 'completed' | 'cancelled';
@@ -11,6 +11,7 @@ export interface UserProfile {
   skillLevel?: number;
   playStyle?: string;
   createdAt?: string;
+  roleExpiresAt?: string; // ISO date string for temporary roles (e.g., queueMaster)
 }
 
 export interface QueueSession {
@@ -19,6 +20,7 @@ export interface QueueSession {
   status: 'active' | 'inactive';
   createdBy: string;
   createdAt: string;
+  isDoubleStar?: boolean;
 }
 
 export interface SessionPlayer {
@@ -84,6 +86,7 @@ export interface Player extends UserProfile {
   totalPlayTimeMinutes: number;
   lastAvailableAt?: number;
   notes?: string;
+  stars?: number;
 }
 
 export interface Court {
@@ -111,6 +114,8 @@ export interface Match {
   isCompleted: boolean;
   status: MatchStatus;
   winner?: 'teamA' | 'teamB' | null;
+  stars?: Record<string, number>; // Player ID to stars earned
+  isDoubleStar?: boolean; // Whether this match had double star boost
 }
 
 export interface Fee {
@@ -126,4 +131,13 @@ export interface PaymentMethod {
   id: string;
   name: string;
   imageUrl: string;
+}
+
+export interface BoostSchedule {
+  id: string;
+  sessionId: string; // Reference to the session document
+  date: string; // YYYY-MM-DD format
+  sessionCode: string; // 6-digit code for validation
+  isActive: boolean;
+  createdAt: string;
 }

@@ -10,7 +10,8 @@ import {
   Match,
   MatchStatus,
   Fee,
-  PaymentMethod
+  PaymentMethod,
+  BoostSchedule
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -20,6 +21,7 @@ interface ClubSettings {
   defaultWinningScore: number;
   autoAdvanceEnabled: boolean;
   defaultCourtCount: number;
+  deuceEnabled: boolean;
 }
 
 interface ClubContextType {
@@ -30,7 +32,7 @@ interface ClubContextType {
   matches: Match[];
   fees: Fee[];
   paymentMethods: PaymentMethod[];
-  role: 'player' | 'admin' | null;
+  role: 'player' | 'admin' | 'queueMaster' | null;
   isSessionActive: boolean;
   isProfileLoading: boolean;
   isAdminRoleLoading: boolean;
@@ -39,7 +41,7 @@ interface ClubContextType {
 
   // Auth & Session
   joinSession: (code: string, participate?: boolean) => Promise<void>;
-  createSession: () => Promise<string>;
+  createSession: (isDoubleStar?: boolean, sessionCode?: string) => Promise<string>;
   regenerateQueueSessionCode: () => Promise<string>;
   endSession: () => Promise<void>;
   loadSessionById: (sessionId: string) => Promise<void>;
@@ -74,7 +76,15 @@ interface ClubContextType {
   setAutoAdvanceEnabled: (enabled: boolean) => Promise<void>;
   defaultCourtCount: number;
   setDefaultCourtCount: (count: number) => Promise<void>;
+  deuceEnabled: boolean;
+  setDeuceEnabled: (enabled: boolean) => Promise<void>;
   queueSessionCode: string;
+
+  // Boost Schedules
+  boostSchedules: BoostSchedule[];
+  addBoostSchedule: (date: string) => Promise<{ sessionCode: string; sessionId: string }>;
+  deleteBoostSchedule: (id: string) => Promise<void>;
+  upcomingBoost?: BoostSchedule;
 
   // System
   resetDailyBoard: () => Promise<void>;
@@ -205,11 +215,38 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   }, [firestore, user?.uid]);
   const { data: sessionSettings } = useDoc<ClubSettings>(clubSettingsRef);
 
-  const role: 'player' | 'admin' | null = useMemo(() => {
+  const boostSchedulesRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'boost_schedules');
+  }, [firestore]);
+  const { data: boostSchedules } = useCollection<BoostSchedule>(boostSchedulesRef);
+
+  const upcomingBoost = useMemo(() => {
+    if (!boostSchedules) return undefined;
+    const today = new Date();
+    const threeDaysFromNow = new Date();
+    threeDaysFromNow.setDate(today.getDate() + 3);
+
+    return boostSchedules
+      .filter(bs => bs.isActive)
+      .find(bs => {
+        const boostDate = new Date(bs.date);
+        return boostDate >= today && boostDate <= threeDaysFromNow;
+      });
+  }, [boostSchedules]);
+
+  const role: 'player' | 'admin' | 'queueMaster' | null = useMemo(() => {
     // Priority 1: Explicitly assigned in admin_roles collection
     if (adminRoleData) return 'admin';
     // Priority 2: Set within user profile document
     if (userProfile?.role === 'admin') return 'admin';
+    // Check for temporary queueMaster role (not expired)
+    if (userProfile?.role === 'queueMaster') {
+      if (userProfile.roleExpiresAt && new Date(userProfile.roleExpiresAt) < new Date()) {
+        return 'player'; // Expired
+      }
+      return 'queueMaster';
+    }
     if (userProfile?.role === 'player') return 'player';
     return null;
   }, [adminRoleData, userProfile]);
@@ -238,6 +275,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const defaultWinningScore = sessionSettings?.defaultWinningScore || 21;
   const autoAdvanceEnabled = sessionSettings?.autoAdvanceEnabled ?? true;
   const defaultCourtCount = sessionSettings?.defaultCourtCount ?? 0;
+  const deuceEnabled = sessionSettings?.deuceEnabled ?? true;
   const queueSessionCode = activeSession?.code || '';
 
   const joinSession = async (code: string, participate: boolean = true) => {
@@ -271,8 +309,20 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setActiveSession(session);
   };
 
-  const createSession = async () => {
+  const createSession = async (isDoubleStar = false, sessionCode = '') => {
     if (!firestore || !user?.uid || role !== 'admin') throw new Error('Unauthorized');
+
+    // Validate session code if double star is requested and a code is provided
+    if (isDoubleStar && sessionCode) {
+      const today = new Date().toISOString().split('T')[0];
+      const boostSchedule = (boostSchedules || []).find(
+        bs => bs.sessionCode === sessionCode && bs.date === today && bs.isActive
+      );
+      if (!boostSchedule) {
+        throw new Error('Invalid session code or no boost scheduled for today');
+      }
+    }
+
     const sessionId = Math.random().toString(36).substr(2, 9);
     const code = Math.random().toString(36).substr(2, 6).toUpperCase();
     const session: QueueSession = {
@@ -280,7 +330,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       code,
       status: 'active',
       createdBy: user.uid,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      isDoubleStar
     };
     await setDoc(doc(firestore, 'sessions', sessionId), session);
 
@@ -349,12 +400,22 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePlayer = async (id: string, updates: Partial<Player>) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id) throw new Error('No active session');
+    // Only admin or queueMaster can update players
+    if (role !== 'admin' && role !== 'queueMaster') throw new Error('Unauthorized');
+    // Only admin can change roles
+    if ((updates.role || updates.roleExpiresAt !== undefined) && role !== 'admin') {
+      throw new Error('Only admin can change player roles');
+    }
     const playerRef = doc(firestore, 'sessions', activeSession.id, 'players', id);
     const sessionUpdates: any = {};
     if (updates.name) sessionUpdates.name = updates.name;
     if (updates.skillLevel) sessionUpdates.skillLevel = updates.skillLevel;
     if (updates.status) sessionUpdates.status = updates.status;
+    if (updates.notes !== undefined) sessionUpdates.notes = updates.notes;
+    if (updates.playStyle) sessionUpdates.playStyle = updates.playStyle;
+    if (updates.role) sessionUpdates.role = updates.role;
+    if (updates.roleExpiresAt !== undefined) sessionUpdates.roleExpiresAt = updates.roleExpiresAt;
     await updateDoc(playerRef, sessionUpdates);
   };
 
@@ -364,7 +425,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const addCourt = async (name?: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     const courtId = Math.random().toString(36).substr(2, 9);
     const court: Court = {
       id: courtId,
@@ -384,7 +445,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const startMatch = async (matchData: any) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     const matchId = Math.random().toString(36).substr(2, 9);
     const match: Match = {
       id: matchId,
@@ -416,7 +477,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const startTimer = async (courtId: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     const court = courts.find(c => c.id === courtId);
     if (!court?.currentMatchId) return;
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', court.currentMatchId), {
@@ -425,7 +486,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const updateMatchScore = async (matchId: string, teamAScore: number, teamBScore: number) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), {
       teamAScore: Math.max(0, teamAScore),
       teamBScore: Math.max(0, teamBScore),
@@ -433,9 +494,45 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const endMatch = async (courtId: string, status: MatchStatus, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     const court = courts.find(c => c.id === courtId);
     if (!court?.currentMatchId) return;
+
+    const match = matches.find(m => m.id === court.currentMatchId);
+    if (!match) return;
+
+    // Calculate stars based on rank
+    const starsEarned: Record<string, number> = {};
+    if (status === 'completed' && winner && teamAScore !== undefined && teamBScore !== undefined) {
+      const winningScore = winner === 'teamA' ? teamAScore : teamBScore;
+      const losingScore = winner === 'teamA' ? teamBScore : teamAScore;
+
+      // Determine ranks: winner team gets 1st, loser team gets 2nd
+      const winningTeam = winner === 'teamA' ? match.teamA : match.teamB;
+      const losingTeam = winner === 'teamA' ? match.teamB : match.teamA;
+
+      winningTeam.forEach(pid => { starsEarned[pid] = 3; });
+      losingTeam.forEach(pid => { starsEarned[pid] = 2; });
+
+      // If the loser scored 0, they get 4th place (0.5 stars)
+      if (losingScore === 0) {
+        losingTeam.forEach(pid => { starsEarned[pid] = 0.5; });
+      } else {
+        // Otherwise loser gets 2nd place (2 stars)
+        losingTeam.forEach(pid => { starsEarned[pid] = 2; });
+      }
+    }
+
+    // Check for double star boost - use session's isDoubleStar flag
+    const isDoubleStar = activeSession.isDoubleStar || false;
+
+    // Apply double star multiplier if boost is active
+    if (isDoubleStar) {
+      Object.keys(starsEarned).forEach(pid => {
+        starsEarned[pid] *= 2;
+      });
+    }
+
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', court.currentMatchId), {
       isCompleted: status === 'completed',
       status,
@@ -443,31 +540,33 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       ...(winner ? { winner } : {}),
       ...(teamAScore !== undefined ? { teamAScore } : {}),
       ...(teamBScore !== undefined ? { teamBScore } : {}),
+      stars: starsEarned,
+      isDoubleStar,
     });
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { status: 'available', currentMatchId: null });
-    const match = matches.find(m => m.id === court.currentMatchId);
-    if (match) {
-      const startTime = match.startTime ? new Date(match.startTime).getTime() : null;
-      const playDuration = startTime ? Math.floor((Date.now() - startTime) / 60000) : 0;
-      for (const pid of [...match.teamA, ...match.teamB]) {
-        const player = players.find(p => p.id === pid);
-        const isTeamA = match.teamA.includes(pid);
-        const partnerId = isTeamA ? match.teamA.find(id => id !== pid) : match.teamB.find(id => id !== pid);
-        const won = status === 'completed' && winner
-          ? (winner === 'teamA' && isTeamA) || (winner === 'teamB' && !isTeamA)
-          : false;
 
-        await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', pid), {
-          status: 'available',
-          lastAvailableAt: Date.now(),
-          wins: (player?.wins || 0) + (won ? 1 : 0),
-          gamesPlayed: (player?.gamesPlayed || 0) + (status === 'completed' ? 1 : 0),
-          partnerHistory: partnerId ? [partnerId, ...(player?.partnerHistory || [])].slice(0, 5) : (player?.partnerHistory || []),
-          improvementScore: Math.max(0, (player?.improvementScore || 0) + (won ? 5 : status === 'completed' ? -2 : 0)),
-          totalPlayTimeMinutes: (player?.totalPlayTimeMinutes || 0) + playDuration,
-        });
-      }
+    const startTime = match.startTime ? new Date(match.startTime).getTime() : null;
+    const playDuration = startTime ? Math.floor((Date.now() - startTime) / 60000) : 0;
+    for (const pid of [...match.teamA, ...match.teamB]) {
+      const player = players.find(p => p.id === pid);
+      const isTeamA = match.teamA.includes(pid);
+      const partnerId = isTeamA ? match.teamA.find(id => id !== pid) : match.teamB.find(id => id !== pid);
+      const won = status === 'completed' && winner
+        ? (winner === 'teamA' && isTeamA) || (winner === 'teamB' && !isTeamA)
+        : false;
+
+      await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', pid), {
+        status: 'available',
+        lastAvailableAt: Date.now(),
+        wins: (player?.wins || 0) + (won ? 1 : 0),
+        gamesPlayed: (player?.gamesPlayed || 0) + (status === 'completed' ? 1 : 0),
+        partnerHistory: partnerId ? [partnerId, ...(player?.partnerHistory || [])].slice(0, 5) : (player?.partnerHistory || []),
+        improvementScore: Math.max(0, (player?.improvementScore || 0) + (won ? 5 : status === 'completed' ? -2 : 0)),
+        totalPlayTimeMinutes: (player?.totalPlayTimeMinutes || 0) + playDuration,
+        stars: (player?.stars || 0) + (starsEarned[pid] || 0),
+      });
     }
+
 
     if (status === 'completed' && autoAdvanceEnabled) {
       const nextMatch = matches
@@ -488,7 +587,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const swapPlayer = async (matchId: string, oldPlayerId: string, newPlayerId: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
 
@@ -544,13 +643,13 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const assignMatchToCourt = async (matchId: string, courtId: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), { courtId });
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { status: 'occupied', currentMatchId: matchId });
   };
 
   const createCourtAndAssignMatch = async (matchId: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     const courtId = await addCourt();
     await assignMatchToCourt(matchId, courtId);
   };
@@ -600,6 +699,48 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await setDoc(doc(firestore, 'sessionSettings', 'config'), { defaultCourtCount: safeCount }, { merge: true });
   };
 
+  const setDeuceEnabled = async (enabled: boolean) => {
+    if (!firestore || !user?.uid) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { deuceEnabled: enabled }, { merge: true });
+  };
+
+  const addBoostSchedule = async (date: string) => {
+    if (!firestore || !user?.uid) throw new Error('Unauthorized');
+    // Generate session ID and 6-digit session code
+    const sessionId = Math.random().toString(36).substr(2, 9);
+    const sessionCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = Math.random().toString(36).substr(2, 6).toUpperCase();
+
+    // Create a session with isDoubleStar enabled
+    const session: QueueSession = {
+      id: sessionId,
+      code,
+      status: 'active',
+      createdBy: user.uid,
+      createdAt: new Date().toISOString(),
+      isDoubleStar: true
+    };
+    await setDoc(doc(firestore, 'sessions', sessionId), session);
+
+    // Create boost schedule record
+    const boostRef = doc(collection(firestore, 'boost_schedules'));
+    await setDoc(boostRef, {
+      id: boostRef.id,
+      sessionId,
+      date,
+      sessionCode,
+      isActive: true,
+      createdAt: new Date().toISOString()
+    });
+
+    return { sessionCode, sessionId };
+  };
+
+  const deleteBoostSchedule = async (id: string) => {
+    if (!firestore || !user?.uid) throw new Error('Unauthorized');
+    await deleteDoc(doc(firestore, 'boost_schedules', id));
+  };
+
   const resetDailyBoard = async () => {
     if (!firestore || !activeSession?.id) return;
     for (const match of matches.filter(m => !m.isCompleted)) {
@@ -647,7 +788,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       updateFee, togglePayment, addPaymentMethod, deletePaymentMethod,
       clubLogo, setClubLogo, defaultWinningScore, setDefaultWinningScore,
       autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode,
-      resetDailyBoard, defaultCourtCount, setDefaultCourtCount, clearClubData
+      resetDailyBoard, defaultCourtCount, setDefaultCourtCount, deuceEnabled, setDeuceEnabled,
+      boostSchedules: boostSchedules || [], addBoostSchedule, deleteBoostSchedule, upcomingBoost, clearClubData
     }}>
       {children}
     </ClubContext.Provider>

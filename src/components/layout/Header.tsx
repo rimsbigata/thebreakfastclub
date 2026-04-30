@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useClub } from '@/context/ClubContext';
@@ -19,6 +19,8 @@ import { getSkillColor, SKILL_LEVELS_SHORT } from '@/lib/types';
 import { useFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { generateDeterministicMatch } from '@/lib/matchmaking';
+import Image from 'next/image';
+import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 
 export function Header() {
   const pathname = usePathname();
@@ -36,6 +38,8 @@ export function Header() {
   const [loadingMatch, setLoadingMatch] = useState(false);
 
   const isAdmin = role === 'admin';
+  const isQueueMaster = role === 'queueMaster';
+  const isStaff = isAdmin || isQueueMaster;
   const skillLevelOf = (player: { skillLevel?: number }) => player.skillLevel || 3;
 
   const navItems = [
@@ -44,8 +48,10 @@ export function Header() {
     { label: 'Fees', href: activeSession ? `/session/${activeSession.id}/fees` : '/fees', icon: Banknote },
   ];
 
-  if (isAdmin) {
+  if (isStaff) {
     navItems.push({ label: 'Players', href: activeSession ? `/session/${activeSession.id}/players` : '/players', icon: Users });
+  }
+  if (isAdmin) {
     navItems.push({ label: 'Settings', href: activeSession ? `/session/${activeSession.id}/settings` : '/settings', icon: Settings });
   }
 
@@ -116,9 +122,8 @@ export function Header() {
     <header className="h-16 border-b bg-card flex items-center justify-between px-6 shrink-0 shadow-md z-50 transition-colors">
       <div className="flex items-center gap-6">
         <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="hidden sm:block">
-            <h1 className="text-base font-black tracking-tighter leading-none text-primary">TBC</h1>
-            <p className="text-[8px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">Command Center</p>
+          <div className="relative h-10 w-10">
+            <Image src={tbcLogo} alt="TBC Logo" fill className="object-contain" />
           </div>
         </Link>
 
@@ -150,6 +155,11 @@ export function Header() {
             Session: <span className="text-primary">{activeSession.code}</span>
           </Badge>
         )}
+        {activeSession?.isDoubleStar && (
+          <Badge variant="outline" className="hidden lg:flex gap-1.5 font-black uppercase text-[10px] tracking-widest px-3 h-8 border-2 border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-500">
+            <Target className="h-3 w-3 fill-yellow-500" /> Double Star
+          </Badge>
+        )}
 
         <Button
           variant="ghost"
@@ -160,7 +170,7 @@ export function Header() {
           {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
 
-        {isAdmin && activeSession && (
+        {isStaff && activeSession && (
           <>
             <Button
               onClick={handleQuickMatch}

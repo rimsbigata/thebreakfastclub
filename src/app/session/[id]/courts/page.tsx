@@ -15,7 +15,7 @@ import { MatchResults } from '@/components/match/MatchResults';
 import { cn } from '@/lib/utils';
 
 export default function CourtsPage() {
-  const { courts, players, matches, addCourt, deleteCourt, endMatch } = useClub();
+  const { courts, players, matches, addCourt, deleteCourt, endMatch, defaultWinningScore, deuceEnabled } = useClub();
   const { toast } = useToast();
   const [newCourtName, setNewCourtName] = useState('');
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
@@ -69,6 +69,29 @@ export default function CourtsPage() {
     const a = teamAScore ?? 0;
     const b = teamBScore ?? 0;
     const losingScore = winner === 'teamA' ? b : a;
+
+    // Validate score based on deuce rule
+    const higher = Math.max(a, b);
+    const lower = Math.min(a, b);
+
+    if (higher < defaultWinningScore) {
+      toast({ title: "Invalid Score", description: `Winning score (${defaultWinningScore}) not reached.`, variant: "destructive" });
+      return;
+    }
+    if (a === b) {
+      toast({ title: "Invalid Score", description: "Scores cannot be equal.", variant: "destructive" });
+      return;
+    }
+    if (deuceEnabled) {
+      if (higher === defaultWinningScore && lower === defaultWinningScore - 1) {
+        toast({ title: "Invalid Score", description: "Must win by 2 points.", variant: "destructive" });
+        return;
+      }
+      if (higher > defaultWinningScore && higher - lower < 2) {
+        toast({ title: "Invalid Score", description: "Must win by 2 points in deuce.", variant: "destructive" });
+        return;
+      }
+    }
 
     if (losingScore === 0) {
       setPendingScore({

@@ -1,5 +1,5 @@
 
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ClubProvider } from '@/context/ClubContext';
@@ -12,7 +12,9 @@ export const metadata: Metadata = {
   title: 'TheBreakfastClub | Badminton Club',
   description: 'Badminton court queuing and matching for TheBreakfastClub.',
   icons: {
-    icon: '/favicon.svg',
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
   },
 };
 
