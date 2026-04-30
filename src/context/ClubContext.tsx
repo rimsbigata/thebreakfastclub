@@ -557,18 +557,18 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const setClubLogo = async (logo: string | null) => {
-    if (!firestore || !activeSession?.id) return;
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'settings', 'config'), { clubLogo: logo }, { merge: true });
+    if (!firestore || !user?.uid) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { clubLogo: logo }, { merge: true });
   };
 
   const setDefaultWinningScore = async (score: number) => {
-    if (!firestore || !activeSession?.id) return;
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'settings', 'config'), { defaultWinningScore: score }, { merge: true });
+    if (!firestore || !user?.uid) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { defaultWinningScore: score }, { merge: true });
   };
 
   const setAutoAdvanceEnabled = async (enabled: boolean) => {
-    if (!firestore || !activeSession?.id) return;
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'settings', 'config'), { autoAdvanceEnabled: enabled }, { merge: true });
+    if (!firestore || !user?.uid) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { autoAdvanceEnabled: enabled }, { merge: true });
   };
 
   const setDefaultCourtCount = async (count: number) => {
