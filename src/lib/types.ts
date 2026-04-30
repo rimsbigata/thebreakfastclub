@@ -78,16 +78,17 @@ export interface Player extends UserProfile {
   skillLevel: number;
   wins: number;
   gamesPlayed: number;
-  partnerHistory: string[]; 
+  partnerHistory: string[];
   status: PlayerStatus;
   improvementScore: number;
   totalPlayTimeMinutes: number;
   lastAvailableAt?: number;
+  notes?: string;
 }
 
 export interface Court {
   id: string;
-  name: string; 
+  name: string;
   status: CourtStatus;
   currentMatchId?: string | null;
   queue: string[];
@@ -97,15 +98,15 @@ export interface Court {
 
 export interface Match {
   id: string;
-  teamA: string[]; 
-  teamB: string[]; 
+  teamA: string[];
+  teamB: string[];
   teamASnapshots?: PlayerSnapshot[];
   teamBSnapshots?: PlayerSnapshot[];
   teamAScore?: number;
   teamBScore?: number;
-  courtId?: string; 
-  timestamp: string; 
-  startTime?: string; 
+  courtId?: string;
+  timestamp: string;
+  startTime?: string;
   endTime?: string;
   isCompleted: boolean;
   status: MatchStatus;
@@ -113,12 +114,12 @@ export interface Match {
 }
 
 export interface Fee {
-  id: string; 
+  id: string;
   shuttleFee: number;
   courtFee: number;
   entranceFee: number;
-  qrCodeUrl?: string; 
-  payments: Record<string, boolean>; 
+  qrCodeUrl?: string;
+  payments: Record<string, boolean>;
 }
 
 export interface PaymentMethod {

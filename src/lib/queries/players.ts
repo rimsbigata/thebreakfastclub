@@ -13,6 +13,7 @@ export interface Player {
   total_play_time_minutes: number;
   last_available_at: string | null;
   play_style: string;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +32,7 @@ function toAppPlayer(player: Player): AppPlayer {
     totalPlayTimeMinutes: player.total_play_time_minutes,
     lastAvailableAt: player.last_available_at ? new Date(player.last_available_at).getTime() : undefined,
     playStyle: player.play_style,
+    notes: player.notes || undefined,
   };
 }
 
@@ -89,6 +91,7 @@ export async function updatePlayerById(id: string, updates: Partial<AppPlayer>):
       total_play_time_minutes = ${next.totalPlayTimeMinutes},
       last_available_at = ${lastAvailableAt},
       play_style = ${next.playStyle},
+      notes = ${next.notes || null},
       updated_at = NOW()
     WHERE id = ${id}
     RETURNING *

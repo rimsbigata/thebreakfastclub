@@ -69,7 +69,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
         </div>
       </div>
 
-      <div className="absolute bottom-8 text-[10px] font-bold opacity-40 uppercase tracking-widest">
+      <div className="absolute bottom-8 text-[10px] text-white font-bold opacity-40 uppercase tracking-widest">
         Built with care by Rimuel
       </div>
     </div>
