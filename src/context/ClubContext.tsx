@@ -42,6 +42,7 @@ interface ClubContextType {
   createSession: () => Promise<string>;
   regenerateQueueSessionCode: () => Promise<string>;
   endSession: () => Promise<void>;
+  loadSessionById: (sessionId: string) => Promise<void>;
 
   // Admin Controls
   addPlayer: (input: { name: string; skillLevel: number; playStyle: string }) => Promise<void>;
@@ -312,6 +313,23 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
     await updateDoc(doc(firestore, 'sessions', activeSession.id), { status: 'inactive' });
     setActiveSession(null);
+  };
+
+  const loadSessionById = async (sessionId: string) => {
+    if (!firestore || !user?.uid) throw new Error('You must be signed in to load a session.');
+    const sessionSnapshot = await getDoc(doc(firestore, 'sessions', sessionId));
+
+    if (!sessionSnapshot.exists()) {
+      throw new Error('Session not found');
+    }
+
+    const session = { ...sessionSnapshot.data(), id: sessionSnapshot.id } as QueueSession;
+
+    if (session.status !== 'active') {
+      throw new Error('Session is not active');
+    }
+
+    setActiveSession(session);
   };
 
   const addPlayer = async (input: { name: string; skillLevel: number; playStyle: string }) => {
@@ -622,7 +640,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     <ClubContext.Provider value={{
       userProfile, activeSession, players, courts, matches, fees, paymentMethods, role,
       isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, isRestoringSession, currentPlayer,
-      joinSession, createSession, regenerateQueueSessionCode, endSession,
+      joinSession, createSession, regenerateQueueSessionCode, endSession, loadSessionById,
       addPlayer, updatePlayer, deletePlayer,
       addCourt, deleteCourt, startMatch, startTimer, updateMatchScore, endMatch,
       swapPlayer, deleteMatch, assignMatchToCourt, createCourtAndAssignMatch,

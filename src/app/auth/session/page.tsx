@@ -24,15 +24,15 @@ export default function SessionGatePage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (isRestoringSession) return;
+
     if (role === 'admin') {
       router.replace('/');
       return;
     }
 
-    if (isRestoringSession) return;
-
     if (activeSession) {
-      router.push('/');
+      router.push(`/session/${activeSession.id}`);
     }
   }, [activeSession, role, router, isRestoringSession]);
 
@@ -42,7 +42,9 @@ export default function SessionGatePage() {
     try {
       await joinSession(code, true);
       toast({ title: "Joined Session!" });
-      router.push('/');
+      if (activeSession) {
+        router.push(`/session/${activeSession.id}`);
+      }
     } catch (error: any) {
       toast({ title: "Failed to join", description: error.message, variant: "destructive" });
     } finally {
@@ -55,7 +57,9 @@ export default function SessionGatePage() {
     try {
       const newCode = await createSession();
       toast({ title: "Session Created!", description: `Code: ${newCode}` });
-      router.push('/');
+      if (activeSession) {
+        router.push(`/session/${activeSession.id}`);
+      }
     } catch (error: any) {
       toast({ title: "Failed to create", description: error.message, variant: "destructive" });
     } finally {

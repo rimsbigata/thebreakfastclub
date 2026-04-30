@@ -24,12 +24,12 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { auth } = useFirebase();
-  const { 
-    courts, players, addCourt, startMatch, role, activeSession 
+  const {
+    courts, players, addCourt, startMatch, role, activeSession
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
-  
+
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('queue');
@@ -39,14 +39,14 @@ export function Header() {
   const skillLevelOf = (player: { skillLevel?: number }) => player.skillLevel || 3;
 
   const navItems = [
-    { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { label: 'Rankings', href: '/rankings', icon: Trophy },
-    { label: 'Fees', href: '/fees', icon: Banknote },
+    { label: 'Dashboard', href: activeSession ? `/session/${activeSession.id}` : '/', icon: LayoutDashboard },
+    { label: 'Rankings', href: activeSession ? `/session/${activeSession.id}/rankings` : '/rankings', icon: Trophy },
+    { label: 'Fees', href: activeSession ? `/session/${activeSession.id}/fees` : '/fees', icon: Banknote },
   ];
 
   if (isAdmin) {
-    navItems.push({ label: 'Players', href: '/players', icon: Users });
-    navItems.push({ label: 'Settings', href: '/settings', icon: Settings });
+    navItems.push({ label: 'Players', href: activeSession ? `/session/${activeSession.id}/players` : '/players', icon: Users });
+    navItems.push({ label: 'Settings', href: activeSession ? `/session/${activeSession.id}/settings` : '/settings', icon: Settings });
   }
 
   const handleLogout = async () => {
@@ -58,13 +58,13 @@ export function Header() {
 
   const handleManualMatchSubmit = async () => {
     if (selectedPlayerIds.length !== 4) return;
-    
+
     await startMatch({
       teamA: [selectedPlayerIds[0], selectedPlayerIds[1]],
       teamB: [selectedPlayerIds[2], selectedPlayerIds[3]],
       courtId: selectedCourtId === 'queue' ? undefined : selectedCourtId
     });
-    
+
     setIsManualOpen(false);
     setSelectedPlayerIds([]);
     toast({ title: "Manual Match Created" });
@@ -75,10 +75,10 @@ export function Header() {
     const availableCourts = courts.filter(c => c.status === 'available');
 
     if (availablePlayers.length < 4) {
-      toast({ 
-        title: "Not enough players", 
-        description: "Need at least 4 players on the bench.", 
-        variant: "destructive" 
+      toast({
+        title: "Not enough players",
+        description: "Need at least 4 players on the bench.",
+        variant: "destructive"
       });
       return;
     }
@@ -95,17 +95,17 @@ export function Header() {
         });
         toast({ title: "Match Started!", description: result.analysis });
       } else {
-        toast({ 
-          title: "No optimal match", 
-          description: result.error || "Logic engine couldn't find a balance." 
+        toast({
+          title: "No optimal match",
+          description: result.error || "Logic engine couldn't find a balance."
         });
       }
     } catch (e) {
       console.error(e);
-      toast({ 
-        title: "Matchmaking Error", 
-        description: "Failed to generate match logic.", 
-        variant: "destructive" 
+      toast({
+        title: "Matchmaking Error",
+        description: "Failed to generate match logic.",
+        variant: "destructive"
       });
     } finally {
       setLoadingMatch(false);
@@ -151,9 +151,9 @@ export function Header() {
           </Badge>
         )}
 
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="h-10 w-10 text-muted-foreground hover:text-primary transition-colors"
           onClick={toggleTheme}
         >
@@ -162,9 +162,9 @@ export function Header() {
 
         {isAdmin && activeSession && (
           <>
-            <Button 
-              onClick={handleQuickMatch} 
-              disabled={loadingMatch} 
+            <Button
+              onClick={handleQuickMatch}
+              disabled={loadingMatch}
               variant="default"
               className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 shadow-md shadow-primary/10 px-4"
             >
@@ -193,14 +193,14 @@ export function Header() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-xs font-black uppercase tracking-widest">Select 4 Players ({selectedPlayerIds.length}/4)</Label>
                     <ScrollArea className="h-80 border-2 rounded-xl p-3">
                       <div className="space-y-2">
                         {players.filter(p => p.status === 'available').map(player => (
                           <div key={player.id} className="flex items-center space-x-3 p-3 hover:bg-secondary rounded-xl transition-colors">
-                            <Checkbox 
+                            <Checkbox
                               id={player.id}
                               checked={selectedPlayerIds.includes(player.id)}
                               className="h-6 w-6"
@@ -224,8 +224,8 @@ export function Header() {
                     </ScrollArea>
                   </div>
 
-                  <Button 
-                    className="w-full font-black uppercase h-16 text-base shadow-xl shadow-primary/20" 
+                  <Button
+                    className="w-full font-black uppercase h-16 text-base shadow-xl shadow-primary/20"
                     disabled={selectedPlayerIds.length !== 4}
                     onClick={handleManualMatchSubmit}
                   >
@@ -235,9 +235,9 @@ export function Header() {
               </DialogContent>
             </Dialog>
 
-            <Button 
-              variant="outline" 
-              size="icon" 
+            <Button
+              variant="outline"
+              size="icon"
               className="h-10 w-10 border-2 hover:bg-secondary"
               onClick={async () => {
                 try {

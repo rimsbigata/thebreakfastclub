@@ -10,7 +10,7 @@ import { SplashScreen } from '@/components/layout/SplashScreen';
 
 export default function RootPage() {
   const { user, isUserLoading } = useUser();
-  const { userProfile, isSessionActive, isProfileLoading, role, isAdminRoleLoading } = useClub();
+  const { userProfile, isSessionActive, isProfileLoading, role, isAdminRoleLoading, activeSession } = useClub();
   const router = useRouter();
   const [hasSplashDelayElapsed, setHasSplashDelayElapsed] = useState(false);
 
@@ -40,9 +40,11 @@ export default function RootPage() {
       // Players without an active session are forced to the session gate.
       if (role === 'player' && !isSessionActive) {
         router.replace('/auth/session');
+      } else if (isSessionActive && activeSession) {
+        router.replace(`/session/${activeSession.id}`);
       }
     }
-  }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, role, isAdminRoleLoading, router, hasSplashDelayElapsed]);
+  }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, activeSession, role, isAdminRoleLoading, router, hasSplashDelayElapsed]);
 
   // Priority 1: Show Splash while determining basic state
   if (!hasSplashDelayElapsed || isUserLoading || isProfileLoading || isAdminRoleLoading) {

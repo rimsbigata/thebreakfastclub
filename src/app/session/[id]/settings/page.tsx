@@ -1,5 +1,4 @@
-
-'use client';
+"use client";
 
 import { useState, useRef } from 'react';
 import { useClub } from '@/context/ClubContext';
@@ -32,6 +31,7 @@ export default function SettingsPage() {
   const [newMethodName, setNewMethodName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isLogoUploading, setIsLogoUploading] = useState(false);
+  const [isClearingClubData, setIsClearingClubData] = useState(false);
 
   const processAndUpload = (file: File, callback: (data: string) => void) => {
     const reader = new FileReader();
@@ -119,7 +119,7 @@ export default function SettingsPage() {
       try {
         await endSession();
         toast({ title: "Session Terminated" });
-        router.push('/');
+        router.push('/auth/session');
       } catch (error) {
         toast({
           title: "Failed to end session",
@@ -141,16 +141,19 @@ export default function SettingsPage() {
         return;
       }
 
+      setIsClearingClubData(true);
       try {
         await clearClubData();
         toast({ title: "Club Data Cleared" });
-        router.push('/');
+        router.push('/auth/session');
       } catch (error) {
         toast({
           title: "Failed to clear club data",
           description: error instanceof Error ? error.message : "Database update failed.",
           variant: "destructive"
         });
+      } finally {
+        setIsClearingClubData(false);
       }
     }
   };
@@ -268,19 +271,6 @@ export default function SettingsPage() {
                 />
                 <p className="text-[9px] text-muted-foreground uppercase font-bold">New sessions will automatically create this many courts.</p>
               </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Default Courts Per Session</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={20}
-                  value={defaultCourtCount}
-                  onChange={(e) => setDefaultCourtCount(parseInt(e.target.value) || 0)}
-                  className="font-black text-lg h-12"
-                />
-                <p className="text-[9px] text-muted-foreground uppercase font-bold">New sessions will automatically create this many courts.</p>
-              </div>
             </CardContent>
           </Card>
 
@@ -315,8 +305,8 @@ export default function SettingsPage() {
                 </Button>
               </div>
               <div className="pt-2 border-t border-dashed">
-                <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
-                  <Trash2 className="h-3 w-3 mr-2" /> Clear Club Data
+                <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10" disabled={isClearingClubData}>
+                  {isClearingClubData ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <Trash2 className="h-3 w-3 mr-2" />} Clear Club Data
                 </Button>
               </div>
             </CardContent>
