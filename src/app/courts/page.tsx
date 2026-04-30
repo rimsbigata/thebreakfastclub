@@ -132,7 +132,7 @@ export default function CourtsPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90"
+                  className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground opacity-0 group-hover:opacity-100 transition-all active:scale-90"
                   onClick={() => deleteCourt(court.id)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -171,7 +171,7 @@ export default function CourtsPage() {
                 <Button variant="outline" size="sm" onClick={() => {
                   setScoringCourtId(court.id);
                   setActiveModal('score');
-                }} className="w-full transition-all hover:bg-primary hover:text-white active:scale-95">End Match & Record Score</Button>
+                }} className="w-full transition-all hover:bg-primary hover:text-primary-foreground active:scale-95">End Match & Record Score</Button>
               ) : (
                 <p className="text-xs text-muted-foreground opacity-50">Idle</p>
               )}

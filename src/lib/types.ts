@@ -56,13 +56,13 @@ export const SKILL_LEVELS = SKILL_LEVELS_FULL;
 
 export const getSkillColor = (level: number) => {
   switch (level) {
-    case 1: return "bg-[#9CA3AF] text-slate-900 border-none font-bold";
-    case 2: return "bg-[#0F766E] text-white border-none font-bold";
-    case 3: return "bg-[#15803D] text-white border-none font-bold";
-    case 4: return "bg-[#CA8A04] text-slate-900 border-none font-bold";
-    case 5: return "bg-[#EA580C] text-white border-none font-bold";
-    case 6: return "bg-[#DC2626] text-white border-none font-bold";
-    case 7: return "bg-[#7C3AED] text-white border-none font-bold";
+    case 1: return "bg-zinc-300 text-zinc-950 dark:bg-zinc-600 dark:text-zinc-50 border-none font-bold";
+    case 2: return "bg-teal-600 text-white dark:bg-teal-500 dark:text-teal-950 border-none font-bold";
+    case 3: return "bg-green-700 text-white dark:bg-green-500 dark:text-green-950 border-none font-bold";
+    case 4: return "bg-amber-500 text-amber-950 dark:bg-amber-400 dark:text-amber-950 border-none font-bold";
+    case 5: return "bg-orange-600 text-white dark:bg-orange-500 dark:text-white border-none font-bold";
+    case 6: return "bg-red-600 text-white dark:bg-red-500 dark:text-white border-none font-bold";
+    case 7: return "bg-violet-600 text-white dark:bg-violet-500 dark:text-white border-none font-bold";
     default: return "bg-muted text-muted-foreground border-none font-bold";
   }
 };
@@ -74,6 +74,8 @@ export interface PlayerSnapshot {
 }
 
 export interface Player extends UserProfile {
+  role: UserRole;
+  skillLevel: number;
   wins: number;
   gamesPlayed: number;
   partnerHistory: string[]; 

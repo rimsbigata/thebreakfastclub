@@ -1,0 +1,103 @@
+{
+    "firestore": {
+        "rules": "firestore.rules",
+        "indexes": "firestore.indexes.json"
+    },
+    "storage": {
+        "rules": "storage.rules"
+    },
+    "database": {
+        "rules": "database.rules.json"
+    },
+    "remoteconfig": {
+        "template": "remoteconfig.template.json"
+    },
+    "extensions": {
+        "preinstall": "extensions/preinstall.sh",
+        "postinstall": "extensions/postinstall.sh"
+    },
+    "emulators": {
+        "hosting": {
+            "port": 5000
+        },
+        "functions": {
+            "port": 5001
+        },
+        "firestore": {
+            "port": 8080
+        },
+        "database": {
+            "port": 9000
+        },
+        "auth": {
+            "port": 9099
+        },
+        "storage": {
+            "port": 9199
+        }
+    },
+    "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+    ],
+    "postdeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run postdeploy"
+    ],
+    "rewrites": [
+        {
+            "source": "**",
+            "destination": "/index.html"
+        }
+    ],
+    "redirects": [
+        {
+            "source": "/old-page",
+            "destination": "/new-page",
+            "type": 301
+        }
+    ],
+    "headers": [
+        {
+            "source": "/**",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "max-age=3600"
+                }
+            ]
+        }
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "appAssociation": "AUTO",
+    "i18n": {
+        "root": "en",
+        "locales": [
+            "en",
+            "es",
+            "fr"
+        ]
+    },
+    "hosting": {
+        "public": "dist",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "destination": "/index.html"
+            }
+        ]
+    },
+    "functions": {
+        "source": "functions",
+        "predeploy": [
+            "npm --prefix \"$RESOURCE_DIR\" run build"
+        ],
+        "postdeploy": [
+            "npm --prefix \"$RESOURCE_DIR\" run postdeploy"
+        ]
+    }
+}

@@ -35,7 +35,7 @@ export async function sendPushNotificationToPlayers({ playerIds, title, body, da
   }
 
   const messaging = getFirebaseAdminMessaging();
-  const response = await messaging.sendMulticast({
+  const response = await messaging.sendEachForMulticast({
     notification: { title, body },
     data: data ?? {},
     tokens,

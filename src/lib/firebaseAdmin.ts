@@ -1,6 +1,12 @@
+import { config } from 'dotenv';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getMessaging, Messaging } from 'firebase-admin/messaging';
+
+for (const path of ['.env.local', '.env', 'local.env']) {
+  config({ path, override: false });
+}
 
 function createAdminApp() {
   if (getApps().length) {
@@ -32,6 +38,10 @@ const adminApp = createAdminApp();
 
 export function getFirebaseAdminFirestore(): Firestore {
   return getFirestore(adminApp);
+}
+
+export function getFirebaseAdminAuth(): Auth {
+  return getAuth(adminApp);
 }
 
 export function getFirebaseAdminMessaging(): Messaging {

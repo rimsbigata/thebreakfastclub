@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { useClub } from '@/context/ClubContext';
@@ -12,8 +12,21 @@ export default function RootPage() {
   const { user, isUserLoading } = useUser();
   const { userProfile, isSessionActive, isProfileLoading, role, isAdminRoleLoading } = useClub();
   const router = useRouter();
+  const [hasSplashDelayElapsed, setHasSplashDelayElapsed] = useState(false);
 
   useEffect(() => {
+    const splashDelay = window.setTimeout(() => {
+      setHasSplashDelayElapsed(true);
+    }, 3000);
+
+    return () => window.clearTimeout(splashDelay);
+  }, []);
+
+  useEffect(() => {
+    if (!hasSplashDelayElapsed) {
+      return;
+    }
+
     // 1. If auth state is determined and no user exists, go to Login
     if (!isUserLoading && !user) {
       router.replace('/auth');
@@ -29,10 +42,10 @@ export default function RootPage() {
         router.replace('/auth/session');
       }
     }
-  }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, role, isAdminRoleLoading, router]);
+  }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, role, isAdminRoleLoading, router, hasSplashDelayElapsed]);
 
   // Priority 1: Show Splash while determining basic state
-  if (isUserLoading || isProfileLoading || isAdminRoleLoading) {
+  if (!hasSplashDelayElapsed || isUserLoading || isProfileLoading || isAdminRoleLoading) {
     return <SplashScreen />;
   }
 

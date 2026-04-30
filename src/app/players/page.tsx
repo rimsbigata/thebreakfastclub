@@ -18,8 +18,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 function StatusBadge({ status }: { status: string }) {
   const colors = {
-    available: "bg-green-500 text-white",
-    playing: "bg-primary text-white animate-pulse",
+    available: "bg-green-600 text-white dark:bg-green-500 dark:text-green-950",
+    playing: "bg-primary text-primary-foreground animate-pulse",
     resting: "bg-muted text-muted-foreground"
   };
   return (
@@ -33,11 +33,11 @@ export default function PlayersPage() {
   const { players, addPlayer, updatePlayer, deletePlayer } = useClub();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   const [newName, setNewName] = useState('');
   const [newSkill, setNewSkill] = useState('3');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [editName, setEditName] = useState('');
   const [editSkill, setEditSkill] = useState('3');
@@ -107,8 +107,8 @@ export default function PlayersPage() {
         </div>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search roster..." 
+          <Input
+            placeholder="Search roster..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-9 h-10 text-compact font-bold bg-secondary/20 border-none"
@@ -126,14 +126,14 @@ export default function PlayersPage() {
             </CardHeader>
             <CardContent className="p-4 space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Full Name</Label>
-                <Input 
+                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Name</Label>
+                <Input
                   ref={inputRef}
-                  placeholder="Enter name..." 
-                  value={newName} 
-                  onChange={e => setNewName(e.target.value)} 
+                  placeholder="Enter name..."
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="h-10 text-compact font-bold border-2" 
+                  className="h-10 text-compact font-bold border-2"
                 />
               </div>
               <div className="space-y-1.5">
@@ -239,7 +239,7 @@ export default function PlayersPage() {
           <DialogHeader><DialogTitle className="text-compact font-black uppercase">Edit Profile</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase opacity-60">Full Name</Label>
+              <Label className="text-[10px] font-black uppercase opacity-60">Name</Label>
               <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-10 font-bold" />
             </div>
             <div className="space-y-1.5">

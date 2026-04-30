@@ -21,6 +21,8 @@ export default function SettingsPage() {
     endSession, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
     autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode,
     defaultCourtCount, setDefaultCourtCount, clearClubData
+    autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode,
+    defaultCourtCount, setDefaultCourtCount, clearClubData
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -122,6 +124,31 @@ export default function SettingsPage() {
       } catch (error) {
         toast({
           title: "Failed to end session",
+          description: error instanceof Error ? error.message : "Database update failed.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleClearClubData = async () => {
+    if (typeof window !== 'undefined') {
+      const confirmation = window.prompt(
+        "This removes every queue session plus all session players, courts, matches, fees, and payment methods. Type CLEAR ALL to continue."
+      );
+
+      if (confirmation !== 'CLEAR ALL') {
+        toast({ title: "Clear cancelled", description: "Club data was not changed." });
+        return;
+      }
+
+      try {
+        await clearClubData();
+        toast({ title: "Club Data Cleared" });
+        router.push('/');
+      } catch (error) {
+        toast({
+          title: "Failed to clear club data",
           description: error instanceof Error ? error.message : "Database update failed.",
           variant: "destructive"
         });
@@ -267,6 +294,19 @@ export default function SettingsPage() {
                 />
                 <p className="text-[9px] text-muted-foreground uppercase font-bold">New sessions will automatically create this many courts.</p>
               </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Default Courts Per Session</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={defaultCourtCount}
+                  onChange={(e) => setDefaultCourtCount(parseInt(e.target.value) || 0)}
+                  className="font-black text-lg h-12"
+                />
+                <p className="text-[9px] text-muted-foreground uppercase font-bold">New sessions will automatically create this many courts.</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -280,10 +320,12 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="rounded-lg border-2 bg-secondary/10 p-5 text-center">
                 <p className="text-3xl font-black tracking-widest">{queueSessionCode || 'NO SESSION'}</p>
+                <p className="text-3xl font-black tracking-widest">{queueSessionCode || 'NO SESSION'}</p>
               </div>
               <Button onClick={handleRegenerateCode} variant="outline" className="w-full font-black uppercase text-[10px]" disabled={!queueSessionCode}>
-                Regenerate Code
-              </Button>
+                <Button onClick={handleRegenerateCode} variant="outline" className="w-full font-black uppercase text-[10px]" disabled={!queueSessionCode}>
+                  Regenerate Code
+                </Button>
             </CardContent>
           </Card>
 
@@ -293,18 +335,24 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Button onClick={handleEndSession} variant="destructive" className="w-full font-black uppercase text-[10px] h-12" disabled={!queueSessionCode}>
-                <Power className="h-4 w-4 mr-2" /> End Current Session
-              </Button>
-              <div className="pt-2 border-t border-dashed">
-                <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
-                  <RefreshCcw className="h-3 w-3 mr-2" /> Reset Daily Board
+                <Button onClick={handleEndSession} variant="destructive" className="w-full font-black uppercase text-[10px] h-12" disabled={!queueSessionCode}>
+                  <Power className="h-4 w-4 mr-2" /> End Current Session
                 </Button>
-              </div>
-              <div className="pt-2 border-t border-dashed">
-                <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
-                  <Trash2 className="h-3 w-3 mr-2" /> Clear Club Data
-                </Button>
-              </div>
+                <div className="pt-2 border-t border-dashed">
+                  <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
+                    <RefreshCcw className="h-3 w-3 mr-2" /> Reset Daily Board
+                  </Button>
+                </div>
+                <div className="pt-2 border-t border-dashed">
+                  <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
+                    <Trash2 className="h-3 w-3 mr-2" /> Clear Club Data
+                  </Button>
+                </div>
+                <div className="pt-2 border-t border-dashed">
+                  <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
+                    <Trash2 className="h-3 w-3 mr-2" /> Clear Club Data
+                  </Button>
+                </div>
             </CardContent>
           </Card>
         </div>

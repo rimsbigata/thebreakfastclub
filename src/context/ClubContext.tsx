@@ -7,6 +7,14 @@ import {
   SessionPlayer,
   Player,
   Court,
+  Match, 
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import {
+  UserProfile,
+  QueueSession,
+  SessionPlayer,
+  Player,
+  Court,
   Match,
   MatchStatus,
   Fee,
@@ -14,11 +22,13 @@ import {
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 interface ClubSettings {
   clubLogo: string | null;
   defaultWinningScore: number;
   autoAdvanceEnabled: boolean;
+  defaultCourtCount: number;
   defaultCourtCount: number;
 }
 
@@ -72,17 +82,22 @@ interface ClubContextType {
   setAutoAdvanceEnabled: (enabled: boolean) => Promise<void>;
   defaultCourtCount: number;
   setDefaultCourtCount: (count: number) => Promise<void>;
+  defaultCourtCount: number;
+  setDefaultCourtCount: (count: number) => Promise<void>;
   queueSessionCode: string;
 
   // System
   resetDailyBoard: () => Promise<void>;
   clearClubData: () => Promise<void>;
+  clearClubData: () => Promise<void>;
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
 const ACTIVE_SESSION_STORAGE_KEY = 'tbc-active-session-id';
+const ACTIVE_SESSION_STORAGE_KEY = 'tbc-active-session-id';
 
 export function ClubProvider({ children }: { children: ReactNode }) {
+  const { firestore, auth } = useFirebase();
   const { firestore, auth } = useFirebase();
   const { user } = useUser();
 
@@ -108,10 +123,63 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
       }
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+      }
     } else if (profileData) {
       setUserProfile(profileData);
     }
   }, [profileData, user]);
+
+  useEffect(() => {
+    if (!firestore || !user?.uid || activeSession) return;
+
+    const storedSessionId = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
+    if (!storedSessionId) return;
+
+    let isCancelled = false;
+
+    const restoreSession = async () => {
+      try {
+        const sessionSnapshot = await getDoc(doc(firestore, 'sessions', storedSessionId));
+
+        if (isCancelled) return;
+
+        if (!sessionSnapshot.exists()) {
+          window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+          return;
+        }
+
+        const session = { ...sessionSnapshot.data(), id: sessionSnapshot.id } as QueueSession;
+
+        if (session.status !== 'active') {
+          window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+          return;
+        }
+
+        setActiveSession(session);
+      } catch (error) {
+        console.error('Failed to restore active session:', error);
+        window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+      }
+    };
+
+    restoreSession();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [firestore, user?.uid, activeSession]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (activeSession?.id) {
+      window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, activeSession.id);
+    } else {
+      window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+    }
+  }, [activeSession?.id]);
 
   useEffect(() => {
     if (!firestore || !user?.uid || activeSession) return;
@@ -197,7 +265,21 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (!firestore || !user?.uid) return null;
     return doc(firestore, 'clubSettings', 'config');
   }, [firestore, user?.uid]);
+  const { data: clubSettings } = useDoc<ClubSettings>(clubSettingsRef);
+  const clubSettingsRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'clubSettings', 'config');
+  }, [firestore, user?.uid]);
   const { data: sessionSettings } = useDoc<ClubSettings>(clubSettingsRef);
+
+  const role: 'player' | 'admin' | null = useMemo(() => {
+    // Priority 1: Explicitly assigned in admin_roles collection
+    if (adminRoleData) return 'admin';
+    // Priority 2: Set within user profile document
+    if (userProfile?.role === 'admin') return 'admin';
+    if (userProfile?.role === 'player') return 'player';
+    return null;
+  }, [adminRoleData, userProfile]);
 
   const role: 'player' | 'admin' | null = useMemo(() => {
     // Priority 1: Explicitly assigned in admin_roles collection
@@ -228,6 +310,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const fees: Fee[] = sessionFees || [];
   const paymentMethods: PaymentMethod[] = sessionPaymentMethods || [];
 
+  const clubLogo = clubSettings?.clubLogo || null;
+  const defaultWinningScore = clubSettings?.defaultWinningScore || 21;
+  const autoAdvanceEnabled = clubSettings?.autoAdvanceEnabled ?? true;
+  const defaultCourtCount = clubSettings?.defaultCourtCount ?? 0;
+
   const clubLogo = sessionSettings?.clubLogo || null;
   const defaultWinningScore = sessionSettings?.defaultWinningScore || 21;
   const autoAdvanceEnabled = sessionSettings?.autoAdvanceEnabled ?? true;
@@ -235,12 +322,27 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const queueSessionCode = activeSession?.code || '';
 
   const joinSession = async (code: string, participate: boolean = true) => {
+    const sessionCode = code.trim().toUpperCase();
+
+    if (!firestore || !user?.uid) {
+      throw new Error('You must be signed in to join a session.');
+    }
+
+    if (!sessionCode) {
+      throw new Error('Session code is required.');
+    }
+
+    if (participate && !userProfile) {
+      throw new Error('Your player profile is still loading. Try again in a moment.');
+    }
+
     if (!firestore || !user?.uid) throw new Error('You must be signed in to join a session.');
     if (participate && !userProfile) throw new Error('Your player profile is still loading. Try again in a moment.');
     const sessionCode = code.trim().toUpperCase();
     if (!sessionCode) throw new Error('Session code is required.');
 
     const sessionsRef = collection(firestore, 'sessions');
+    const q = query(sessionsRef, where('code', '==', sessionCode), where('status', '==', 'active'));
     const q = query(sessionsRef, where('code', '==', sessionCode), where('status', '==', 'active'));
     const snapshot = await getDocs(q);
     if (snapshot.empty) throw new Error('Valid session code required');
@@ -256,6 +358,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         status: 'available',
         joinedAt: new Date().toISOString(),
         lastAvailableAt: Date.now(),
+        name: userProfile?.name || 'Unknown',
+        skillLevel: userProfile?.skillLevel || 3
         name: userProfile?.name || 'Unknown',
         skillLevel: userProfile?.skillLevel || 3
       };
@@ -277,6 +381,20 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString()
     };
     await setDoc(doc(firestore, 'sessions', sessionId), session);
+
+    for (let courtNumber = 1; courtNumber <= defaultCourtCount; courtNumber += 1) {
+      const courtId = `court_${courtNumber}`;
+      const court: Court = {
+        id: courtId,
+        name: `Court ${courtNumber}`,
+        status: 'available',
+        queue: [],
+        estimatedWaitMinutes: 0,
+        currentPlayers: []
+      };
+      await setDoc(doc(firestore, 'sessions', sessionId, 'courts', courtId), court);
+    }
+
 
     for (let courtNumber = 1; courtNumber <= defaultCourtCount; courtNumber += 1) {
       const courtId = `court_${courtNumber}`;
@@ -557,18 +675,24 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const setClubLogo = async (logo: string | null) => {
-    if (!firestore || !activeSession?.id) return;
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'settings', 'config'), { clubLogo: logo }, { merge: true });
+    if (!firestore) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { clubLogo: logo }, { merge: true });
   };
 
   const setDefaultWinningScore = async (score: number) => {
-    if (!firestore || !activeSession?.id) return;
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'settings', 'config'), { defaultWinningScore: score }, { merge: true });
+    if (!firestore) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { defaultWinningScore: score }, { merge: true });
   };
 
   const setAutoAdvanceEnabled = async (enabled: boolean) => {
-    if (!firestore || !activeSession?.id) return;
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'settings', 'config'), { autoAdvanceEnabled: enabled }, { merge: true });
+    if (!firestore) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { autoAdvanceEnabled: enabled }, { merge: true });
+  };
+
+  const setDefaultCourtCount = async (count: number) => {
+    if (!firestore) return;
+    const safeCount = Math.max(0, Math.min(20, Math.floor(count)));
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { defaultCourtCount: safeCount }, { merge: true });
   };
 
   const setDefaultCourtCount = async (count: number) => {
@@ -613,6 +737,29 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setActiveSession(null);
   };
 
+  const clearClubData = async () => {
+    if (role !== 'admin') throw new Error('Unauthorized');
+
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('You must be signed in to clear club data.');
+
+    const response = await fetch('/api/admin/clear-club-data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ scope: 'allSessions' }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error || 'Failed to clear club data.');
+    }
+
+    setActiveSession(null);
+  };
+
   return (
     <ClubContext.Provider value={{
       userProfile, activeSession, players, courts, matches, fees, paymentMethods, role,
@@ -623,6 +770,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       swapPlayer, deleteMatch, assignMatchToCourt, createCourtAndAssignMatch,
       updateFee, togglePayment, addPaymentMethod, deletePaymentMethod,
       clubLogo, setClubLogo, defaultWinningScore, setDefaultWinningScore,
+      autoAdvanceEnabled, setAutoAdvanceEnabled, defaultCourtCount, setDefaultCourtCount, queueSessionCode,
+      resetDailyBoard, clearClubData
       autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode,
       resetDailyBoard, defaultCourtCount, setDefaultCourtCount, clearClubData
     }}>

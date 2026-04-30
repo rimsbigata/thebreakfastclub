@@ -111,7 +111,7 @@ export function MatchSuggester({ playersInQueue, availableCourts }: MatchSuggest
                     </div>
                   </div>
                 ))}
-                <div className="absolute left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-2 py-1 rounded-full hidden md:block">VS</div>
+                <div className="absolute left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full hidden md:block">VS</div>
               </div>
               <div className="bg-secondary/20 p-4 rounded-lg text-sm border italic">
                 <span className="font-bold not-italic mr-1">Justification:</span>

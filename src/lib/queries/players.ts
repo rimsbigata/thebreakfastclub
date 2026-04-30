@@ -21,6 +21,7 @@ function toAppPlayer(player: Player): AppPlayer {
   return {
     id: player.id,
     name: player.name,
+    role: 'player',
     skillLevel: player.skill_level,
     wins: player.wins,
     gamesPlayed: player.games_played,
