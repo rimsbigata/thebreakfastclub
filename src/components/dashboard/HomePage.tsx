@@ -610,7 +610,7 @@ export default function HomePage() {
                     )}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex flex-col space-y-1.5 flex-1 min-w-0 border-l-4 border-orange-500/20 pl-2">
-                        {match.teamA.map(id => {
+                        {match.teamA.map((id: string) => {
                           const p = players.find(player => player.id === id);
                           return (
                             <div key={id} className="flex items-center gap-1.5 min-w-0">
@@ -626,7 +626,7 @@ export default function HomePage() {
                       </div>
                       <div className="text-[9px] font-black opacity-30 px-1 shrink-0">VS</div>
                       <div className="flex flex-col space-y-1.5 flex-1 min-w-0 items-end text-right border-r-4 border-orange-500/20 pr-2">
-                        {match.teamB.map(id => {
+                        {match.teamB.map((id: string) => {
                           const p = players.find(player => player.id === id);
                           return (
                             <div key={id} className="flex items-center gap-1.5 min-w-0 justify-end">
@@ -754,7 +754,7 @@ export default function HomePage() {
                           </div>
                           <div className="grid grid-cols-1 gap-2 flex-1">
                             <div className={cn("p-3 rounded-lg border-l-4 space-y-1.5 transition-colors", teamAScore > teamBScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/10")}>
-                              {match.teamA.map(id => {
+                              {match.teamA.map((id: string) => {
                                 const p = players.find(player => player.id === id);
                                 return (
                                   <div key={id} className="flex justify-between items-center gap-1 group/p">
@@ -767,7 +767,7 @@ export default function HomePage() {
                             </div>
                             <div className="flex items-center justify-center py-1 opacity-20"><span className="text-[10px] font-black">VS</span></div>
                             <div className={cn("p-3 rounded-lg border-l-4 space-y-1.5 transition-colors", teamBScore > teamAScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/10")}>
-                              {match.teamB.map(id => {
+                              {match.teamB.map((id: string) => {
                                 const p = players.find(player => player.id === id);
                                 return (
                                   <div key={id} className="flex justify-between items-center gap-1 group/p">
