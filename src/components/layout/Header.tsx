@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2, Target } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2, Target, KeyRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useClub } from '@/context/ClubContext';
@@ -32,6 +32,8 @@ export function Header() {
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
 
+  const isInSession = pathname?.startsWith('/session/');
+
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('queue');
@@ -40,17 +42,25 @@ export function Header() {
   const isAdmin = role === 'admin';
   const isQueueMaster = role === 'queueMaster';
   const isStaff = isAdmin || isQueueMaster;
+  const isPlayer = role === 'player';
   const skillLevelOf = (player: { skillLevel?: number }) => player.skillLevel || 3;
 
-  const navItems = [
-    { label: 'Dashboard', href: activeSession ? `/session/${activeSession.id}` : '/', icon: LayoutDashboard },
-    { label: 'Rankings', href: activeSession ? `/session/${activeSession.id}/rankings` : '/rankings', icon: Trophy },
-    { label: 'Fees', href: activeSession ? `/session/${activeSession.id}/fees` : '/fees', icon: Banknote },
-  ];
+  const navItems = [];
 
-  if (isStaff) {
-    navItems.push({ label: 'Players', href: activeSession ? `/session/${activeSession.id}/players` : '/players', icon: Users });
+  // Session tab only when not inside a session route
+  if (!isInSession) {
+    navItems.push({ label: 'Session', href: '/auth/session', icon: KeyRound });
   }
+
+  // Dashboard tab only when inside a session route
+  if (isInSession && activeSession) {
+    navItems.push({ label: 'Dashboard', href: `/session/${activeSession.id}`, icon: LayoutDashboard });
+  }
+
+  // Rankings, Fees, and Players for all roles
+  navItems.push({ label: 'Rankings', href: activeSession ? `/session/${activeSession.id}/rankings` : '/rankings', icon: Trophy });
+  navItems.push({ label: 'Fees', href: activeSession ? `/session/${activeSession.id}/fees` : '/fees', icon: Banknote });
+  navItems.push({ label: 'Players', href: activeSession ? `/session/${activeSession.id}/players` : '/players', icon: Users });
   if (isAdmin) {
     navItems.push({ label: 'Settings', href: activeSession ? `/session/${activeSession.id}/settings` : '/settings', icon: Settings });
   }

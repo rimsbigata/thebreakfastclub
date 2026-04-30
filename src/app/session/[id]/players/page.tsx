@@ -72,6 +72,9 @@ export default function PlayersPage() {
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const isAdmin = role === 'admin';
+  const isQueueMaster = role === 'queueMaster';
+  const isStaff = isAdmin || isQueueMaster;
+  const isPlayer = role === 'player';
 
   const [newName, setNewName] = useState('');
   const [newSkill, setNewSkill] = useState('3');
@@ -238,7 +241,7 @@ export default function PlayersPage() {
               className="pl-9 h-10 text-compact font-bold bg-secondary/20 border-none"
             />
           </div>
-          {selectedPlayers.size > 0 && (
+          {isStaff && selectedPlayers.size > 0 && (
             <div className="flex gap-1 items-center bg-primary/10 border-2 border-primary rounded-lg px-2">
               <span className="text-[10px] font-black uppercase text-primary">{selectedPlayers.size} selected</span>
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleBulkStatusChange('available')} title="Set to Available">
@@ -295,64 +298,66 @@ export default function PlayersPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <aside className="lg:col-span-4 space-y-6">
-          <Card className="border-2 shadow-sm bg-card overflow-hidden">
-            <CardHeader className="p-4 bg-primary/5 border-b">
-              <CardTitle className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
-                <Plus className="h-4 w-4" /> Quick Reg
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Name</Label>
-                <Input
-                  ref={inputRef}
-                  placeholder="Enter name..."
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="h-10 text-compact font-bold border-2"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Skill Tier</Label>
-                <Select value={newSkill} onValueChange={setNewSkill}>
-                  <SelectTrigger className="h-10 text-compact font-bold border-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(SKILL_LEVELS).map(([val, label]) => (
-                      <SelectItem key={val} value={val} className="font-bold text-compact">{val} - {label as string}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full font-black uppercase text-compact h-12" onClick={handleAddPlayerAction} disabled={!newName.trim()}>
-                Add Member
-              </Button>
-            </CardContent>
-          </Card>
+        {isStaff && (
+          <aside className="lg:col-span-4 space-y-6">
+            <Card className="border-2 shadow-sm bg-card overflow-hidden">
+              <CardHeader className="p-4 bg-primary/5 border-b">
+                <CardTitle className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
+                  <Plus className="h-4 w-4" /> Quick Reg
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Name</Label>
+                  <Input
+                    ref={inputRef}
+                    placeholder="Enter name..."
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="h-10 text-compact font-bold border-2"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Skill Tier</Label>
+                  <Select value={newSkill} onValueChange={setNewSkill}>
+                    <SelectTrigger className="h-10 text-compact font-bold border-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(SKILL_LEVELS).map(([val, label]) => (
+                        <SelectItem key={val} value={val} className="font-bold text-compact">{val} - {label as string}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button className="w-full font-black uppercase text-compact h-12" onClick={handleAddPlayerAction} disabled={!newName.trim()}>
+                  Add Member
+                </Button>
+              </CardContent>
+            </Card>
 
-          <Card className="border-2 shadow-sm hidden md:block">
-            <CardHeader className="p-4 border-b">
-              <CardTitle className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" /> Stats
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={skillDistribution}>
-                  <XAxis dataKey="level" fontSize={9} tickLine={false} axisLine={false} />
-                  <Bar dataKey="count" radius={[2, 2, 0, 0]}>
-                    {skillDistribution.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={entry.count > 0 ? 'hsl(var(--primary))' : 'hsl(var(--muted))'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </aside>
+            <Card className="border-2 shadow-sm hidden md:block">
+              <CardHeader className="p-4 border-b">
+                <CardTitle className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" /> Stats
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={skillDistribution}>
+                    <XAxis dataKey="level" fontSize={9} tickLine={false} axisLine={false} />
+                    <Bar dataKey="count" radius={[2, 2, 0, 0]}>
+                      {skillDistribution.map((entry, idx) => (
+                        <Cell key={`cell-${idx}`} fill={entry.count > 0 ? 'hsl(var(--primary))' : 'hsl(var(--muted))'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </aside>
+        )}
 
         <div className="lg:col-span-8">
           <ScrollArea className="h-[calc(100vh-220px)]">
@@ -361,12 +366,11 @@ export default function PlayersPage() {
                 <Card key={player.id} className={cn("border-2 shadow-sm bg-card group hover:border-primary transition-all duration-200 overflow-hidden min-w-0", selectedPlayers.has(player.id) && "border-primary bg-primary/5")}>
                   <div className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2 min-w-0">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={e => { e.stopPropagation(); togglePlayerSelection(player.id); }}>
-                        {selectedPlayers.has(player.id) ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
-                      </Button>
-                      <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center text-sm font-black text-white shrink-0", getSkillColor(player.skillLevel))}>
-                        {player.name.charAt(0).toUpperCase()}
-                      </div>
+                      {isStaff && (
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={e => { e.stopPropagation(); togglePlayerSelection(player.id); }}>
+                          {selectedPlayers.has(player.id) ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
+                        </Button>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="font-black text-sm truncate leading-tight group-hover:text-primary transition-colors">
                           {player.name}
@@ -383,30 +387,32 @@ export default function PlayersPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStatusToggle(player)} title="Toggle status">
-                          <RefreshCw className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPlayer(player); setEditName(player.name); setEditSkill(player.skillLevel.toString()); setEditNotes(player.notes || ''); }}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        {isAdmin && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setRoleDialogPlayer(player)} title="Manage role">
-                            <Shield className="h-3.5 w-3.5" />
+                      {isStaff && (
+                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStatusToggle(player)} title="Toggle status">
+                            <RefreshCw className="h-3.5 w-3.5" />
                           </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
-                          deletePlayer(player.id).catch(error => {
-                            toast({
-                              title: "Could not delete player",
-                              description: error instanceof Error ? error.message : "Database delete failed.",
-                              variant: "destructive"
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPlayer(player); setEditName(player.name); setEditSkill(player.skillLevel.toString()); setEditNotes(player.notes || ''); }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          {isAdmin && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setRoleDialogPlayer(player)} title="Manage role">
+                              <Shield className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
+                            deletePlayer(player.id).catch(error => {
+                              toast({
+                                title: "Could not delete player",
+                                description: error instanceof Error ? error.message : "Database delete failed.",
+                                variant: "destructive"
+                              });
                             });
-                          });
-                        }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                          }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-dashed min-w-0">
                       <div className="min-w-0 overflow-hidden">
@@ -599,6 +605,6 @@ export default function PlayersPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

@@ -40,9 +40,8 @@ export default function RootPage() {
       // Players without an active session are forced to the session gate.
       if (role === 'player' && !isSessionActive) {
         router.replace('/auth/session');
-      } else if (isSessionActive && activeSession) {
-        router.replace(`/session/${activeSession.id}`);
       }
+      // Remove automatic redirect to session page - allow users to navigate freely
     }
   }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, activeSession, role, isAdminRoleLoading, router, hasSplashDelayElapsed]);
 
@@ -56,11 +55,17 @@ export default function RootPage() {
     return null;
   }
 
-  // Priority 3: If Player and no session, we are redirecting to /auth/session
-  if (role === 'player' && !isSessionActive) {
+  // Priority 3: Redirect to session gate for everyone (No Active Session page disconnected)
+  if (role && !isSessionActive) {
+    router.replace('/auth/session');
     return null;
   }
 
-  // Final: Render Dashboard (Admin or Player with Session)
-  return <HomePage />;
+  // If session is active, redirect to session page
+  if (isSessionActive && activeSession) {
+    router.replace(`/session/${activeSession.id}`);
+    return null;
+  }
+
+  return null;
 }

@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 export default function FeesPage() {
   const { players, fees, paymentMethods, updateFee, togglePayment, role, currentPlayer } = useClub();
   const [today, setToday] = useState<string>('');
-  
+
   const [shuttleFee, setShuttleFee] = useState(0);
   const [courtFee, setCourtFee] = useState(0);
   const [entranceFee, setEntranceFee] = useState(0);
@@ -41,6 +41,9 @@ export default function FeesPage() {
   }, [currentFee, role]);
 
   const isAdmin = role === 'admin';
+  const isQueueMaster = role === 'queueMaster';
+  const isStaff = isAdmin || isQueueMaster;
+  const isPlayer = role === 'player';
 
   const perPlayerFee = useMemo(() => {
     if (isAdmin) {
@@ -54,12 +57,19 @@ export default function FeesPage() {
   }, [shuttleFee, courtFee, entranceFee, includeEntranceFee, players.length, currentFee, isAdmin]);
 
   const sortedPlayers = useMemo(() => {
+    // For players, only show their own entry
+    if (isPlayer && currentPlayer) {
+      const player = players.find(p => p.id === currentPlayer.id);
+      return player ? [player] : [];
+    }
+
+    // For staff, show all players
     return [...players].sort((a, b) => {
       const aPaid = !!currentFee?.payments?.[a.id];
       const bPaid = !!currentFee?.payments?.[b.id];
       return aPaid === bPaid ? 0 : aPaid ? 1 : -1;
     });
-  }, [players, currentFee]);
+  }, [players, currentFee, isPlayer, currentPlayer]);
 
   const myPaymentStatus = useMemo(() => {
     if (!currentPlayer || !currentFee) return false;
@@ -91,11 +101,11 @@ export default function FeesPage() {
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Shuttle Fee</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
-                    <input 
-                      type="number" 
-                      className="flex h-12 w-full rounded-md border-2 border-input bg-background pl-8 pr-3 py-2 text-lg font-black ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" 
-                      value={shuttleFee} 
-                      onChange={e => setShuttleFee(parseFloat(e.target.value) || 0)} 
+                    <input
+                      type="number"
+                      className="flex h-12 w-full rounded-md border-2 border-input bg-background pl-8 pr-3 py-2 text-lg font-black ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={shuttleFee}
+                      onChange={e => setShuttleFee(parseFloat(e.target.value) || 0)}
                     />
                   </div>
                 </div>
@@ -103,11 +113,11 @@ export default function FeesPage() {
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Court Rental</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
-                    <input 
-                      type="number" 
-                      className="flex h-12 w-full rounded-md border-2 border-input bg-background pl-8 pr-3 py-2 text-lg font-black ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" 
-                      value={courtFee} 
-                      onChange={e => setCourtFee(parseFloat(e.target.value) || 0)} 
+                    <input
+                      type="number"
+                      className="flex h-12 w-full rounded-md border-2 border-input bg-background pl-8 pr-3 py-2 text-lg font-black ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={courtFee}
+                      onChange={e => setCourtFee(parseFloat(e.target.value) || 0)}
                     />
                   </div>
                 </div>
@@ -118,12 +128,12 @@ export default function FeesPage() {
                   </div>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
-                    <input 
-                      type="number" 
-                      disabled={!includeEntranceFee} 
-                      className="flex h-12 w-full rounded-md border-2 border-input bg-background pl-8 pr-3 py-2 text-lg font-black disabled:opacity-30 ring-offset-background" 
-                      value={entranceFee} 
-                      onChange={e => setEntranceFee(parseFloat(e.target.value) || 0)} 
+                    <input
+                      type="number"
+                      disabled={!includeEntranceFee}
+                      className="flex h-12 w-full rounded-md border-2 border-input bg-background pl-8 pr-3 py-2 text-lg font-black disabled:opacity-30 ring-offset-background"
+                      value={entranceFee}
+                      onChange={e => setEntranceFee(parseFloat(e.target.value) || 0)}
                     />
                   </div>
                 </div>
@@ -131,10 +141,10 @@ export default function FeesPage() {
             ) : (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-secondary/30 border-2">
-                   <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Session Date</p>
-                   <p className="font-black text-sm">{today}</p>
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Session Date</p>
+                  <p className="font-black text-sm">{today}</p>
                 </div>
-                
+
                 <div className="p-4 rounded-xl bg-secondary/30 border-2 flex items-center justify-between">
                   <div>
                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Your Status</p>
@@ -146,9 +156,9 @@ export default function FeesPage() {
                 </div>
 
                 {!currentFee && (
-                   <div className="p-4 bg-yellow-500/10 border-2 border-yellow-500/20 rounded-xl text-center">
-                      <p className="text-[10px] font-black uppercase text-yellow-600">Admin hasn't finalized fees yet</p>
-                   </div>
+                  <div className="p-4 bg-yellow-500/10 border-2 border-yellow-500/20 rounded-xl text-center">
+                    <p className="text-[10px] font-black uppercase text-yellow-600">Admin hasn't finalized fees yet</p>
+                  </div>
                 )}
               </div>
             )}
@@ -163,8 +173,8 @@ export default function FeesPage() {
           </CardContent>
           <CardFooter>
             {isAdmin && (
-              <Button 
-                className="w-full h-12 font-black uppercase tracking-widest shadow-lg active:scale-95 transition-transform" 
+              <Button
+                className="w-full h-12 font-black uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
                 onClick={() => updateFee({ id: today, shuttleFee, courtFee, entranceFee: includeEntranceFee ? entranceFee : 0 })}
               >
                 Apply to Today's Board
@@ -197,73 +207,75 @@ export default function FeesPage() {
           </CardFooter>
         </Card>
 
-        {/* ROSTER SECTION */}
-        <section className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-              {isAdmin ? <UserCheck className="h-6 w-6 text-green-600" /> : <ShieldCheck className="h-6 w-6 text-primary" />}
-              {isAdmin ? "Payment Roster" : "Club Roster Status"}
-            </h2>
-            {isAdmin && (
-               <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 font-black uppercase text-[10px] border-2">
-                    <QrCode className="h-4 w-4" /> Manage QRs
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader><DialogTitle>QR Methods</DialogTitle></DialogHeader>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
-                    {paymentMethods.map(method => (
-                      <Card key={method.id} className="overflow-hidden border-2">
-                        <div className="bg-primary text-primary-foreground p-1 text-center text-[10px] font-black uppercase">{method.name}</div>
-                        <div className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill className="object-contain p-4" /></div>
-                      </Card>
-                    ))}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-
-          <ScrollArea className="h-[600px] rounded-2xl border-2 bg-card p-4">
-            <div className="space-y-2">
-              {sortedPlayers.map(player => {
-                const isPaid = !!currentFee?.payments?.[player.id];
-                const isMe = player.id === currentPlayer?.id;
-                
-                return (
-                  <div key={player.id} className={cn(
-                    "flex items-center justify-between p-4 border-2 rounded-xl transition-all",
-                    isPaid ? "bg-green-500/5 border-green-500/20 opacity-60" : "bg-card border-border hover:border-primary/30",
-                    isMe && "ring-2 ring-primary ring-offset-2"
-                  )}>
-                    <div className="flex items-center gap-3">
-                      <div className={cn("h-3 w-3 rounded-full", isPaid ? "bg-green-500" : "bg-red-500")} />
-                      <div className="flex flex-col">
-                        <span className={cn("font-black text-sm", isPaid && "line-through text-muted-foreground")}>
-                          {player.name} {isMe && <span className="text-[10px] text-primary ml-1">(YOU)</span>}
-                        </span>
-                        {isPaid && <p className="text-[8px] font-black uppercase text-green-600 mt-0.5">Payment Verified</p>}
-                      </div>
+        {/* ROSTER SECTION - Hidden for players */}
+        {isStaff && (
+          <section className="lg:col-span-7 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                {isAdmin ? <UserCheck className="h-6 w-6 text-green-600" /> : <ShieldCheck className="h-6 w-6 text-primary" />}
+                {isAdmin ? "Payment Roster" : "Club Roster Status"}
+              </h2>
+              {isAdmin && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 font-black uppercase text-[10px] border-2">
+                      <QrCode className="h-4 w-4" /> Manage QRs
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader><DialogTitle>QR Methods</DialogTitle></DialogHeader>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+                      {paymentMethods.map(method => (
+                        <Card key={method.id} className="overflow-hidden border-2">
+                          <div className="bg-primary text-primary-foreground p-1 text-center text-[10px] font-black uppercase">{method.name}</div>
+                          <div className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill className="object-contain p-4" /></div>
+                        </Card>
+                      ))}
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className={cn("text-[10px] font-black uppercase tracking-tighter", isPaid ? "text-green-600" : "text-red-500")}>
-                        {isPaid ? 'Settled' : 'Pending'}
-                      </span>
-                      {isAdmin && (
-                         <Checkbox checked={isPaid} onCheckedChange={() => togglePayment(today, player.id)} className="h-5 w-5 border-2" />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              {players.length === 0 && (
-                <div className="py-20 text-center text-muted-foreground font-black uppercase text-xs opacity-20">No Players Found</div>
+                  </DialogContent>
+                </Dialog>
               )}
             </div>
-          </ScrollArea>
-        </section>
+
+            <ScrollArea className="h-[600px] rounded-2xl border-2 bg-card p-4">
+              <div className="space-y-2">
+                {sortedPlayers.map(player => {
+                  const isPaid = !!currentFee?.payments?.[player.id];
+                  const isMe = player.id === currentPlayer?.id;
+
+                  return (
+                    <div key={player.id} className={cn(
+                      "flex items-center justify-between p-4 border-2 rounded-xl transition-all",
+                      isPaid ? "bg-green-500/5 border-green-500/20 opacity-60" : "bg-card border-border hover:border-primary/30",
+                      isMe && "ring-2 ring-primary ring-offset-2"
+                    )}>
+                      <div className="flex items-center gap-3">
+                        <div className={cn("h-3 w-3 rounded-full", isPaid ? "bg-green-500" : "bg-red-500")} />
+                        <div className="flex flex-col">
+                          <span className={cn("font-black text-sm", isPaid && "line-through text-muted-foreground")}>
+                            {player.name} {isMe && <span className="text-[10px] text-primary ml-1">(YOU)</span>}
+                          </span>
+                          {isPaid && <p className="text-[8px] font-black uppercase text-green-600 mt-0.5">Payment Verified</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={cn("text-[10px] font-black uppercase tracking-tighter", isPaid ? "text-green-600" : "text-red-500")}>
+                          {isPaid ? 'Settled' : 'Pending'}
+                        </span>
+                        {isAdmin && (
+                          <Checkbox checked={isPaid} onCheckedChange={() => togglePayment(today, player.id)} className="h-5 w-5 border-2" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {players.length === 0 && (
+                  <div className="py-20 text-center text-muted-foreground font-black uppercase text-xs opacity-20">No Players Found</div>
+                )}
+              </div>
+            </ScrollArea>
+          </section>
+        )}
       </div>
     </div>
   );

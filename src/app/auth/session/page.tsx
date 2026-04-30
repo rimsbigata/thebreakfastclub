@@ -2,18 +2,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useClub } from '@/context/ClubContext';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, PlayCircle, LogOut, Trophy, Users, Banknote } from 'lucide-react';
+import { KeyRound, PlayCircle, LogOut, Shield, User } from 'lucide-react';
 import { useFirebase, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 export default function SessionGatePage() {
   const { userProfile, activeSession, joinSession, createSession, role, isRestoringSession } = useClub();
@@ -21,29 +20,25 @@ export default function SessionGatePage() {
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
-  const pathname = usePathname();
 
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [joinAsPlayer, setJoinAsPlayer] = useState(false);
 
   useEffect(() => {
     if (isRestoringSession) return;
 
-    if (role === 'admin') {
-      router.replace('/');
-      return;
-    }
-
+    // Redirect to active session if already joined
     if (activeSession) {
       router.push(`/session/${activeSession.id}`);
     }
-  }, [activeSession, role, router, isRestoringSession]);
+  }, [activeSession, router, isRestoringSession]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await joinSession(code, true);
+      await joinSession(code, true, role === 'admin' ? joinAsPlayer : false);
       toast({ title: "Joined Session!" });
       if (activeSession) {
         router.push(`/session/${activeSession.id}`);
@@ -79,69 +74,61 @@ export default function SessionGatePage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-4xl space-y-6">
-        {/* Navigation Tabs */}
-        <div className="flex items-center justify-center gap-2 p-2 bg-secondary/20 rounded-xl border-2">
-          <Link href="/rankings">
-            <Button variant={pathname === '/rankings' ? 'default' : 'ghost'} className="gap-2 font-black uppercase text-xs h-10">
-              <Trophy className="h-4 w-4" /> Rankings
-            </Button>
-          </Link>
-          <Link href="/players">
-            <Button variant={pathname === '/players' ? 'default' : 'ghost'} className="gap-2 font-black uppercase text-xs h-10">
-              <Users className="h-4 w-4" /> Players
-            </Button>
-          </Link>
-          <Link href="/fees">
-            <Button variant={pathname === '/fees' ? 'default' : 'ghost'} className="gap-2 font-black uppercase text-xs h-10">
-              <Banknote className="h-4 w-4" /> Fees
-            </Button>
-          </Link>
-        </div>
-
-        <Card className="w-full max-w-md mx-auto border-2 shadow-xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-black uppercase tracking-tight flex items-center justify-center gap-2">
-              <KeyRound className="h-6 w-6 text-primary" /> Active Session
-            </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-widest">
-              Enter the session code provided by the organizer
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <form onSubmit={handleJoin} className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase opacity-60">Session Code</Label>
-                <Input
-                  value={code}
-                  onChange={e => setCode(e.target.value.toUpperCase())}
-                  placeholder="ABCDEF"
-                  className="h-14 text-center text-2xl font-black tracking-[0.5em]"
-                  maxLength={6}
-                  required
-                />
-              </div>
-              <Button className="w-full h-14 font-black uppercase" disabled={loading || !code}>
-                Join Queue <PlayCircle className="ml-2 h-5 w-5" />
-              </Button>
-            </form>
+      <Card className="w-full max-w-md border-2 shadow-xl">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-black uppercase tracking-tight flex items-center justify-center gap-2">
+            <KeyRound className="h-6 w-6 text-primary" /> Active Session
+          </CardTitle>
+          <CardDescription className="text-[10px] font-bold uppercase tracking-widest">
+            Enter the session code provided by the organizer
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <form onSubmit={handleJoin} className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase opacity-60">Session Code</Label>
+              <Input
+                value={code}
+                onChange={e => setCode(e.target.value.toUpperCase())}
+                placeholder="ABCDEF"
+                className="h-14 text-center text-2xl font-black tracking-[0.5em]"
+                maxLength={6}
+                required
+              />
+            </div>
 
             {role === 'admin' && (
-              <div className="pt-4 border-t border-dashed">
-                <p className="text-[10px] font-bold uppercase text-center text-muted-foreground mb-4">Admin Options</p>
-                <Button variant="outline" className="w-full h-12 font-black uppercase border-2" onClick={handleCreate} disabled={loading}>
-                  Start New Session
-                </Button>
+              <div className="flex items-center justify-between p-3 border-2 rounded-lg bg-secondary/30">
+                <div className="flex items-center gap-2">
+                  {joinAsPlayer ? <User className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
+                  <span className="text-xs font-black uppercase">
+                    Join as {joinAsPlayer ? 'Player' : 'Admin'}
+                  </span>
+                </div>
+                <Switch checked={joinAsPlayer} onCheckedChange={setJoinAsPlayer} />
               </div>
             )}
-          </CardContent>
-          <CardFooter>
-            <Button variant="ghost" className="w-full text-[10px] font-bold uppercase opacity-60 hover:opacity-100" onClick={handleLogout}>
-              <LogOut className="mr-2 h-3 w-3" /> Log out of {userProfile?.name}
+
+            <Button className="w-full h-14 font-black uppercase" disabled={loading || !code}>
+              {role === 'admin' && joinAsPlayer ? 'Join as Player' : 'Join Queue'} <PlayCircle className="ml-2 h-5 w-5" />
             </Button>
-          </CardFooter>
-        </Card>
-      </div>
+          </form>
+
+          {role === 'admin' && (
+            <div className="pt-4 border-t border-dashed">
+              <p className="text-[10px] font-bold uppercase text-center text-muted-foreground mb-4">Admin Options</p>
+              <Button variant="outline" className="w-full h-12 font-black uppercase border-2" onClick={handleCreate} disabled={loading}>
+                Start New Session
+              </Button>
+            </div>
+          )}
+        </CardContent>
+        <CardFooter>
+          <Button variant="ghost" className="w-full text-[10px] font-bold uppercase opacity-60 hover:opacity-100" onClick={handleLogout}>
+            <LogOut className="mr-2 h-3 w-3" /> Log out of {userProfile?.name}
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

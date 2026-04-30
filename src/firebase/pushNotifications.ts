@@ -16,7 +16,9 @@ export async function registerPushMessagingToken(firebaseApp: FirebaseApp): Prom
   }
 
   if (!VAPID_KEY) {
-    throw new Error('Missing NEXT_PUBLIC_FIREBASE_VAPID_KEY environment variable for Firebase Cloud Messaging.');
+    // Return null instead of throwing error - push notifications will be optional
+    console.warn('NEXT_PUBLIC_FIREBASE_VAPID_KEY environment variable is missing. Push notifications will not work.');
+    return null;
   }
 
   const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
@@ -56,7 +58,7 @@ export async function listenForForegroundPushMessages(
   onMessageCallback: (payload: any) => void,
 ): Promise<() => void> {
   if (typeof window === 'undefined' || !('Notification' in window)) {
-    return () => {};
+    return () => { };
   }
 
   const { getMessaging, onMessage } = await import('firebase/messaging');

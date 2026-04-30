@@ -53,8 +53,9 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
     }
   }, [user, isUserLoading, userProfile, isProfileLoading, activeSession, sessionId, isAdminRoleLoading, router, hasSplashDelayElapsed, loadSessionById, isLoadingSession]);
 
-  // Priority 1: Show Splash while determining basic state
-  if (!hasSplashDelayElapsed || isUserLoading || isProfileLoading || isAdminRoleLoading || isLoadingSession) {
+  // Priority 1: Show Splash only on initial load or when loading a new session
+  // Don't show splash when navigating between tabs of the same session
+  if ((!hasSplashDelayElapsed && !activeSession) || isLoadingSession) {
     return <SplashScreen />;
   }
 

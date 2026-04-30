@@ -40,7 +40,7 @@ interface ClubContextType {
   currentPlayer: Player | null;
 
   // Auth & Session
-  joinSession: (code: string, participate?: boolean) => Promise<void>;
+  joinSession: (code: string, participate?: boolean, joinAsPlayer?: boolean) => Promise<void>;
   createSession: (isDoubleStar?: boolean, sessionCode?: string) => Promise<string>;
   regenerateQueueSessionCode: () => Promise<string>;
   endSession: () => Promise<void>;
@@ -266,6 +266,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   }));
 
   const currentPlayer = players.find(p => p.id === user?.uid) || null;
+
+  // Use session-specific role if available (when admin joins as player), otherwise use global role
+  const sessionRole = (currentPlayer as any)?.sessionRole;
+  const effectiveRole = sessionRole || role;
   const courts: Court[] = sessionCourts || [];
   const matches: Match[] = sessionMatches || [];
   const fees: Fee[] = sessionFees || [];
@@ -278,7 +282,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const deuceEnabled = sessionSettings?.deuceEnabled ?? true;
   const queueSessionCode = activeSession?.code || '';
 
-  const joinSession = async (code: string, participate: boolean = true) => {
+  const joinSession = async (code: string, participate: boolean = true, joinAsPlayer: boolean = false) => {
     if (!firestore || !user?.uid) throw new Error('You must be signed in to join a session.');
     if (participate && !userProfile) throw new Error('Your player profile is still loading. Try again in a moment.');
     const sessionCode = code.trim().toUpperCase();
@@ -299,6 +303,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         sessionId: session.id,
         status: 'available',
         joinedAt: new Date().toISOString(),
+        // Store session-specific role: if admin joins as player, override role to 'player'
+        sessionRole: joinAsPlayer ? 'player' : role,
         lastAvailableAt: Date.now(),
         name: userProfile?.name || 'Unknown',
         skillLevel: userProfile?.skillLevel || 3
@@ -820,7 +826,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   return (
     <ClubContext.Provider value={{
-      userProfile, activeSession, players, courts, matches, fees, paymentMethods, role,
+      userProfile, activeSession, players, courts, matches, fees, paymentMethods, role: effectiveRole,
       isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, isRestoringSession, currentPlayer,
       joinSession, createSession, regenerateQueueSessionCode, endSession, loadSessionById,
       addPlayer, updatePlayer, deletePlayer,
