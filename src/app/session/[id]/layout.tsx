@@ -25,7 +25,7 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
-    if (!hasSplashDelayElapsed || !user || isLoadingSession) {
+    if (!hasSplashDelayElapsed || isLoadingSession) {
       return;
     }
 
@@ -58,19 +58,19 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
     return <SplashScreen />;
   }
 
-  // Priority 2: If no user, we are redirecting to /auth
+  // Priority 2: If no user, show splash while redirecting to /auth
   if (!user) {
-    return null;
+    return <SplashScreen />;
   }
 
-  // Priority 3: If session load error, redirecting to session gate
+  // Priority 3: If session load error, show splash while redirecting to session gate
   if (sessionLoadError) {
-    return null;
+    return <SplashScreen />;
   }
 
-  // Priority 4: If session ID doesn't match, we are redirecting to /auth/session
+  // Priority 4: If session ID doesn't match, show splash while redirecting to /auth/session
   if (activeSession && activeSession.id !== sessionId) {
-    return null;
+    return <SplashScreen />;
   }
 
   return <>{children}</>;
