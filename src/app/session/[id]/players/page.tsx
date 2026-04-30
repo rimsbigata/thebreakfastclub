@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, User, TrendingUp, Users, Trash2, Pencil, Search, Clock, Target, Activity, Filter, ArrowUpDown, RefreshCw, CheckSquare, Square, X, FileText, ArrowUp, ArrowDown, Minus, Shield, ShieldCheck, ShieldAlert, Timer } from 'lucide-react';
+import { Plus, TrendingUp, Users, Trash2, Pencil, Search, Filter, ArrowUpDown, RefreshCw, CheckSquare, Square, X, ArrowUp, ArrowDown, Minus, Shield, ShieldCheck, ShieldAlert, Timer } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, Cell } from 'recharts';
 import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -84,7 +84,6 @@ export default function PlayersPage() {
   const [editName, setEditName] = useState('');
   const [editSkill, setEditSkill] = useState('3');
   const [editNotes, setEditNotes] = useState('');
-  const [viewingPlayer, setViewingPlayer] = useState<Player | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set());
   const [roleDialogPlayer, setRoleDialogPlayer] = useState<Player | null>(null);
   const [tempRoleHours, setTempRoleHours] = useState('2');
@@ -359,7 +358,7 @@ export default function PlayersPage() {
           <ScrollArea className="h-[calc(100vh-220px)]">
             <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-2 pr-2 pb-24">
               {filteredPlayers.map((player) => (
-                <Card key={player.id} className={cn("border-2 shadow-sm bg-card group hover:border-primary transition-all duration-200 overflow-hidden min-w-0 cursor-pointer", selectedPlayers.has(player.id) && "border-primary bg-primary/5")} onClick={() => setViewingPlayer(player)}>
+                <Card key={player.id} className={cn("border-2 shadow-sm bg-card group hover:border-primary transition-all duration-200 overflow-hidden min-w-0", selectedPlayers.has(player.id) && "border-primary bg-primary/5")}>
                   <div className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2 min-w-0">
                       <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={e => { e.stopPropagation(); togglePlayerSelection(player.id); }}>
@@ -369,7 +368,7 @@ export default function PlayersPage() {
                         {player.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-black text-compact truncate leading-tight group-hover:text-primary transition-colors">
+                        <p className="font-black text-sm truncate leading-tight group-hover:text-primary transition-colors">
                           {player.name}
                         </p>
                         <div className="mt-1 flex items-center gap-1">
@@ -434,30 +433,13 @@ export default function PlayersPage() {
                         <ImprovementSparkline score={player.improvementScore} />
                         <span className="text-[8px] font-black uppercase">{player.improvementScore > 0 ? `+${player.improvementScore}` : player.improvementScore}</span>
                       </div>
-                      <Badge variant="outline" className="text-[8px] font-black uppercase px-1.5 h-4 flex items-center gap-1">
-                        <Activity className="h-2.5 w-2.5" />
-                        {player.playStyle}
-                      </Badge>
-                      {player.notes && (
-                        <Badge variant="secondary" className="text-[8px] font-black uppercase px-1.5 h-4 flex items-center gap-1">
-                          <FileText className="h-2.5 w-2.5" />
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 pt-1 text-[8px] font-black uppercase text-muted-foreground">
-                      <Clock className="h-2.5 w-2.5" />
-                      <span className={cn(
-                        player.lastAvailableAt && Date.now() - player.lastAvailableAt < 3600000 ? "text-green-600 dark:text-green-500" : ""
-                      )}>
-                        {formatRelativeTime(player.lastAvailableAt)}
-                      </span>
                     </div>
                   </div>
                 </Card>
               ))}
               {filteredPlayers.length === 0 && (
                 <div className="col-span-full py-20 text-center border-4 border-dashed rounded-2xl bg-secondary/5">
-                  <User className="h-10 w-10 mx-auto mb-2 opacity-10" />
+                  <Users className="h-10 w-10 mx-auto mb-2 opacity-10" />
                   <p className="text-[10px] font-black uppercase text-muted-foreground opacity-40">No matching members</p>
                 </div>
               )}
@@ -498,103 +480,6 @@ export default function PlayersPage() {
             </div>
             <Button className="w-full font-black uppercase text-compact h-12" onClick={handleEditPlayerAction}>Save</Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!viewingPlayer} onOpenChange={(open) => !open && setViewingPlayer(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-compact font-black uppercase flex items-center gap-2">
-              <User className="h-5 w-5" /> Player Profile
-            </DialogTitle>
-          </DialogHeader>
-          {viewingPlayer && (
-            <div className="space-y-4 py-4">
-              <div className="flex items-center gap-3 pb-4 border-b">
-                <div className={cn("h-16 w-16 rounded-xl flex items-center justify-center text-2xl font-black text-white", getSkillColor(viewingPlayer.skillLevel))}>
-                  {viewingPlayer.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-xl font-black">{viewingPlayer.name}</h3>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={viewingPlayer.status} />
-                    <Badge variant="outline" className="text-[9px] font-black uppercase px-1.5 h-4">
-                      {SKILL_LEVELS_SHORT[viewingPlayer.skillLevel]}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-secondary/20 rounded-lg p-3 space-y-1">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground">Games Played</p>
-                  <p className="text-lg font-black">{viewingPlayer.gamesPlayed}</p>
-                </div>
-                <div className="bg-secondary/20 rounded-lg p-3 space-y-1">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground">Wins</p>
-                  <p className="text-lg font-black">{viewingPlayer.wins}</p>
-                </div>
-                <div className="bg-secondary/20 rounded-lg p-3 space-y-1">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground">Win Rate</p>
-                  <p className="text-lg font-black">{viewingPlayer.gamesPlayed > 0 ? `${Math.round((viewingPlayer.wins / viewingPlayer.gamesPlayed) * 100)}%` : '-'}</p>
-                </div>
-                <div className="bg-secondary/20 rounded-lg p-3 space-y-1">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground">Play Time</p>
-                  <p className="text-lg font-black">{viewingPlayer.totalPlayTimeMinutes > 0 ? `${Math.floor(viewingPlayer.totalPlayTimeMinutes / 60)}h ${viewingPlayer.totalPlayTimeMinutes % 60}m` : '-'}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground">Improvement Score</p>
-                  <Badge variant="secondary" className="text-[9px] font-black uppercase px-1.5 h-4 flex items-center gap-1">
-                    <Target className="h-2.5 w-2.5" />
-                    {viewingPlayer.improvementScore > 0 ? `+${viewingPlayer.improvementScore}` : viewingPlayer.improvementScore}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground">Play Style</p>
-                  <Badge variant="outline" className="text-[9px] font-black uppercase px-1.5 h-4 flex items-center gap-1">
-                    <Activity className="h-2.5 w-2.5" />
-                    {viewingPlayer.playStyle}
-                  </Badge>
-                </div>
-              </div>
-
-              {viewingPlayer.partnerHistory && viewingPlayer.partnerHistory.length > 0 && (
-                <div className="space-y-2 pt-2 border-t">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground">Partner History</p>
-                  <div className="flex flex-wrap gap-1">
-                    {viewingPlayer.partnerHistory.map((partnerId, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-[9px] font-black uppercase px-1.5 h-4">
-                        {partnerId}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {viewingPlayer.lastAvailableAt && (
-                <div className="flex items-center gap-2 pt-2 border-t text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" />
-                  <p className="text-[10px] font-black uppercase">
-                    Last seen {new Date(viewingPlayer.lastAvailableAt).toLocaleString()}
-                  </p>
-                </div>
-              )}
-
-              {viewingPlayer.notes && (
-                <div className="space-y-2 pt-2 border-t">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground flex items-center gap-1">
-                    <FileText className="h-2.5 w-2.5" /> Notes
-                  </p>
-                  <p className="text-xs font-bold text-muted-foreground bg-secondary/20 rounded-lg p-3">
-                    {viewingPlayer.notes}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 

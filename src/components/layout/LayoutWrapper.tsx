@@ -18,8 +18,9 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   // Logic to hide header during transition states or when on auth pages
   const showNav = !isAuthPage && !isUserLoading && user && !isProfileLoading;
 
-  // Hide nav for all users when there's no active session
-  const shouldHideNavForSession = !isSessionActive;
+  // Hide nav for non-admin users when there's no active session
+  // Admins can access global Rankings, Players, Fees tabs even without active session
+  const shouldHideNavForSession = !isSessionActive && role !== 'admin';
 
   return (
     <div className="flex flex-col min-h-screen w-full overflow-hidden">

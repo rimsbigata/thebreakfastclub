@@ -14,7 +14,7 @@ import {
   BoostSchedule
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 
 interface ClubSettings {
   clubLogo: string | null;
@@ -216,9 +216,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const { data: sessionSettings } = useDoc<ClubSettings>(clubSettingsRef);
 
   const boostSchedulesRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user?.uid) return null;
     return collection(firestore, 'boost_schedules');
-  }, [firestore]);
+  }, [firestore, user?.uid]);
   const { data: boostSchedules } = useCollection<BoostSchedule>(boostSchedulesRef);
 
   const upcomingBoost = useMemo(() => {
@@ -362,7 +362,78 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const endSession = async () => {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
-    await updateDoc(doc(firestore, 'sessions', activeSession.id), { status: 'inactive' });
+
+    // Calculate session rankings and award stars to top 4 players
+    const sessionPlayersData = players.map(p => ({
+      id: p.id,
+      name: p.name,
+      wins: p.wins || 0,
+      gamesPlayed: p.gamesPlayed || 0,
+      winRate: (p.wins || 0) / (p.gamesPlayed || 1),
+      pointDiff: 0, // Calculate from matches
+    }));
+
+    // Calculate point difference from completed matches
+    const completedMatches = matches.filter(m => m.status === 'completed');
+    completedMatches.forEach(m => {
+      if (m.teamAScore !== undefined && m.teamBScore !== undefined) {
+        [...m.teamA, ...m.teamB].forEach(pid => {
+          const player = sessionPlayersData.find(p => p.id === pid);
+          if (player) {
+            const isTeamA = m.teamA.includes(pid);
+            const diff = isTeamA ? (m.teamAScore! - m.teamBScore!) : (m.teamBScore! - m.teamAScore!);
+            player.pointDiff += diff;
+          }
+        });
+      }
+    });
+
+    // Sort by wins > win rate > point difference
+    const rankedPlayers = sessionPlayersData.sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+      return b.pointDiff - a.pointDiff;
+    });
+
+    // Award stars to top 4 players
+    const starsEarned: Record<string, number> = {};
+    const isDoubleStar = activeSession.isDoubleStar || false;
+
+    rankedPlayers.slice(0, 4).forEach((player, index) => {
+      // 1st place: 4 stars, 2nd: 3 stars, 3rd: 2 stars, 4th: 1 star
+      const baseStars = 4 - index;
+      starsEarned[player.id] = isDoubleStar ? baseStars * 2 : baseStars;
+    });
+
+    // Update player documents with stars
+    for (const [playerId, stars] of Object.entries(starsEarned)) {
+      await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', playerId), {
+        stars: stars,
+      });
+    }
+
+    // Store final star distribution in session document
+    await updateDoc(doc(firestore, 'sessions', activeSession.id), {
+      status: 'inactive',
+      finalStars: starsEarned,
+    });
+
+    // Trigger star distribution notifications
+    if (Object.keys(starsEarned).length > 0) {
+      const notificationsRef = collection(firestore, 'sessions', activeSession.id, 'notifications');
+      const starMessage = isDoubleStar
+        ? `Session ended! Top 4 players earned double stars: ${Object.entries(starsEarned).map(([pid, stars]) => `${players.find(p => p.id === pid)?.name || 'Unknown'} (${stars}⭐)`).join(', ')}`
+        : `Session ended! Top 4 players earned stars: ${Object.entries(starsEarned).map(([pid, stars]) => `${players.find(p => p.id === pid)?.name || 'Unknown'} (${stars}⭐)`).join(', ')}`;
+
+      await addDoc(notificationsRef, {
+        type: 'star_distribution',
+        message: starMessage,
+        starsEarned,
+        timestamp: new Date().toISOString(),
+        isRead: false,
+      });
+    }
+
     setActiveSession(null);
   };
 
@@ -501,37 +572,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const match = matches.find(m => m.id === court.currentMatchId);
     if (!match) return;
 
-    // Calculate stars based on rank
-    const starsEarned: Record<string, number> = {};
-    if (status === 'completed' && winner && teamAScore !== undefined && teamBScore !== undefined) {
-      const winningScore = winner === 'teamA' ? teamAScore : teamBScore;
-      const losingScore = winner === 'teamA' ? teamBScore : teamAScore;
-
-      // Determine ranks: winner team gets 1st, loser team gets 2nd
-      const winningTeam = winner === 'teamA' ? match.teamA : match.teamB;
-      const losingTeam = winner === 'teamA' ? match.teamB : match.teamA;
-
-      winningTeam.forEach(pid => { starsEarned[pid] = 3; });
-      losingTeam.forEach(pid => { starsEarned[pid] = 2; });
-
-      // If the loser scored 0, they get 4th place (0.5 stars)
-      if (losingScore === 0) {
-        losingTeam.forEach(pid => { starsEarned[pid] = 0.5; });
-      } else {
-        // Otherwise loser gets 2nd place (2 stars)
-        losingTeam.forEach(pid => { starsEarned[pid] = 2; });
-      }
-    }
-
-    // Check for double star boost - use session's isDoubleStar flag
+    // Stars are now awarded only at session end to top 4 players, not per match
+    // Store match data for session-end star calculation
     const isDoubleStar = activeSession.isDoubleStar || false;
-
-    // Apply double star multiplier if boost is active
-    if (isDoubleStar) {
-      Object.keys(starsEarned).forEach(pid => {
-        starsEarned[pid] *= 2;
-      });
-    }
 
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', court.currentMatchId), {
       isCompleted: status === 'completed',
@@ -540,7 +583,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       ...(winner ? { winner } : {}),
       ...(teamAScore !== undefined ? { teamAScore } : {}),
       ...(teamBScore !== undefined ? { teamBScore } : {}),
-      stars: starsEarned,
       isDoubleStar,
     });
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { status: 'available', currentMatchId: null });
@@ -563,7 +605,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         partnerHistory: partnerId ? [partnerId, ...(player?.partnerHistory || [])].slice(0, 5) : (player?.partnerHistory || []),
         improvementScore: Math.max(0, (player?.improvementScore || 0) + (won ? 5 : status === 'completed' ? -2 : 0)),
         totalPlayTimeMinutes: (player?.totalPlayTimeMinutes || 0) + playDuration,
-        stars: (player?.stars || 0) + (starsEarned[pid] || 0),
       });
     }
 
@@ -655,12 +696,12 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const updateFee = async (feeData: Partial<Fee> & { id: string }) => {
-    if (!firestore || !activeSession?.id) return;
+    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized: Only admin can modify fee data');
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'fees', feeData.id), feeData, { merge: true });
   };
 
   const togglePayment = async (date: string, playerId: string) => {
-    if (!firestore || !activeSession?.id) return;
+    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized: Only admin can modify payment data');
     const fee = fees.find(f => f.id === date);
     const payments = { ...(fee?.payments || {}) };
     payments[playerId] = !payments[playerId];
@@ -668,13 +709,13 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const addPaymentMethod = async (name: string, imageUrl: string) => {
-    if (!firestore || !activeSession?.id) return;
+    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized: Only admin can add payment methods');
     const id = Math.random().toString(36).substr(2, 9);
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id), { id, name, imageUrl });
   };
 
   const deletePaymentMethod = async (id: string) => {
-    if (!firestore || !activeSession?.id) return;
+    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized: Only admin can delete payment methods');
     await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id));
   };
 

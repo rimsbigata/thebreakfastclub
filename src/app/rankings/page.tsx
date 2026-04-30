@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
 import { Match, SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 
-export default function RankingsPage() {
+export default function GlobalRankingsPage() {
   const { players, matches } = useClub();
 
   const getRankingsForPeriod = (periodMatches: Match[], useStars: boolean = false) => {
@@ -30,7 +30,7 @@ export default function RankingsPage() {
         }
         // Stars are now awarded at session end, not per match
         // For daily rankings, we use wins/rate/diff (no stars)
-        // For monthly/overall, stars come from session finalStars
+        // For monthly/overall, stars come from session finalStars stored on player
         // Track double star matches for context
         if (m.isDoubleStar) {
           stats[id].doubleStarMatches += 1;
@@ -163,9 +163,9 @@ export default function RankingsPage() {
     <div className="container mx-auto px-4 py-6 space-y-6 max-w-5xl">
       <header className="space-y-0.5 text-center sm:text-left">
         <h1 className="flex items-center justify-center sm:justify-start gap-3">
-          <Trophy className="h-8 w-8 text-yellow-500" /> Leaderboards
+          <Trophy className="h-8 w-8 text-yellow-500" /> Global Leaderboards
         </h1>
-        <p className="text-tiny text-muted-foreground font-black uppercase tracking-widest opacity-60">Hall of fame based on tournament stats</p>
+        <p className="text-tiny text-muted-foreground font-black uppercase tracking-widest opacity-60">Hall of fame across all sessions</p>
       </header>
 
       <Tabs defaultValue="daily" className="w-full">
