@@ -16,6 +16,7 @@ import { Switch } from '@/components/ui/switch';
 import { QueueSession } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { DatePicker } from '@/components/ui/date-picker';
 
 export default function SessionGatePage() {
   const { userProfile, activeSession, joinSession, createSession, role, isRestoringSession, loadSessionById, endSessionById, getAllSessions } = useClub();
@@ -296,11 +297,11 @@ export default function SessionGatePage() {
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                           <Label className="text-[10px] font-black uppercase opacity-60">Date</Label>
-                          <Input
-                            type="date"
+                          <DatePicker
                             value={scheduledDate}
-                            onChange={e => setScheduledDate(e.target.value)}
-                            className="h-10 text-sm font-black"
+                            onChange={setScheduledDate}
+                            placeholder="Select date"
+                            className="text-sm font-black"
                           />
                         </div>
                         <div className="space-y-1">

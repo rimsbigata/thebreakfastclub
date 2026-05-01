@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
 import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -410,11 +411,11 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Date</Label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={newBoostDate}
-                      onChange={(e) => setNewBoostDate(e.target.value)}
-                      className="font-black text-sm h-10"
+                      onChange={setNewBoostDate}
+                      placeholder="Select date"
+                      className="font-black text-sm"
                     />
                   </div>
                   <div className="space-y-1.5">
