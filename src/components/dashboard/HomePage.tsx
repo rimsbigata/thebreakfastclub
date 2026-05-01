@@ -77,7 +77,9 @@ export default function HomePage() {
   const [isJoining, setIsJoining] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [draggedMatchId, setDraggedMatchId] = useState<string | null>(null);
+  const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [dragOverCourtId, setDragOverCourtId] = useState<string | null>(null);
+  const [dragOverTeam, setDragOverTeam] = useState<'teamA' | 'teamB' | null>(null);
   const [draftPlayerIds, setDraftPlayerIds] = useState<string[]>([]);
   const [courtDrafts, setCourtDrafts] = useState<Record<string, string[]>>({});
   const [isQueueOver, setIsQueueOver] = useState(false);
@@ -148,6 +150,14 @@ export default function HomePage() {
 
     const a = teamAScore ?? 0;
     const b = teamBScore ?? 0;
+
+    // Validate scores
+    const validation = validateMatchScore(a, b);
+    if (!validation.valid) {
+      toast({ title: "Invalid Score", description: validation.message, variant: "destructive" });
+      return;
+    }
+
     const losingScore = winner === 'teamA' ? b : a;
 
     if (losingScore === 0) {
@@ -242,19 +252,24 @@ export default function HomePage() {
     setDraggedMatchId(matchId);
   };
 
-  const getDraggedMatchId = (event: React.DragEvent<HTMLElement>) => {
-    return event.dataTransfer.getData('application/x-tbc-match-id') || event.dataTransfer.getData('text/plain') || draggedMatchId;
-  };
-
-  const onDragStartPlayer = (event: React.DragEvent<HTMLElement>, playerId: string) => {
-    if (!isStaff) return;
+  const onDragStartPlayer = (event: React.DragEvent, playerId: string) => {
     event.dataTransfer.setData('application/x-tbc-player-id', playerId);
     event.dataTransfer.setData('playerId', playerId);
     event.dataTransfer.effectAllowed = 'move';
+    setDraggedPlayerId(playerId);
+  };
+
+  const onDragEndPlayer = () => {
+    setDraggedPlayerId(null);
+    setDragOverTeam(null);
   };
 
   const getDraggedPlayerId = (event: React.DragEvent<HTMLElement>) => {
     return event.dataTransfer.getData('application/x-tbc-player-id') || event.dataTransfer.getData('playerId');
+  };
+
+  const getDraggedMatchId = (event: React.DragEvent<HTMLElement>) => {
+    return event.dataTransfer.getData('application/x-tbc-match-id') || event.dataTransfer.getData('text/plain');
   };
 
   const skillLevelOf = (player: { skillLevel?: number }) => player.skillLevel || 3;
@@ -273,13 +288,40 @@ export default function HomePage() {
     if (!isStaff) return;
     event.preventDefault();
     setIsQueueOver(false);
+    setDraggedPlayerId(null);
+    const droppedTeam = dragOverTeam;
+    setDragOverTeam(null);
 
     const playerId = getDraggedPlayerId(event);
     if (!playerId || allDraftedIds.includes(playerId)) return;
 
-    const nextDraft = [...draftPlayerIds, playerId];
+    let nextDraft = [...draftPlayerIds];
+
+    if (droppedTeam === 'teamA') {
+      const teamASlots = nextDraft.slice(0, 2);
+      const teamBSlots = nextDraft.slice(2);
+      if (teamASlots.length < 2) {
+        teamASlots.push(playerId);
+      } else {
+        teamBSlots.push(playerId);
+      }
+      nextDraft = [...teamASlots, ...teamBSlots];
+    } else if (droppedTeam === 'teamB') {
+      const teamASlots = nextDraft.slice(0, 2);
+      const teamBSlots = nextDraft.slice(2);
+      if (teamBSlots.length < 2) {
+        teamBSlots.push(playerId);
+      } else {
+        teamASlots.push(playerId);
+      }
+      nextDraft = [...teamASlots, ...teamBSlots];
+    } else {
+      nextDraft = [...draftPlayerIds, playerId];
+    }
+
     if (nextDraft.length === 4) {
-      await createMatchFromDraft(nextDraft);
+      const availableCourt = courts.find(c => c.status === 'available');
+      await createMatchFromDraft(nextDraft, availableCourt?.id);
       setDraftPlayerIds([]);
     } else {
       setDraftPlayerIds(nextDraft);
@@ -291,6 +333,8 @@ export default function HomePage() {
     event.preventDefault();
     event.stopPropagation();
     setDragOverCourtId(null);
+    const droppedTeam = dragOverTeam;
+    setDragOverTeam(null);
 
     const court = courts.find(c => c.id === courtId);
     if (!court || court.status === 'occupied') return;
@@ -305,7 +349,30 @@ export default function HomePage() {
     if (!playerId || allDraftedIds.includes(playerId)) return;
 
     const currentDraft = courtDrafts[courtId] || [];
-    const nextDraft = [...currentDraft, playerId];
+    let nextDraft = [...currentDraft];
+
+    if (droppedTeam === 'teamA') {
+      const teamASlots = nextDraft.slice(0, 2);
+      const teamBSlots = nextDraft.slice(2);
+      if (teamASlots.length < 2) {
+        teamASlots.push(playerId);
+      } else {
+        teamBSlots.push(playerId);
+      }
+      nextDraft = [...teamASlots, ...teamBSlots];
+    } else if (droppedTeam === 'teamB') {
+      const teamASlots = nextDraft.slice(0, 2);
+      const teamBSlots = nextDraft.slice(2);
+      if (teamBSlots.length < 2) {
+        teamBSlots.push(playerId);
+      } else {
+        teamASlots.push(playerId);
+      }
+      nextDraft = [...teamASlots, ...teamBSlots];
+    } else {
+      nextDraft = [...currentDraft, playerId];
+    }
+
     if (nextDraft.length === 4) {
       await createMatchFromDraft(nextDraft, courtId);
       setCourtDrafts(prev => {
@@ -322,6 +389,8 @@ export default function HomePage() {
     if (!isStaff) return;
     event.preventDefault();
     setIsCourtPanelOver(false);
+    setDraggedPlayerId(null);
+    setDragOverTeam(null);
 
     const matchId = getDraggedMatchId(event);
     if (matchId) {
@@ -351,18 +420,33 @@ export default function HomePage() {
   };
 
   const handleScoreChange = async (matchId: string, scoreA: number, scoreB: number) => {
-    await updateMatchScore(matchId, Math.max(0, scoreA), Math.max(0, scoreB));
+    const clampedScoreA = Math.max(0, scoreA);
+    const clampedScoreB = Math.max(0, scoreB);
+
+    // Only validate if both scores are provided
+    if (clampedScoreA > 0 && clampedScoreB > 0) {
+      const validation = validateMatchScore(clampedScoreA, clampedScoreB);
+      if (!validation.valid) {
+        toast({ title: "Invalid Score", description: validation.message, variant: "destructive" });
+        // Still update the score but show error
+      }
+    }
+
+    await updateMatchScore(matchId, clampedScoreA, clampedScoreB);
   };
 
   const validateMatchScore = (scoreA: number, scoreB: number) => {
     const higher = Math.max(scoreA, scoreB);
     const lower = Math.min(scoreA, scoreB);
 
+    if (scoreA === scoreB) {
+      return { valid: false, message: "Scores cannot be equal." };
+    }
     if (higher < defaultWinningScore) {
       return { valid: false, message: `Winning score (${defaultWinningScore}) not reached.` };
     }
-    if (scoreA === scoreB) {
-      return { valid: false, message: "Scores cannot be equal." };
+    if (!deuceEnabled && higher > defaultWinningScore) {
+      return { valid: false, message: `Winner's score cannot exceed ${defaultWinningScore}.` };
     }
     if (deuceEnabled) {
       if (higher === defaultWinningScore && lower === defaultWinningScore - 1) {
@@ -547,6 +631,7 @@ export default function HomePage() {
                   key={player.id}
                   draggable={isStaff}
                   onDragStart={(event) => onDragStartPlayer(event, player.id)}
+                  onDragEnd={onDragEndPlayer}
                   className={cn(
                     "p-3 border-2 shadow-sm group bg-card min-w-0",
                     isStaff && "cursor-grab active:cursor-grabbing hover:border-primary"
@@ -594,24 +679,68 @@ export default function HomePage() {
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-3 pb-24">
               {draftPlayerIds.length > 0 && (
-                <Card className="border-dashed border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
+                <Card className={cn("border-dashed border-2 bg-primary/5 p-3 space-y-2", isQueueOver && "border-primary/60 bg-primary/10")}>
                   <div className="flex justify-between items-center">
                     <p className="text-[10px] font-black uppercase text-primary">Drafting ({draftPlayerIds.length}/4)</p>
                     <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setDraftPlayerIds([])}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {draftPlayerIds.map(id => {
-                      const player = players.find(p => p.id === id);
-                      return (
-                        <div key={id} className="text-[11px] font-black bg-card p-2 rounded border flex flex-col gap-1 group relative overflow-hidden">
-                          <span className="truncate pr-4">{player?.name}</span>
-                          <X className="h-3 w-3 absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(playerId => playerId !== id))} />
-                          {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
-                        </div>
-                      );
-                    })}
+                  <div className="space-y-2">
+                    <div
+                      className={cn(
+                        "p-3 rounded-lg border-2 border-dashed transition-all",
+                        dragOverTeam === 'teamA' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
+                      )}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamA'); }}
+                      onDragLeave={() => setDragOverTeam(null)}
+                    >
+                      <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 1</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {draftPlayerIds.slice(0, 2).map(id => {
+                          const player = players.find(p => p.id === id);
+                          return (
+                            <div key={id} className="text-[11px] font-black bg-card p-2 rounded border flex flex-col gap-1 group relative overflow-hidden">
+                              <span className="truncate pr-4">{player?.name}</span>
+                              <X className="h-3 w-3 absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(playerId => playerId !== id))} />
+                              {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                            </div>
+                          );
+                        })}
+                        {draftPlayerIds.slice(0, 2).length < 2 && (
+                          <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                            Empty
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        "p-3 rounded-lg border-2 border-dashed transition-all",
+                        dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
+                      )}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
+                      onDragLeave={() => setDragOverTeam(null)}
+                    >
+                      <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {draftPlayerIds.slice(2).map(id => {
+                          const player = players.find(p => p.id === id);
+                          return (
+                            <div key={id} className="text-[11px] font-black bg-card p-2 rounded border flex flex-col gap-1 group relative overflow-hidden">
+                              <span className="truncate pr-4">{player?.name}</span>
+                              <X className="h-3 w-3 absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(playerId => playerId !== id))} />
+                              {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                            </div>
+                          );
+                        })}
+                        {draftPlayerIds.slice(2).length < 2 && (
+                          <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                            Empty
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </Card>
               )}
@@ -659,6 +788,7 @@ export default function HomePage() {
                           return (
                             <div key={id} className="flex items-center gap-1.5 min-w-0">
                               <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
+                              <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit shrink-0", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>{SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}</Badge>
                               {isStaff && (
                                 <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
                                   <ArrowLeftRight className="h-3 w-3" />
@@ -679,6 +809,7 @@ export default function HomePage() {
                                 </Button>
                               )}
                               <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
+                              <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit shrink-0", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>{SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}</Badge>
                             </div>
                           );
                         })}
@@ -824,31 +955,199 @@ export default function HomePage() {
                           </div>
                         </>
                       ) : draft ? (
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-black uppercase text-primary">Drafting ({draft.length}/4)</p>
-                          <div className="space-y-1.5">
-                            {draft.map(id => {
-                              const player = players.find(p => p.id === id);
-                              return (
-                                <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
-                                  <span className="truncate flex-1">{player?.name}</span>
-                                  {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
-                                </div>
-                              );
-                            })}
+                        <div className="space-y-2 w-full">
+                          <div className="flex justify-between items-center">
+                            <p className="text-[10px] font-black uppercase text-primary">Drafting ({draft.length}/4)</p>
+                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setCourtDrafts(prev => {
+                              const next = { ...prev };
+                              delete next[court.id];
+                              return next;
+                            })}>
+                              <X className="h-3 w-3" />
+                            </Button>
                           </div>
-                          <Button variant="ghost" size="sm" className="w-full h-8 text-[9px] font-black" onClick={() => setCourtDrafts(prev => {
-                            const next = { ...prev };
-                            delete next[court.id];
-                            return next;
-                          })}>
-                            CANCEL
-                          </Button>
+                          <div className="space-y-2">
+                            <div
+                              className={cn(
+                                "p-3 rounded-lg border-2 border-dashed transition-all",
+                                dragOverTeam === 'teamA' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
+                              )}
+                              onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamA'); }}
+                              onDragLeave={() => setDragOverTeam(null)}
+                            >
+                              <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 1</p>
+                              <div className="space-y-1.5">
+                                {draft.slice(0, 2).map((id: string) => {
+                                  const player = players.find(p => p.id === id);
+                                  return (
+                                    <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
+                                      <span className="truncate flex-1">{player?.name}</span>
+                                      {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                    </div>
+                                  );
+                                })}
+                                {draft.slice(0, 2).length < 2 && (
+                                  <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                    Empty
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div
+                              className={cn(
+                                "p-3 rounded-lg border-2 border-dashed transition-all",
+                                dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
+                              )}
+                              onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
+                              onDragLeave={() => setDragOverTeam(null)}
+                            >
+                              <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
+                              <div className="space-y-1.5">
+                                {draft.slice(2).map((id: string) => {
+                                  const player = players.find(p => p.id === id);
+                                  return (
+                                    <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
+                                      <span className="truncate flex-1">{player?.name}</span>
+                                      {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                    </div>
+                                  );
+                                })}
+                                {draft.slice(2).length < 2 && (
+                                  <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                    Empty
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       ) : (
-                        <div className="h-full flex flex-col items-center justify-center opacity-10 py-8">
-                          <Zap className="h-10 w-10 mb-2" />
-                          <p className="text-tiny font-black uppercase text-center tracking-widest">Available</p>
+                        <div className="h-full flex flex-col items-center justify-center py-8">
+                          {(() => {
+                            const currentDraft = courtDrafts[court.id] || [];
+                            const draftLength = currentDraft.length;
+                            const showDropZones = draggedPlayerId && dragOverCourtId === court.id && draftLength < 4;
+                            if (!showDropZones) {
+                              return (
+                                <div className="flex flex-col items-center justify-center opacity-10">
+                                  <Zap className="h-10 w-10 mb-2" />
+                                  <p className="text-tiny font-black uppercase text-center tracking-widest">Available</p>
+                                </div>
+                              );
+                            }
+                            return (
+                              <>
+                                {draftLength > 0 && (
+                                  <div className="space-y-2 w-full mb-4">
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-[10px] font-black uppercase text-primary">Drafting ({draftLength}/4)</p>
+                                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setCourtDrafts(prev => {
+                                        const next = { ...prev };
+                                        delete next[court.id];
+                                        return next;
+                                      })}>
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <div
+                                        className={cn(
+                                          "p-3 rounded-lg border-2 border-dashed transition-all",
+                                          dragOverTeam === 'teamA' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
+                                        )}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamA'); }}
+                                        onDragLeave={() => setDragOverTeam(null)}
+                                      >
+                                        <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 1</p>
+                                        <div className="space-y-1.5">
+                                          {currentDraft.slice(0, 2).map((id: string) => {
+                                            const player = players.find(p => p.id === id);
+                                            return (
+                                              <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
+                                                <span className="truncate flex-1">{player?.name}</span>
+                                                {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                              </div>
+                                            );
+                                          })}
+                                          {currentDraft.slice(0, 2).length < 2 && (
+                                            <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                              Empty
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div
+                                        className={cn(
+                                          "p-3 rounded-lg border-2 border-dashed transition-all",
+                                          dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
+                                        )}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
+                                        onDragLeave={() => setDragOverTeam(null)}
+                                      >
+                                        <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
+                                        <div className="space-y-1.5">
+                                          {currentDraft.slice(2).map((id: string) => {
+                                            const player = players.find(p => p.id === id);
+                                            return (
+                                              <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
+                                                <span className="truncate flex-1">{player?.name}</span>
+                                                {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                              </div>
+                                            );
+                                          })}
+                                          {currentDraft.slice(2).length < 2 && (
+                                            <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                              Empty
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                {draftLength === 0 && (
+                                  <div className="space-y-2 w-full">
+                                    <div
+                                      className={cn(
+                                        "p-3 rounded-lg border-2 border-dashed transition-all",
+                                        dragOverTeam === 'teamA' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
+                                      )}
+                                      onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamA'); }}
+                                      onDragLeave={() => setDragOverTeam(null)}
+                                    >
+                                      <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 1</p>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                          Empty
+                                        </div>
+                                        <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                          Empty
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div
+                                      className={cn(
+                                        "p-3 rounded-lg border-2 border-dashed transition-all",
+                                        dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
+                                      )}
+                                      onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
+                                      onDragLeave={() => setDragOverTeam(null)}
+                                    >
+                                      <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                          Empty
+                                        </div>
+                                        <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                          Empty
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       )}
                     </CardContent>
@@ -919,7 +1218,8 @@ export default function HomePage() {
       </div>
 
       {/* MODALS */}
-      <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
+      <Dialog open={!!swapping
+      } onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle className="text-compact font-black uppercase">Swap Player</DialogTitle></DialogHeader>
           <ScrollArea className="h-[400px]">
@@ -937,7 +1237,7 @@ export default function HomePage() {
             </div>
           </ScrollArea>
         </DialogContent>
-      </Dialog>
+      </Dialog >
 
       <Dialog open={!!winningTeam} onOpenChange={(open) => !open && setWinningTeam(null)}>
         <DialogContent className="max-w-sm">
@@ -1003,63 +1303,69 @@ export default function HomePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {scoringCourtId && (() => {
-        const court = courts.find(c => c.id === scoringCourtId);
-        const match = matches.find(m => m.id === court?.currentMatchId);
-        if (!match) return null;
+      {
+        scoringCourtId && (() => {
+          const court = courts.find(c => c.id === scoringCourtId);
+          const match = matches.find(m => m.id === court?.currentMatchId);
+          if (!match) return null;
 
-        const teamA = players.filter(p => match.teamA.includes(p.id));
-        const teamB = players.filter(p => match.teamB.includes(p.id));
+          const teamA = players.filter(p => match.teamA.includes(p.id));
+          const teamB = players.filter(p => match.teamB.includes(p.id));
 
-        return (
-          <MatchScoreDialog
-            open={activeModal === 'score'}
-            onOpenChange={(open) => {
-              if (!open) {
-                setActiveModal(null);
-                setScoringCourtId(null);
-              }
-            }}
-            teamA={teamA}
-            teamB={teamB}
-            onScoreSubmit={handleScoreSubmit}
-            onSkip={() => {
-              endMatch(scoringCourtId, 'completed');
-              setActiveModal(null);
-              setScoringCourtId(null);
-            }}
-          />
-        );
-      })()}
-
-      {activeModal === 'zeroConfirm' && (
-        <Dialog open={true} onOpenChange={(open) => !open && setActiveModal(null)}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-black uppercase">Confirm Zero Score</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm font-medium">The losing team has a score of 0. Is this correct?</p>
-            <div className="flex gap-2 mt-4">
-              <Button
-                className="flex-1 font-black uppercase"
-                onClick={() => {
-                  if (pendingScore) {
-                    endMatch(pendingScore.courtId, 'completed', pendingScore.winner, pendingScore.teamAScore, pendingScore.teamBScore);
-                  }
+          return (
+            <MatchScoreDialog
+              open={activeModal === 'score'}
+              onOpenChange={(open) => {
+                if (!open) {
                   setActiveModal(null);
                   setScoringCourtId(null);
-                  toast({ title: "Results Confirmed" });
-                }}
-              >
-                Yes, Confirm
-              </Button>
-              <Button variant="outline" className="flex-1 font-black uppercase" onClick={() => setActiveModal('score')}>
-                Edit Score
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
+                }
+              }}
+              teamA={teamA}
+              teamB={teamB}
+              onScoreSubmit={handleScoreSubmit}
+              onSkip={() => {
+                endMatch(scoringCourtId, 'completed');
+                setActiveModal(null);
+                setScoringCourtId(null);
+              }}
+              defaultWinningScore={defaultWinningScore}
+              deuceEnabled={deuceEnabled}
+            />
+          );
+        })()
+      }
+
+      {
+        activeModal === 'zeroConfirm' && (
+          <Dialog open={true} onOpenChange={(open) => !open && setActiveModal(null)}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-black uppercase">Confirm Zero Score</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm font-medium">The losing team has a score of 0. Is this correct?</p>
+              <div className="flex gap-2 mt-4">
+                <Button
+                  className="flex-1 font-black uppercase"
+                  onClick={() => {
+                    if (pendingScore) {
+                      endMatch(pendingScore.courtId, 'completed', pendingScore.winner, pendingScore.teamAScore, pendingScore.teamBScore);
+                    }
+                    setActiveModal(null);
+                    setScoringCourtId(null);
+                    toast({ title: "Results Confirmed" });
+                  }}
+                >
+                  Yes, Confirm
+                </Button>
+                <Button variant="outline" className="flex-1 font-black uppercase" onClick={() => setActiveModal('score')}>
+                  Edit Score
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )
+      }
+    </div >
   );
 }

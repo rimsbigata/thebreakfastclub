@@ -37,6 +37,8 @@ export default function SettingsPage() {
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isClearingClubData, setIsClearingClubData] = useState(false);
   const [newBoostDate, setNewBoostDate] = useState('');
+  const [newBoostVenue, setNewBoostVenue] = useState('');
+  const [newBoostTime, setNewBoostTime] = useState('');
 
   const processAndUpload = (file: File, callback: (data: string) => void) => {
     const reader = new FileReader();
@@ -185,7 +187,7 @@ export default function SettingsPage() {
     }
     setIsSendingEmail(true);
     try {
-      const { sessionCode, sessionId } = await addBoostSchedule(newBoostDate);
+      const { sessionCode, sessionId } = await addBoostSchedule(newBoostDate, newBoostVenue, newBoostTime);
       const sessionLink = `${window.location.origin}/session/${sessionId}`;
       toast({
         title: "Boost Schedule Added",
@@ -228,6 +230,8 @@ export default function SettingsPage() {
       }
 
       setNewBoostDate('');
+      setNewBoostVenue('');
+      setNewBoostTime('');
     } catch (error) {
       toast({
         title: "Could not add boost schedule",
@@ -395,13 +399,33 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Date</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Venue Name</Label>
                   <Input
-                    type="date"
-                    value={newBoostDate}
-                    onChange={(e) => setNewBoostDate(e.target.value)}
+                    value={newBoostVenue}
+                    onChange={(e) => setNewBoostVenue(e.target.value)}
+                    placeholder="e.g. Badminton Center A"
                     className="font-black text-sm h-10"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Date</Label>
+                    <Input
+                      type="date"
+                      value={newBoostDate}
+                      onChange={(e) => setNewBoostDate(e.target.value)}
+                      className="font-black text-sm h-10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Time</Label>
+                    <Input
+                      type="time"
+                      value={newBoostTime}
+                      onChange={(e) => setNewBoostTime(e.target.value)}
+                      className="font-black text-sm h-10"
+                    />
+                  </div>
                 </div>
                 <Button
                   onClick={handleAddBoostSchedule}
@@ -426,7 +450,15 @@ export default function SettingsPage() {
                         <a href={`/session/${boost.sessionId}`} className="text-xs font-black text-primary hover:underline">
                           Session Link
                         </a>
-                        <p className="text-[9px] text-muted-foreground font-bold">{boost.date}</p>
+                        {boost.venueName && (
+                          <p className="text-[9px] text-muted-foreground font-bold">{boost.venueName}</p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <p className="text-[9px] text-muted-foreground font-bold">{boost.date}</p>
+                          {boost.scheduledTime && (
+                            <p className="text-[9px] text-muted-foreground font-bold">{boost.scheduledTime}</p>
+                          )}
+                        </div>
                         <div className="mt-1 flex items-center gap-1">
                           <span className="text-[8px] font-black uppercase text-primary">Code:</span>
                           <span className="text-xs font-mono font-bold text-primary">{boost.sessionCode}</span>

@@ -21,6 +21,9 @@ export interface QueueSession {
   createdBy: string;
   createdAt: string;
   isDoubleStar?: boolean;
+  venueName?: string;
+  scheduledDate?: string;
+  scheduledTime?: string;
 }
 
 export interface SessionPlayer {
@@ -140,4 +143,6 @@ export interface BoostSchedule {
   sessionCode: string; // 6-digit code for validation
   isActive: boolean;
   createdAt: string;
+  venueName?: string;
+  scheduledTime?: string;
 }

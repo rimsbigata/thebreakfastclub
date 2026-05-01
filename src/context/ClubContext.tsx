@@ -41,10 +41,12 @@ interface ClubContextType {
 
   // Auth & Session
   joinSession: (code: string, participate?: boolean, joinAsPlayer?: boolean) => Promise<void>;
-  createSession: (isDoubleStar?: boolean, sessionCode?: string) => Promise<string>;
+  createSession: (isDoubleStar?: boolean, sessionCode?: string, venueName?: string, scheduledDate?: string, scheduledTime?: string) => Promise<string>;
   regenerateQueueSessionCode: () => Promise<string>;
   endSession: () => Promise<void>;
   loadSessionById: (sessionId: string) => Promise<void>;
+  endSessionById: (sessionId: string) => Promise<void>;
+  getAllSessions: () => Promise<QueueSession[]>;
 
   // Admin Controls
   addPlayer: (input: { name: string; skillLevel: number; playStyle: string }) => Promise<void>;
@@ -82,7 +84,7 @@ interface ClubContextType {
 
   // Boost Schedules
   boostSchedules: BoostSchedule[];
-  addBoostSchedule: (date: string) => Promise<{ sessionCode: string; sessionId: string }>;
+  addBoostSchedule: (date: string, venueName?: string, scheduledTime?: string) => Promise<{ sessionCode: string; sessionId: string }>;
   deleteBoostSchedule: (id: string) => Promise<void>;
   upcomingBoost?: BoostSchedule;
 
@@ -315,7 +317,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     setActiveSession(session);
   };
 
-  const createSession = async (isDoubleStar = false, sessionCode = '') => {
+  const createSession = async (isDoubleStar = false, sessionCode = '', venueName = '', scheduledDate = '', scheduledTime = '') => {
     if (!firestore || !user?.uid || role !== 'admin') throw new Error('Unauthorized');
 
     // Validate session code if double star is requested and a code is provided
@@ -330,14 +332,17 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }
 
     const sessionId = Math.random().toString(36).substr(2, 9);
-    const code = Math.random().toString(36).substr(2, 6).toUpperCase();
+    const code = sessionCode || Math.random().toString(36).substr(2, 6).toUpperCase();
     const session: QueueSession = {
       id: sessionId,
       code,
       status: 'active',
       createdBy: user.uid,
       createdAt: new Date().toISOString(),
-      isDoubleStar
+      isDoubleStar,
+      venueName,
+      scheduledDate,
+      scheduledTime
     };
     await setDoc(doc(firestore, 'sessions', sessionId), session);
 
@@ -367,80 +372,103 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const endSession = async () => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id) throw new Error('No active session');
+    if (role !== 'admin') throw new Error('Unauthorized: Only admins can end sessions');
 
-    // Calculate session rankings and award stars to top 4 players
-    const sessionPlayersData = players.map(p => ({
-      id: p.id,
-      name: p.name,
-      wins: p.wins || 0,
-      gamesPlayed: p.gamesPlayed || 0,
-      winRate: (p.wins || 0) / (p.gamesPlayed || 1),
-      pointDiff: 0, // Calculate from matches
-    }));
+    try {
+      // Calculate session rankings and award stars to top 4 players
+      const sessionPlayersData = players.map(p => ({
+        id: p.id,
+        name: p.name,
+        wins: p.wins || 0,
+        gamesPlayed: p.gamesPlayed || 0,
+        winRate: (p.wins || 0) / (p.gamesPlayed || 1),
+        pointDiff: 0, // Calculate from matches
+      }));
 
-    // Calculate point difference from completed matches
-    const completedMatches = matches.filter(m => m.status === 'completed');
-    completedMatches.forEach(m => {
-      if (m.teamAScore !== undefined && m.teamBScore !== undefined) {
-        [...m.teamA, ...m.teamB].forEach(pid => {
-          const player = sessionPlayersData.find(p => p.id === pid);
-          if (player) {
-            const isTeamA = m.teamA.includes(pid);
-            const diff = isTeamA ? (m.teamAScore! - m.teamBScore!) : (m.teamBScore! - m.teamAScore!);
-            player.pointDiff += diff;
-          }
-        });
+      // Calculate point difference from completed matches
+      const completedMatches = matches.filter(m => m.status === 'completed');
+      completedMatches.forEach(m => {
+        if (m.teamAScore !== undefined && m.teamBScore !== undefined) {
+          [...m.teamA, ...m.teamB].forEach(pid => {
+            const player = sessionPlayersData.find(p => p.id === pid);
+            if (player) {
+              const isTeamA = m.teamA.includes(pid);
+              const diff = isTeamA ? (m.teamAScore! - m.teamBScore!) : (m.teamBScore! - m.teamAScore!);
+              player.pointDiff += diff;
+            }
+          });
+        }
+      });
+
+      // Sort by wins > win rate > point difference
+      const rankedPlayers = sessionPlayersData.sort((a, b) => {
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+        return b.pointDiff - a.pointDiff;
+      });
+
+      // Award stars to top 4 players
+      const starsEarned: Record<string, number> = {};
+      const isDoubleStar = activeSession.isDoubleStar || false;
+
+      rankedPlayers.slice(0, 4).forEach((player, index) => {
+        // 1st place: 4 stars, 2nd: 3 stars, 3rd: 2 stars, 4th: 1 star
+        const baseStars = 4 - index;
+        starsEarned[player.id] = isDoubleStar ? baseStars * 2 : baseStars;
+      });
+
+      // Update player documents with stars (wrapped in try-catch to handle permission errors)
+      try {
+        for (const [playerId, stars] of Object.entries(starsEarned)) {
+          await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', playerId), {
+            stars: stars,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to update player stars:', error);
+        // Continue anyway - session ending is more important
       }
-    });
 
-    // Sort by wins > win rate > point difference
-    const rankedPlayers = sessionPlayersData.sort((a, b) => {
-      if (b.wins !== a.wins) return b.wins - a.wins;
-      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-      return b.pointDiff - a.pointDiff;
-    });
-
-    // Award stars to top 4 players
-    const starsEarned: Record<string, number> = {};
-    const isDoubleStar = activeSession.isDoubleStar || false;
-
-    rankedPlayers.slice(0, 4).forEach((player, index) => {
-      // 1st place: 4 stars, 2nd: 3 stars, 3rd: 2 stars, 4th: 1 star
-      const baseStars = 4 - index;
-      starsEarned[player.id] = isDoubleStar ? baseStars * 2 : baseStars;
-    });
-
-    // Update player documents with stars
-    for (const [playerId, stars] of Object.entries(starsEarned)) {
-      await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', playerId), {
-        stars: stars,
+      // Store final star distribution in session document
+      await updateDoc(doc(firestore, 'sessions', activeSession.id), {
+        status: 'inactive',
+        finalStars: starsEarned,
       });
+
+      // Trigger star distribution notifications (wrapped in try-catch)
+      try {
+        if (Object.keys(starsEarned).length > 0) {
+          const notificationsRef = collection(firestore, 'sessions', activeSession.id, 'notifications');
+          const starMessage = isDoubleStar
+            ? `Session ended! Top 4 players earned double stars: ${Object.entries(starsEarned).map(([pid, stars]) => `${players.find(p => p.id === pid)?.name || 'Unknown'} (${stars}⭐)`).join(', ')}`
+            : `Session ended! Top 4 players earned stars: ${Object.entries(starsEarned).map(([pid, stars]) => `${players.find(p => p.id === pid)?.name || 'Unknown'} (${stars}⭐)`).join(', ')}`;
+
+          await addDoc(notificationsRef, {
+            type: 'star_distribution',
+            message: starMessage,
+            starsEarned,
+            timestamp: new Date().toISOString(),
+            isRead: false,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to add notification:', error);
+        // Continue anyway - session ending is more important
+      }
+
+      setActiveSession(null);
+    } catch (error) {
+      // Re-throw if it's a critical error
+      if (error instanceof Error && error.message.includes('No active session')) {
+        throw error;
+      }
+      if (error instanceof Error && error.message.includes('Only admins can end sessions')) {
+        throw error;
+      }
+      // Log other errors but don't fail the operation
+      console.error('Error during session end:', error);
     }
-
-    // Store final star distribution in session document
-    await updateDoc(doc(firestore, 'sessions', activeSession.id), {
-      status: 'inactive',
-      finalStars: starsEarned,
-    });
-
-    // Trigger star distribution notifications
-    if (Object.keys(starsEarned).length > 0) {
-      const notificationsRef = collection(firestore, 'sessions', activeSession.id, 'notifications');
-      const starMessage = isDoubleStar
-        ? `Session ended! Top 4 players earned double stars: ${Object.entries(starsEarned).map(([pid, stars]) => `${players.find(p => p.id === pid)?.name || 'Unknown'} (${stars}⭐)`).join(', ')}`
-        : `Session ended! Top 4 players earned stars: ${Object.entries(starsEarned).map(([pid, stars]) => `${players.find(p => p.id === pid)?.name || 'Unknown'} (${stars}⭐)`).join(', ')}`;
-
-      await addDoc(notificationsRef, {
-        type: 'star_distribution',
-        message: starMessage,
-        starsEarned,
-        timestamp: new Date().toISOString(),
-        isRead: false,
-      });
-    }
-
-    setActiveSession(null);
   };
 
   const loadSessionById = async (sessionId: string) => {
@@ -458,6 +486,23 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }
 
     setActiveSession(session);
+  };
+
+  const endSessionById = async (sessionId: string) => {
+    if (!firestore || !user?.uid) throw new Error('You must be signed in.');
+    if (role !== 'admin') throw new Error('Unauthorized: Only admins can end sessions');
+
+    await updateDoc(doc(firestore, 'sessions', sessionId), {
+      status: 'inactive',
+    });
+  };
+
+  const getAllSessions = async (): Promise<QueueSession[]> => {
+    if (!firestore || !user?.uid) throw new Error('You must be signed in.');
+    if (role !== 'admin') throw new Error('Unauthorized: Only admins can view all sessions');
+
+    const sessionsSnapshot = await getDocs(collection(firestore, 'sessions'));
+    return sessionsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as QueueSession));
   };
 
   const addPlayer = async (input: { name: string; skillLevel: number; playStyle: string }) => {
@@ -751,7 +796,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await setDoc(doc(firestore, 'clubSettings', 'config'), { deuceEnabled: enabled }, { merge: true });
   };
 
-  const addBoostSchedule = async (date: string) => {
+  const addBoostSchedule = async (date: string, venueName = '', scheduledTime = '') => {
     if (!firestore || !user?.uid) throw new Error('Unauthorized');
     // Generate session ID and 6-digit session code
     const sessionId = Math.random().toString(36).substr(2, 9);
@@ -765,7 +810,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       status: 'active',
       createdBy: user.uid,
       createdAt: new Date().toISOString(),
-      isDoubleStar: true
+      isDoubleStar: true,
+      venueName,
+      scheduledDate: date,
+      scheduledTime
     };
     await setDoc(doc(firestore, 'sessions', sessionId), session);
 
@@ -777,7 +825,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       date,
       sessionCode,
       isActive: true,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      venueName,
+      scheduledTime
     });
 
     return { sessionCode, sessionId };
@@ -828,7 +878,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     <ClubContext.Provider value={{
       userProfile, activeSession, players, courts, matches, fees, paymentMethods, role: effectiveRole,
       isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, isRestoringSession, currentPlayer,
-      joinSession, createSession, regenerateQueueSessionCode, endSession, loadSessionById,
+      joinSession, createSession, regenerateQueueSessionCode, endSession, loadSessionById, endSessionById, getAllSessions,
       addPlayer, updatePlayer, deletePlayer,
       addCourt, deleteCourt, startMatch, startTimer, updateMatchScore, endMatch,
       swapPlayer, deleteMatch, assignMatchToCourt, createCourtAndAssignMatch,

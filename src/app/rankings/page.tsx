@@ -189,6 +189,11 @@ export default function GlobalRankingsPage() {
           <RenderLeaderboard data={dailyRankings} tab="daily" />
         </TabsContent>
         <TabsContent value="monthly" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+              As of {new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+            </p>
+          </div>
           <RenderLeaderboard data={monthlyRankings} tab="monthly" />
         </TabsContent>
         <TabsContent value="overall" className="animate-in fade-in slide-in-from-bottom-2 duration-300">

@@ -29,8 +29,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col min-h-screen w-full overflow-hidden">
       {showNav && !shouldHideNavForSession && <Header />}
       {showNav && !shouldHideNavForSession && <PlayerMatchAlerts />}
-      {/* Push notifications disabled due to application errors */}
-      {/* {showNav && !shouldHideNavForSession && <PushNotificationInitializer />} */}
+      {showNav && !shouldHideNavForSession && <PushNotificationInitializer />}
       <main className="flex-1 overflow-auto">
         {children}
       </main>
