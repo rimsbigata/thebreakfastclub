@@ -61,15 +61,15 @@ export async function POST(request: NextRequest) {
           link: payload.data?.url || '/',
         },
         notification: {
-          icon: '/favicon.svg',
-          badge: '/favicon.svg',
+          icon: '/icon.png',
+          badge: '/icon.png',
           tag: 'breakfastclub-notification',
           requireInteraction: false,
         },
       },
       android: {
         notification: {
-          icon: '/favicon.svg',
+          icon: '/icon.png',
           sound: 'default',
         },
       },

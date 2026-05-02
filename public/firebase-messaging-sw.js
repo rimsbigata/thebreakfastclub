@@ -16,11 +16,22 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage(function (payload) {
   console.log('[firebase-messaging-sw] Received background message:', payload);
 
-  const notificationTitle = payload.notification?.title || 'TheBreakfastClub Alert';
+  // Robust null checks for payload and notification
+  if (!payload) {
+    console.warn('[firebase-messaging-sw] Received null or undefined payload');
+    return;
+  }
+
+  if (!payload.notification) {
+    console.warn('[firebase-messaging-sw] Payload has no notification object');
+    return;
+  }
+
+  const notificationTitle = payload.notification.title || 'TheBreakfastClub Alert';
   const notificationOptions = {
-    body: payload.notification?.body || 'You have a new club update.',
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
+    body: payload.notification.body || 'You have a new club update.',
+    icon: '/icon.png',
+    badge: '/icon.png',
     tag: 'breakfastclub-notification',
     renotify: true,
     requireInteraction: false,
@@ -28,7 +39,10 @@ messaging.onBackgroundMessage(function (payload) {
     actions: payload.data?.actions || [],
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  // Only show notification if we have valid data
+  if (notificationTitle || notificationOptions.body) {
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  }
 });
 
 // Handle notification clicks
