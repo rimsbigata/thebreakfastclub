@@ -8,6 +8,7 @@
   "theme_color": "#f59e0b",
   "orientation": "portrait-primary",
   "scope": "/",
+  "gcm_sender_id": "103953800507",
   "icons": [
     {
       "src": "/favicon.svg",
@@ -40,7 +41,10 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["sports", "fitness"],
+  "categories": [
+    "sports",
+    "fitness"
+  ],
   "screenshots": [],
   "shortcuts": [
     {

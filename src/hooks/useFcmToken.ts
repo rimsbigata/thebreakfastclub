@@ -28,7 +28,7 @@ export function useFcmToken() {
     const checkSupport = () => {
       const supported = 'serviceWorker' in navigator && 'Notification' in window && 'PushManager' in window
       setIsSupported(supported)
-      
+
       if (supported) {
         setPermission(Notification.permission)
       }
@@ -44,8 +44,31 @@ export function useFcmToken() {
     }
 
     try {
+      // Check if service worker is already registered
+      const existingRegistration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')
+
+      if (existingRegistration) {
+        console.log('Service Worker already registered:', existingRegistration)
+
+        // If it's waiting, skip waiting to activate it immediately
+        if (existingRegistration.waiting) {
+          existingRegistration.waiting.postMessage({ type: 'SKIP_WAITING' })
+        }
+
+        // Ensure it's ready
+        await navigator.serviceWorker.ready
+        console.log('Service Worker is ready and active')
+        return existingRegistration
+      }
+
+      // Register new service worker
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
       console.log('Service Worker registered successfully:', registration)
+
+      // Ensure the service worker is ready
+      await navigator.serviceWorker.ready
+      console.log('Service Worker is ready and active')
+
       return registration
     } catch (err) {
       console.error('Service Worker registration failed:', err)
@@ -96,9 +119,12 @@ export function useFcmToken() {
   const getTokenInternal = async () => {
     const messaging = getMessaging(app)
     const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || ''
-    
+
+    // Ensure service worker is ready before getting token
+    const serviceWorkerRegistration = await navigator.serviceWorker.ready
+
     const currentToken = await getToken(messaging, {
-      serviceWorkerRegistration: await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js'),
+      serviceWorkerRegistration: serviceWorkerRegistration,
       vapidKey: vapidKey,
     })
 
@@ -133,7 +159,7 @@ export function useFcmToken() {
     const messaging = getMessaging(app)
     const unsubscribe = onMessage(messaging, (payload) => {
       console.log('Foreground message received:', payload)
-      
+
       // Show notification in foreground
       if (payload.notification) {
         const notification = new Notification(payload.notification.title || 'TheBreakfastClub Alert', {

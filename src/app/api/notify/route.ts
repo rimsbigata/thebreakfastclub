@@ -3,13 +3,22 @@ import { getMessaging } from 'firebase-admin/messaging'
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
 
 // Initialize Firebase Admin (only once)
-const adminApp = getApps().length === 0
-  ? initializeApp({
-    credential: cert(process.env.GOOGLE_APPLICATION_CREDENTIALS || ''),
-  })
-  : getApps()[0]
+let adminApp: any = null
 
-const messaging = getMessaging(adminApp)
+if (getApps().length === 0) {
+  const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
+  if (credentialsPath) {
+    try {
+      adminApp = initializeApp({
+        credential: cert(credentialsPath),
+      })
+    } catch (error) {
+      console.error('Failed to initialize Firebase Admin:', error)
+    }
+  }
+}
+
+const messaging = adminApp ? getMessaging(adminApp) : null
 
 interface NotificationPayload {
   token: string
@@ -21,6 +30,14 @@ interface NotificationPayload {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Firebase Admin is initialized
+    if (!messaging) {
+      return NextResponse.json(
+        { error: 'Firebase Admin not initialized - check GOOGLE_APPLICATION_CREDENTIALS' },
+        { status: 500 }
+      )
+    }
+
     const payload: NotificationPayload = await request.json()
 
     // Validate required fields
