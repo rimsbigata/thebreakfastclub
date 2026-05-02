@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging'
 import { initializeApp, getApps, getApp } from 'firebase/app'
+import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { useFirebase } from '@/firebase'
 
 const firebaseConfig = {
   apiKey: "AIzaSyAKGYRP8SjvCq-hT2w5yNDIJEOhjaJGvw8",
@@ -17,6 +19,7 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
 
 export function useFcmToken() {
+  const { user, firestore } = useFirebase()
   const [token, setToken] = useState<string | null>(null)
   const [permission, setPermission] = useState<NotificationPermission>('default')
   const [isLoading, setIsLoading] = useState(false)
@@ -36,6 +39,33 @@ export function useFcmToken() {
 
     checkSupport()
   }, [])
+
+  // Save FCM token to Firestore
+  const saveTokenToFirestore = useCallback(async (fcmToken: string) => {
+    if (!user || !firestore) {
+      console.warn('Cannot save token: User not authenticated or Firestore not available')
+      return
+    }
+
+    try {
+      const userDocRef = doc(firestore, 'users', user.uid)
+      const userDoc = await getDoc(userDocRef)
+
+      // Check if token has changed
+      const currentStoredToken = userDoc.data()?.fcmToken
+      if (currentStoredToken === fcmToken) {
+        console.log('FCM token unchanged, skipping Firestore update')
+        return
+      }
+
+      // Update the token in Firestore
+      await setDoc(userDocRef, { fcmToken }, { merge: true })
+      console.log('FCM token saved to Firestore for user:', user.uid)
+    } catch (error) {
+      console.error('Failed to save FCM token to Firestore:', error)
+      // Don't throw error - token saving failure shouldn't block notification functionality
+    }
+  }, [user, firestore])
 
   // Register service worker
   const registerServiceWorker = useCallback(async () => {
@@ -113,7 +143,7 @@ export function useFcmToken() {
     } finally {
       setIsLoading(false)
     }
-  }, [isSupported, permission, registerServiceWorker])
+  }, [isSupported, permission, registerServiceWorker, saveTokenToFirestore])
 
   // Internal function to get FCM token
   const getTokenInternal = async () => {
@@ -146,6 +176,10 @@ export function useFcmToken() {
 
     setToken(currentToken)
     console.log('FCM Token:', currentToken)
+
+    // Save token to Firestore after successful generation
+    await saveTokenToFirestore(currentToken)
+
     return currentToken
   }
 
@@ -166,11 +200,22 @@ export function useFcmToken() {
       await deleteToken(messaging)
       setToken(null)
       console.log('FCM Token deleted successfully')
+
+      // Remove token from Firestore
+      if (user && firestore) {
+        try {
+          const userDocRef = doc(firestore, 'users', user.uid)
+          await setDoc(userDocRef, { fcmToken: null }, { merge: true })
+          console.log('FCM token removed from Firestore for user:', user.uid)
+        } catch (error) {
+          console.error('Failed to remove FCM token from Firestore:', error)
+        }
+      }
     } catch (err) {
       console.error('Failed to delete FCM token:', err)
       throw err
     }
-  }, [token])
+  }, [token, user, firestore])
 
   // Listen for incoming messages (when app is in foreground)
   useEffect(() => {

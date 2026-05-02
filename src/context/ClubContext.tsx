@@ -750,6 +750,27 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), { courtId });
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { status: 'occupied', currentMatchId: matchId });
+
+    // Send notifications to players in the match
+    try {
+      const match = matches.find(m => m.id === matchId);
+      const court = courts.find(c => c.id === courtId);
+
+      if (match && court) {
+        const playerIds = [...match.teamA, ...match.teamB];
+        const { notifyPlayersOfAssignments } = await import('@/app/actions/notifications');
+
+        const assignments = playerIds.map(playerId => ({
+          playerId,
+          courtName: court.name,
+        }));
+
+        await notifyPlayersOfAssignments(assignments);
+      }
+    } catch (error) {
+      console.error('Failed to send notifications for court assignment:', error);
+      // Don't throw error - notification failure shouldn't block match assignment
+    }
   };
 
   const createCourtAndAssignMatch = async (matchId: string) => {

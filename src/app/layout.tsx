@@ -1,5 +1,5 @@
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ClubProvider } from '@/context/ClubContext';
@@ -11,11 +11,28 @@ import { Analytics } from '@vercel/analytics/next';
 export const metadata: Metadata = {
   title: 'TheBreakfastClub | Badminton Club',
   description: 'Badminton court queuing and matching for TheBreakfastClub.',
+  // Explicitly link to your manifest file in the public folder
+  manifest: '/manifest.json',
   icons: {
-    icon: '/icon.png',
+    icon: [
+      { url: '/icon.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon.png', sizes: '512x512', type: 'image/png' },
+    ],
     shortcut: '/icon.png',
-    apple: '/icon.png',
+    // Mandatory for iOS "Add to Home Screen" support
+    apple: [
+      { url: '/icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'TBC Badminton',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#f59e0b',
 };
 
 export default function RootLayout({
