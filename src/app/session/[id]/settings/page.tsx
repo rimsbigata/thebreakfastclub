@@ -206,28 +206,21 @@ export default function SettingsPage() {
             variant: "destructive",
           });
         } else {
-          const emailResult = await sendBoostCodeEmail(sessionCode, newBoostDate, sessionLink, adminEmail);
-          if (emailResult.success) {
-            toast({
-              title: "Email Notification Sent",
-              description: `Notification sent to ${adminEmail} with the session code and link.`,
+          // Don't block on email sending - do it in background
+          sendBoostCodeEmail(sessionCode, newBoostDate, sessionLink, adminEmail)
+            .then(emailResult => {
+              if (emailResult.success) {
+                console.log('Email notification sent successfully');
+              } else {
+                console.error('Email sending failed:', emailResult.message);
+              }
+            })
+            .catch(emailError => {
+              console.error('Failed to send email notification:', emailError);
             });
-          } else {
-            console.error('Email sending failed:', emailResult.message);
-            toast({
-              title: "Email Notification Failed",
-              description: emailResult.message,
-              variant: "destructive",
-            });
-          }
         }
       } catch (emailError) {
         console.error('Failed to send email notification:', emailError);
-        toast({
-          title: "Email Notification Failed",
-          description: emailError instanceof Error ? emailError.message : "Could not send email notification.",
-          variant: "destructive",
-        });
       }
 
       setNewBoostDate('');

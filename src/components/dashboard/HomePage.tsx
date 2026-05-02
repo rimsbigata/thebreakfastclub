@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, ArrowLeftRight, Trophy, Ban, Target } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -221,11 +220,15 @@ export default function HomePage() {
 
     const targetCourt = courts.find(court => court.id === courtId);
     if (!targetCourt || targetCourt.status !== 'available') {
-      toast({
-        title: "Court unavailable",
-        description: "Drop the match on an available court.",
-        variant: "destructive",
-      });
+      try {
+        toast({
+          title: "Court unavailable",
+          description: "Drop the match on an available court.",
+          variant: "destructive",
+        });
+      } catch (toastError) {
+        console.error('Toast error:', toastError);
+      }
       return;
     }
 
@@ -233,13 +236,21 @@ export default function HomePage() {
       await assignMatchToCourt(matchId, courtId);
       setDraggedMatchId(null);
       setDragOverCourtId(null);
-      toast({ title: "Match assigned", description: `${targetCourt.name} is now occupied.` });
+      try {
+        toast({ title: "Match assigned", description: `${targetCourt.name} is now occupied.` });
+      } catch (toastError) {
+        console.error('Toast error:', toastError);
+      }
     } catch (error) {
-      toast({
-        title: "Could not assign match",
-        description: error instanceof Error ? error.message : "Database write failed.",
-        variant: "destructive",
-      });
+      try {
+        toast({
+          title: "Could not assign match",
+          description: error instanceof Error ? error.message : "Database write failed.",
+          variant: "destructive",
+        });
+      } catch (toastError) {
+        console.error('Toast error:', toastError);
+      }
     }
   };
 
