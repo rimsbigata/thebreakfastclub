@@ -22,7 +22,6 @@ export function useFcmToken() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSupported, setIsSupported] = useState(false)
-  const [isAutoRetrieving, setIsAutoRetrieving] = useState(false)
 
   // Check browser support on mount
   useEffect(() => {
@@ -119,7 +118,14 @@ export function useFcmToken() {
   // Internal function to get FCM token
   const getTokenInternal = async () => {
     const messaging = getMessaging(app)
-    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || 'BLZwzH1jJLWC0RaRRMC21TvLa6uXmPbH69e02wGyfjWh1-tyqZfr73NkH_8CUNlTVQkDt2iE6TEMmKaI4m0uCIw'
+    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+
+    // Log VAPID key for debugging (without exposing the full key)
+    console.log('VAPID Key present:', !!vapidKey, 'Length:', vapidKey?.length)
+
+    if (!vapidKey) {
+      throw new Error('NEXT_PUBLIC_FIREBASE_VAPID_KEY environment variable is missing')
+    }
 
     // Ensure service worker is ready before getting token
     const serviceWorkerRegistration = await navigator.serviceWorker.ready
@@ -142,27 +148,6 @@ export function useFcmToken() {
     console.log('FCM Token:', currentToken)
     return currentToken
   }
-
-  // Auto-retrieve token if permission is already granted
-  useEffect(() => {
-    if (!isSupported || permission !== 'granted' || token || isAutoRetrieving) {
-      return
-    }
-
-    const autoRetrieveToken = async () => {
-      setIsAutoRetrieving(true)
-      try {
-        await registerServiceWorker()
-        await getTokenInternal()
-      } catch (err) {
-        console.error('Failed to auto-retrieve FCM token:', err)
-      } finally {
-        setIsAutoRetrieving(false)
-      }
-    }
-
-    autoRetrieveToken()
-  }, [isSupported, permission, token, isAutoRetrieving, registerServiceWorker])
 
   // Delete token (for cleanup)
   const deleteFcmToken = useCallback(async () => {

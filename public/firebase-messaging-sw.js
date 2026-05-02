@@ -76,6 +76,13 @@ self.addEventListener('notificationclick', function (event) {
 // Handle push subscription changes
 self.addEventListener('pushsubscriptionchange', function (event) {
   console.log('[firebase-messaging-sw] Push subscription changed');
+
+  // Robust null check for oldSubscription and options
+  if (!event.oldSubscription || !event.oldSubscription.options || !event.oldSubscription.options.applicationServerKey) {
+    console.warn('[firebase-messaging-sw] Cannot resubscribe: old subscription or options missing');
+    return;
+  }
+
   event.waitUntil(
     self.registration.pushManager.subscribe({
       userVisibleOnly: true,
