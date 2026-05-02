@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
+import { Switch } from '@radix-ui/react-switch';
+import { NotificationPermissionButton } from '@/components/NotificationPermissionButton';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -240,6 +242,36 @@ export default function HomePage() {
         toast({ title: "Match assigned", description: `${targetCourt.name} is now occupied.` });
       } catch (toastError) {
         console.error('Toast error:', toastError);
+      }
+
+      // Send FCM notifications to players in the match
+      const match = matches.find(m => m.id === matchId);
+      if (match) {
+        const playerIds = [...match.teamA, ...match.teamB];
+        playerIds.forEach(async (playerId) => {
+          const player = players.find(p => p.id === playerId);
+          if (player?.fcmToken) {
+            try {
+              await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  token: player.fcmToken,
+                  title: 'You have been assigned to a court!',
+                  body: `Your match has been assigned to ${targetCourt.name}`,
+                  data: {
+                    url: '/',
+                    type: 'court_assignment',
+                    courtId: targetCourt.id,
+                    matchId: match.id,
+                  },
+                }),
+              });
+            } catch (notifyError) {
+              console.error('Failed to send FCM notification:', notifyError);
+            }
+          }
+        });
       }
     } catch (error) {
       try {
@@ -620,6 +652,7 @@ export default function HomePage() {
               <User className="h-4 w-4 text-primary" /> Bench
             </h2>
             <div className="flex items-center gap-1.5 overflow-hidden">
+              <NotificationPermissionButton />
               <Select value={sortOption} onValueChange={setSortOption}>
                 <SelectTrigger className="h-7 text-[9px] font-black uppercase tracking-widest border-2 w-[100px] bg-background px-2">
                   <SelectValue placeholder="Sort" />

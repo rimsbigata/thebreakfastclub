@@ -35,6 +35,7 @@ export interface SessionPlayer {
   // Denormalized for easy UI display
   name?: string;
   skillLevel?: number;
+  fcmToken?: string; // Firebase Cloud Messaging token for push notifications
 }
 
 export const SKILL_LEVELS_SHORT: Record<number, string> = {
@@ -90,6 +91,7 @@ export interface Player extends UserProfile {
   lastAvailableAt?: number;
   notes?: string;
   stars?: number;
+  fcmToken?: string; // Firebase Cloud Messaging token for push notifications
 }
 
 export interface Court {

@@ -54,6 +54,7 @@ interface ClubContextType {
   deletePlayer: (id: string) => Promise<void>;
   addCourt: (name?: string) => Promise<string>;
   deleteCourt: (id: string) => Promise<void>;
+  updateFcmToken: (token: string) => Promise<void>;
   startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted' | 'status' | 'teamASnapshots' | 'teamBSnapshots'>) => Promise<void>;
   startTimer: (courtId: string) => Promise<void>;
   updateMatchScore: (matchId: string, teamAScore: number, teamBScore: number) => Promise<void>;
@@ -566,6 +567,17 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id));
   };
 
+  const updateFcmToken = async (token: string) => {
+    if (!firestore || !activeSession?.id || !user?.uid) return;
+    try {
+      await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), {
+        fcmToken: token,
+      });
+    } catch (error) {
+      console.error('Failed to update FCM token:', error);
+    }
+  };
+
   const startMatch = async (matchData: any) => {
     if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     const matchId = Math.random().toString(36).substr(2, 9);
@@ -880,7 +892,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, isRestoringSession, currentPlayer,
       joinSession, createSession, regenerateQueueSessionCode, endSession, loadSessionById, endSessionById, getAllSessions,
       addPlayer, updatePlayer, deletePlayer,
-      addCourt, deleteCourt, startMatch, startTimer, updateMatchScore, endMatch,
+      addCourt, deleteCourt, updateFcmToken, startMatch, startTimer, updateMatchScore, endMatch,
       swapPlayer, deleteMatch, assignMatchToCourt, createCourtAndAssignMatch,
       updateFee, togglePayment, addPaymentMethod, deletePaymentMethod,
       clubLogo, setClubLogo, defaultWinningScore, setDefaultWinningScore,

@@ -12,29 +12,60 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage(function(payload) {
-  const title = payload.notification?.title || 'TheBreakfastClub Alert';
-  const options = {
+// Handle background messages
+messaging.onBackgroundMessage(function (payload) {
+  console.log('[firebase-messaging-sw] Received background message:', payload);
+
+  const notificationTitle = payload.notification?.title || 'TheBreakfastClub Alert';
+  const notificationOptions = {
     body: payload.notification?.body || 'You have a new club update.',
     icon: '/favicon.svg',
-    data: payload.data,
+    badge: '/favicon.svg',
+    tag: 'breakfastclub-notification',
+    renotify: true,
+    requireInteraction: false,
+    data: payload.data || {},
+    actions: payload.data?.actions || [],
   };
 
-  self.registration.showNotification(title, options);
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-self.addEventListener('notificationclick', function(event) {
+// Handle notification clicks
+self.addEventListener('notificationclick', function (event) {
+  console.log('[firebase-messaging-sw] Notification clicked:', event);
+
   event.notification.close();
+
+  const notificationData = event.notification.data || {};
+  const targetUrl = notificationData.url || '/';
+
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+    clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    }).then(function (clientList) {
+      // Focus existing window if available
       for (const client of clientList) {
-        if (client.url && 'focus' in client) {
+        if (client.url.includes(targetUrl) && 'focus' in client) {
           return client.focus();
         }
       }
+      // Open new window if no existing window found
       if (clients.openWindow) {
-        return clients.openWindow('/');
+        return clients.openWindow(targetUrl);
       }
-    }),
+    })
+  );
+});
+
+// Handle push subscription changes
+self.addEventListener('pushsubscriptionchange', function (event) {
+  console.log('[firebase-messaging-sw] Push subscription changed');
+  event.waitUntil(
+    self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: event.oldSubscription.options.applicationServerKey
+    })
   );
 });
