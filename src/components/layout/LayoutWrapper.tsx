@@ -3,7 +3,6 @@
 import { usePathname } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { PlayerMatchAlerts } from '@/components/player/PlayerMatchAlerts';
-import { PushNotificationInitializer } from '@/components/firebase/PushNotificationInitializer';
 import { useUser } from '@/firebase';
 import { useClub } from '@/context/ClubContext';
 
@@ -29,7 +28,6 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col min-h-screen w-full overflow-hidden">
       {showNav && !shouldHideNavForSession && <Header />}
       {showNav && !shouldHideNavForSession && <PlayerMatchAlerts />}
-      {showNav && !shouldHideNavForSession && <PushNotificationInitializer />}
       <main className="flex-1 overflow-auto">
         {children}
       </main>

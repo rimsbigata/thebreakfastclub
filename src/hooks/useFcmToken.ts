@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging'
-import { initializeApp } from 'firebase/app'
+import { initializeApp, getApps, getApp } from 'firebase/app'
 
 const firebaseConfig = {
   apiKey: "AIzaSyAKGYRP8SjvCq-hT2w5yNDIJEOhjaJGvw8",
@@ -13,8 +13,8 @@ const firebaseConfig = {
   appId: "1:380629825062:web:e595813b55ac4626ddd8e7",
 }
 
-// Initialize Firebase app (only once)
-const app = initializeApp(firebaseConfig)
+// Initialize Firebase app (only once, check if already exists)
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
 
 export function useFcmToken() {
   const [token, setToken] = useState<string | null>(null)
