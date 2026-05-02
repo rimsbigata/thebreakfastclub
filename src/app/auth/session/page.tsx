@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from '@/components/ui/label';
 import { useClub } from '@/context/ClubContext';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, PlayCircle, LogOut, Shield, User, List, Power, Loader2 } from 'lucide-react';
+import { KeyRound, PlayCircle, LogOut, Shield, User, List, Power, Loader2, Camera } from 'lucide-react';
 import { useFirebase, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { Switch } from '@/components/ui/switch';
@@ -17,6 +17,7 @@ import { QueueSession } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
+import { QRScanner } from '@/components/qr/QRScanner';
 
 export default function SessionGatePage() {
   const { userProfile, activeSession, joinSession, createSession, role, isRestoringSession, loadSessionById, endSessionById, getAllSessions } = useClub();
@@ -36,6 +37,7 @@ export default function SessionGatePage() {
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     if (isRestoringSession) return;
@@ -60,6 +62,11 @@ export default function SessionGatePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleScanComplete = (sessionId: string) => {
+    setCode(sessionId);
+    toast({ title: "QR code scanned", description: `Session code: ${sessionId}` });
   };
 
   const handleCreate = async () => {
@@ -241,14 +248,24 @@ export default function SessionGatePage() {
           <form onSubmit={handleJoin} className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase opacity-60">Session Code</Label>
-              <Input
-                value={code}
-                onChange={e => setCode(e.target.value.toUpperCase())}
-                placeholder="ABCDEF"
-                className="h-14 text-center text-2xl font-black tracking-[0.5em]"
-                maxLength={6}
-                required
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={code}
+                  onChange={e => setCode(e.target.value.toUpperCase())}
+                  placeholder="ABCDEF"
+                  className="h-14 text-center text-2xl font-black tracking-[0.5em] flex-1"
+                  maxLength={6}
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-14 px-4 border-2"
+                  onClick={() => setShowScanner(true)}
+                >
+                  <Camera className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
 
             {role === 'admin' && (
@@ -335,6 +352,13 @@ export default function SessionGatePage() {
           </Button>
         </CardFooter>
       </Card>
+
+      {/* QR Scanner Modal */}
+      <QRScanner
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleScanComplete}
+      />
     </div>
   );
 }

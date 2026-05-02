@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils';
 import { SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { Switch } from '@radix-ui/react-switch';
-import { NotificationPermissionButton } from '@/components/NotificationPermissionButton';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -652,7 +651,6 @@ export default function HomePage() {
               <User className="h-4 w-4 text-primary" /> Bench
             </h2>
             <div className="flex items-center gap-1.5 overflow-hidden">
-              <NotificationPermissionButton />
               <Select value={sortOption} onValueChange={setSortOption}>
                 <SelectTrigger className="h-7 text-[9px] font-black uppercase tracking-widest border-2 w-[100px] bg-background px-2">
                   <SelectValue placeholder="Sort" />

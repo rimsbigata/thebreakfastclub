@@ -18,6 +18,7 @@ import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 import { sendBoostCodeEmail } from '@/app/actions/email';
 import { useUser } from '@/firebase';
 import { NotificationSettings } from '@/components/profile/NotificationSettings';
+import { QRCodeGenerator } from '@/components/qr/QRCodeGenerator';
 
 export default function SettingsPage() {
   const {
@@ -383,6 +384,11 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* QR Code Generator */}
+          {queueSessionCode && (
+            <QRCodeGenerator sessionId={queueSessionCode} />
+          )}
 
           <Card className="border-2 shadow-sm">
             <CardHeader>
