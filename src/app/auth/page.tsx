@@ -64,8 +64,8 @@ export default function AuthPage() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Get redirect URL from query params
-  const redirectUrl = searchParams.get('redirect');
+  // Get redirect URL from query params or sessionStorage
+  const redirectUrl = searchParams.get('redirect') || sessionStorage.getItem('redirectAfterAuth');
 
   // Signup Specific State
   const [skillLevel, setSkillLevel] = useState('3');
@@ -121,7 +121,9 @@ export default function AuthPage() {
       toast({ title: "Account created!", description: "Welcome to The Breakfast Club." });
       // Redirect to the redirect URL if provided, otherwise go to session gate
       if (redirectUrl) {
-        router.push(decodeURIComponent(redirectUrl));
+        // Clear sessionStorage after use
+        sessionStorage.removeItem('redirectAfterAuth');
+        router.push(redirectUrl);
       } else {
         router.push('/auth/session');
       }
@@ -141,7 +143,9 @@ export default function AuthPage() {
       toast({ title: "Welcome back!" });
       // Redirect to the redirect URL if provided, otherwise go to home
       if (redirectUrl) {
-        router.push(decodeURIComponent(redirectUrl));
+        // Clear sessionStorage after use
+        sessionStorage.removeItem('redirectAfterAuth');
+        router.push(redirectUrl);
       } else {
         router.push('/');
       }

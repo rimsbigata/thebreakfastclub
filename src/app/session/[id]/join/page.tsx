@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useClub } from '@/context/ClubContext';
 import { useUser, useFirebase } from '@/firebase';
 import { Loader2 } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
-export default function JoinSessionPage({ params }: { params: { id: string } }) {
+export default function JoinSessionPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
   const router = useRouter();
   const { user } = useUser();
   const { firestore } = useFirebase();
@@ -19,8 +20,10 @@ export default function JoinSessionPage({ params }: { params: { id: string } }) 
     const handleJoin = async () => {
       // If not authenticated, redirect to auth with redirect back to this page
       if (!user) {
-        const redirectUrl = encodeURIComponent(`/session/${params.id}/join`);
-        router.push(`/auth?redirect=${redirectUrl}`);
+        const redirectUrl = `/session/${resolvedParams.id}/join`;
+        // Store redirect URL in sessionStorage to preserve it through auth flow
+        sessionStorage.setItem('redirectAfterAuth', redirectUrl);
+        router.push(`/auth?redirect=${encodeURIComponent(redirectUrl)}`);
         return;
       }
 
@@ -33,28 +36,32 @@ export default function JoinSessionPage({ params }: { params: { id: string } }) 
       try {
         setLoading(true);
 
-        // Fetch the session document directly
-        const sessionDoc = await getDoc(doc(firestore, 'sessions', params.id));
+        // Query Firestore to find session by code
+        const sessionsQuery = query(
+          collection(firestore, 'sessions'),
+          where('code', '==', resolvedParams.id.toUpperCase()),
+          where('status', '==', 'active')
+        );
+        const querySnapshot = await getDocs(sessionsQuery);
 
-        if (!sessionDoc.exists()) {
-          setError('Session not found');
+        if (querySnapshot.empty) {
+          setError('Session not found or not active');
           setLoading(false);
           return;
         }
 
-        const sessionData = { ...sessionDoc.data(), id: sessionDoc.id } as any;
-
-        if (sessionData.status !== 'active') {
-          setError('Session is not active');
-          setLoading(false);
-          return;
-        }
+        const sessionDoc = querySnapshot.docs[0];
+        const sessionId = sessionDoc.id;
 
         // Join the session using the session code
-        await joinSession(sessionData.code, true, false);
+        await joinSession(resolvedParams.id, true, false);
 
-        // Redirect to the session page
-        router.push(`/session/${params.id}`);
+        setLoading(false);
+
+        // Wait a moment for context to update, then redirect to session
+        setTimeout(() => {
+          router.push(`/session/${sessionId}`);
+        }, 100);
       } catch (err: any) {
         setError(err.message || 'Failed to join session');
         setLoading(false);
@@ -65,7 +72,7 @@ export default function JoinSessionPage({ params }: { params: { id: string } }) 
     if (!isRestoringSession) {
       handleJoin();
     }
-  }, [user, params.id, router, firestore, joinSession, isRestoringSession]);
+  }, [user, resolvedParams.id, router, firestore, joinSession, isRestoringSession]);
 
   if (error) {
     return (

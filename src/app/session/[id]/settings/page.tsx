@@ -19,7 +19,7 @@ import { sendBoostCodeEmail } from '@/app/actions/email';
 import { useUser } from '@/firebase';
 import { QRCodeGenerator } from '@/components/qr/QRCodeGenerator';
 
-export default function SettingsPage() {
+export default function SettingsPage({ params }: { params: { id: string } }) {
   const {
     paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard,
     endSession, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
