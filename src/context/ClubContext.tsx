@@ -15,6 +15,7 @@ import {
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
+import { sendMatchStartingNotification, sendYourTurnNotification } from '@/lib/notificationUtils';
 
 interface ClubSettings {
   clubLogo: string | null;
@@ -608,6 +609,18 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     for (const pid of [...matchData.teamA, ...matchData.teamB]) {
       await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'playing' });
     }
+
+    // Send 'Match Starting' notification to all participants
+    try {
+      const court = matchData.courtId ? courts.find(c => c.id === matchData.courtId) : undefined;
+      await sendMatchStartingNotification(
+        [...matchData.teamA, ...matchData.teamB],
+        matchData.courtId,
+        court?.name
+      );
+    } catch (error) {
+      console.error('Failed to send match starting notification:', error);
+    }
   };
 
   const startTimer = async (courtId: string) => {
@@ -724,6 +737,18 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', newPlayerId), {
       status: 'playing',
     });
+
+    // Send 'Your Turn!' notification to the new player
+    try {
+      if (match.courtId) {
+        const court = courts.find(c => c.id === match.courtId);
+        if (court) {
+          await sendYourTurnNotification(newPlayerId, match.courtId, court.name);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send your turn notification for swap:', error);
+    }
   };
 
   const deleteMatch = async (matchId: string) => {
@@ -751,24 +776,17 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), { courtId });
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { status: 'occupied', currentMatchId: matchId });
 
-    // Send notifications to players in the match
+    // Send 'Your Turn!' notifications to players in the match
     try {
       const match = matches.find(m => m.id === matchId);
       const court = courts.find(c => c.id === courtId);
 
       if (match && court) {
         const playerIds = [...match.teamA, ...match.teamB];
-        const { notifyPlayersOfAssignments } = await import('@/app/actions/notifications');
-
-        const assignments = playerIds.map(playerId => ({
-          playerId,
-          courtName: court.name,
-        }));
-
-        await notifyPlayersOfAssignments(assignments);
+        await sendYourTurnNotification(playerIds.join(','), courtId, court.name);
       }
     } catch (error) {
-      console.error('Failed to send notifications for court assignment:', error);
+      console.error('Failed to send your turn notifications:', error);
       // Don't throw error - notification failure shouldn't block match assignment
     }
   };
