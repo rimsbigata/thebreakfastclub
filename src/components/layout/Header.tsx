@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2, Target, KeyRound } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2, Target, KeyRound, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useClub } from '@/context/ClubContext';
@@ -57,10 +57,11 @@ export function Header() {
     navItems.push({ label: 'Dashboard', href: `/session/${activeSession.id}`, icon: LayoutDashboard });
   }
 
-  // Rankings, Fees, and Players for all roles
+  // Rankings, Fees, Players, and Match History for all roles
   navItems.push({ label: 'Rankings', href: activeSession ? `/session/${activeSession.id}/rankings` : '/rankings', icon: Trophy });
   navItems.push({ label: 'Fees', href: activeSession ? `/session/${activeSession.id}/fees` : '/fees', icon: Banknote });
   navItems.push({ label: 'Players', href: activeSession ? `/session/${activeSession.id}/players` : '/players', icon: Users });
+  navItems.push({ label: 'Match History', href: activeSession ? `/session/${activeSession.id}/match-history` : '/match-history', icon: History });
   if (isAdmin) {
     navItems.push({ label: 'Settings', href: activeSession ? `/session/${activeSession.id}/settings` : '/settings', icon: Settings });
   }

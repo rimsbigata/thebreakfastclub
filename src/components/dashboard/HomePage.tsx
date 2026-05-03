@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useClub } from '@/context/ClubContext';
+import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardFooter, CardTitle } from '@/components/ui/card';
@@ -63,6 +64,7 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 
 export default function HomePage() {
   const router = useRouter();
+  const { user } = useUser();
   const {
     courts, players, matches, deleteCourt, startMatch, startTimer,
     updateMatchScore, endMatch, swapPlayer, assignMatchToCourt,
@@ -710,59 +712,61 @@ export default function HomePage() {
 
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12">
 
-        {/* THE BENCH */}
-        <div className="md:col-span-3 border-r flex flex-col bg-secondary/5 min-h-0">
-          <div className="p-3 bg-card border-b flex items-center justify-between sticky top-0 z-10 gap-2 h-14">
-            <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2 shrink-0">
-              <User className="h-4 w-4 text-primary" /> Bench
-            </h2>
-            <div className="flex items-center gap-1.5 overflow-hidden">
-              <Select value={sortOption} onValueChange={setSortOption}>
-                <SelectTrigger className="h-7 text-[9px] font-black uppercase tracking-widest border-2 w-[100px] bg-background px-2">
-                  <SelectValue placeholder="Sort" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default" className="text-[9px] font-bold uppercase">Default</SelectItem>
-                  <SelectItem value="skill-asc" className="text-[9px] font-bold uppercase">Skill ↑</SelectItem>
-                  <SelectItem value="skill-desc" className="text-[9px] font-bold uppercase">Skill ↓</SelectItem>
-                  <SelectItem value="name-asc" className="text-[9px] font-bold uppercase">A-Z</SelectItem>
-                  <SelectItem value="name-desc" className="text-[9px] font-bold uppercase">Z-A</SelectItem>
-                </SelectContent>
-              </Select>
-              <Badge variant="outline" className="font-black h-7 px-2 text-tiny shrink-0">{sortedAvailablePlayers.length}</Badge>
+        {/* THE BENCH - Only for staff */}
+        {isStaff && (
+          <div className="md:col-span-3 border-r flex flex-col bg-secondary/5 min-h-0">
+            <div className="p-3 bg-card border-b flex items-center justify-between sticky top-0 z-10 gap-2 h-14">
+              <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2 shrink-0">
+                <User className="h-4 w-4 text-primary" /> Bench
+              </h2>
+              <div className="flex items-center gap-1.5 overflow-hidden">
+                <Select value={sortOption} onValueChange={setSortOption}>
+                  <SelectTrigger className="h-7 text-[9px] font-black uppercase tracking-widest border-2 w-[100px] bg-background px-2">
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default" className="text-[9px] font-bold uppercase">Default</SelectItem>
+                    <SelectItem value="skill-asc" className="text-[9px] font-bold uppercase">Skill ↑</SelectItem>
+                    <SelectItem value="skill-desc" className="text-[9px] font-bold uppercase">Skill ↓</SelectItem>
+                    <SelectItem value="name-asc" className="text-[9px] font-bold uppercase">A-Z</SelectItem>
+                    <SelectItem value="name-desc" className="text-[9px] font-bold uppercase">Z-A</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Badge variant="outline" className="font-black h-7 px-2 text-tiny shrink-0">{sortedAvailablePlayers.length}</Badge>
+              </div>
             </div>
+            <ScrollArea className="flex-1">
+              <div className="p-2 grid grid-cols-2 gap-2 pb-24">
+                {sortedAvailablePlayers.map((player) => (
+                  <Card
+                    key={player.id}
+                    draggable={isStaff}
+                    onDragStart={(event) => onDragStartPlayer(event, player.id)}
+                    onDragEnd={onDragEndPlayer}
+                    className={cn(
+                      "p-3 border-2 shadow-sm group bg-card min-w-0",
+                      isStaff && "cursor-grab active:cursor-grabbing hover:border-primary"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1.5 gap-2">
+                      <span className="font-black text-compact truncate flex-1 leading-tight">{player.name}</span>
+                      <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
+                    </div>
+                    <div className="flex justify-between items-center opacity-80 gap-1">
+                      <Badge variant="outline" className={cn("text-[9px] font-black uppercase h-4 px-1.5 truncate", getSkillColor(skillLevelOf(player)))}>
+                        {SKILL_LEVELS_SHORT[skillLevelOf(player)]}
+                      </Badge>
+                      <span className="text-[10px] font-black shrink-0">{player.gamesPlayed} G</span>
+                    </div>
+                  </Card>
+                ))}
+                {sortedAvailablePlayers.length === 0 && (
+                  <div className="col-span-2 py-20 text-center text-muted-foreground font-bold italic opacity-20 text-compact">Bench Empty</div>
+                )}
+              </div>
+            </ScrollArea>
           </div>
-          <ScrollArea className="flex-1">
-            <div className="p-2 grid grid-cols-2 gap-2 pb-24">
-              {sortedAvailablePlayers.map((player) => (
-                <Card
-                  key={player.id}
-                  draggable={isStaff}
-                  onDragStart={(event) => onDragStartPlayer(event, player.id)}
-                  onDragEnd={onDragEndPlayer}
-                  className={cn(
-                    "p-3 border-2 shadow-sm group bg-card min-w-0",
-                    isStaff && "cursor-grab active:cursor-grabbing hover:border-primary"
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-1.5 gap-2">
-                    <span className="font-black text-compact truncate flex-1 leading-tight">{player.name}</span>
-                    <WaitTimeBadge lastAvailableAt={player.lastAvailableAt} />
-                  </div>
-                  <div className="flex justify-between items-center opacity-80 gap-1">
-                    <Badge variant="outline" className={cn("text-[9px] font-black uppercase h-4 px-1.5 truncate", getSkillColor(skillLevelOf(player)))}>
-                      {SKILL_LEVELS_SHORT[skillLevelOf(player)]}
-                    </Badge>
-                    <span className="text-[10px] font-black shrink-0">{player.gamesPlayed} G</span>
-                  </div>
-                </Card>
-              ))}
-              {sortedAvailablePlayers.length === 0 && (
-                <div className="col-span-2 py-20 text-center text-muted-foreground font-bold italic opacity-20 text-compact">Bench Empty</div>
-              )}
-            </div>
-          </ScrollArea>
-        </div>
+        )}
 
         {/* MATCH QUEUE */}
         <div
@@ -879,97 +883,104 @@ export default function HomePage() {
                   </div>
                 </Card>
               )}
-              {waitingMatches.map((match, index) => (
-                <Card
-                  key={match.id}
-                  onDragEnd={() => {
-                    setDraggedMatchId(null);
-                    setDragOverCourtId(null);
-                  }}
-                  className={cn(
-                    "border-2 border-orange-500/30 bg-orange-500/5 shadow-sm overflow-hidden group relative",
-                    draggedMatchId === match.id && "opacity-60"
-                  )}
-                >
-                  <div className="absolute top-1 left-1 z-10">
-                    <Badge variant="secondary" className="bg-orange-500 text-white dark:bg-orange-400 dark:text-orange-950 text-[9px] h-4 px-1 font-black">
-                      #{index + 1}
-                    </Badge>
-                  </div>
-                  <div className="p-3 pt-6 flex flex-col gap-3">
-                    {isStaff && (
-                      <div
-                        draggable
-                        onDragStart={(event) => handleMatchDragStart(event, match.id)}
-                        className="flex items-center gap-1.5 p-1.5 rounded-md bg-muted/50 cursor-grab active:cursor-grabbing hover:bg-muted"
-                      >
-                        <GripVertical className="h-4 w-4" />
-                      </div>
+              {waitingMatches.map((match, index) => {
+                const isPlayerInMatch = user?.uid && (match.teamA.includes(user.uid) || match.teamB.includes(user.uid));
+                return (
+                  <Card
+                    key={match.id}
+                    onDragEnd={() => {
+                      setDraggedMatchId(null);
+                      setDragOverCourtId(null);
+                    }}
+                    className={cn(
+                      "border-2 shadow-sm overflow-hidden group relative",
+                      isPlayerInMatch ? "border-primary bg-primary/10" : "border-orange-500/30 bg-orange-500/5",
+                      draggedMatchId === match.id && "opacity-60"
                     )}
-                    {isStaff && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => deleteMatch(match.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex flex-col space-y-1.5 flex-1 min-w-0 border-l-4 border-orange-500/20 pl-2">
-                        {match.teamA.map((id: string) => {
-                          const p = players.find(player => player.id === id);
-                          return (
-                            <div key={id} className="flex items-center gap-1.5 min-w-0">
-                              <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
-                              <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit shrink-0", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>{SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}</Badge>
-                              {isStaff && (
-                                <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
-                                  <ArrowLeftRight className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="flex-1 flex flex-col gap-1">
-                        {match.teamB.map((id) => {
-                          const p = players.find(player => player.id === id);
-                          return (
-                            <div key={id} className="flex items-center gap-1.5 min-w-0 justify-end">
-                              {isStaff && (
-                                <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
-                                  <ArrowLeftRight className="h-3 w-3" />
-                                </Button>
-                              )}
-                              <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
-                              <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit shrink-0", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>{SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}</Badge>
-                            </div>
-                          );
-                        })}
-                      </div>
+                  >
+                    <div className="absolute top-1 left-1 z-10">
+                      <Badge variant="secondary" className={cn(
+                        "text-[9px] h-4 px-1 font-black",
+                        isPlayerInMatch ? "bg-primary text-primary-foreground" : "bg-orange-500 text-white dark:bg-orange-400 dark:text-orange-950"
+                      )}>
+                        #{index + 1}
+                      </Badge>
                     </div>
-                    {isStaff && (
-                      <div className="pt-2 border-t border-orange-500/10">
-                        <Select onValueChange={(courtId) => handleAssignMatchToCourt(match.id, courtId)}>
-                          <SelectTrigger className="h-8 text-[9px] font-black uppercase tracking-widest bg-orange-500/10 border-orange-500/20 text-orange-600">
-                            <SelectValue placeholder="Assign Court" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {courts.filter(c => c.status === 'available').map(c => (
-                              <SelectItem key={c.id} value={c.id} className="text-[9px] font-bold uppercase">{c.name}</SelectItem>
-                            ))}
-                            {courts.filter(c => c.status === 'available').length === 0 && (
-                              <SelectItem value="none" disabled>No Courts Free</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                    <div className="p-3 pt-6 flex flex-col gap-3">
+                      {isStaff && (
+                        <div
+                          draggable
+                          onDragStart={(event) => handleMatchDragStart(event, match.id)}
+                          className="flex items-center gap-1.5 p-1.5 rounded-md bg-muted/50 cursor-grab active:cursor-grabbing hover:bg-muted"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </div>
+                      )}
+                      {isStaff && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => deleteMatch(match.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col space-y-1.5 flex-1 min-w-0 border-l-4 border-orange-500/20 pl-2">
+                          {match.teamA.map((id: string) => {
+                            const p = players.find(player => player.id === id);
+                            return (
+                              <div key={id} className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
+                                <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit shrink-0", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>{SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}</Badge>
+                                {isStaff && (
+                                  <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
+                                    <ArrowLeftRight className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="flex-1 flex flex-col gap-1">
+                          {match.teamB.map((id) => {
+                            const p = players.find(player => player.id === id);
+                            return (
+                              <div key={id} className="flex items-center gap-1.5 min-w-0 justify-end">
+                                {isStaff && (
+                                  <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover:opacity-100 shrink-0" onClick={() => setSwapping({ matchId: match.id, oldPlayerId: id })}>
+                                    <ArrowLeftRight className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                <span className="text-[11px] font-black truncate leading-tight flex-1">{p?.name}</span>
+                                <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit shrink-0", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>{SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}</Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </Card>
-              ))}
+                      {isStaff && (
+                        <div className="pt-2 border-t border-orange-500/10">
+                          <Select onValueChange={(courtId) => handleAssignMatchToCourt(match.id, courtId)}>
+                            <SelectTrigger className="h-8 text-[9px] font-black uppercase tracking-widest bg-orange-500/10 border-orange-500/20 text-orange-600">
+                              <SelectValue placeholder="Assign Court" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {courts.filter(c => c.status === 'available').map(c => (
+                                <SelectItem key={c.id} value={c.id} className="text-[9px] font-bold uppercase">{c.name}</SelectItem>
+                              ))}
+                              {courts.filter(c => c.status === 'available').length === 0 && (
+                                <SelectItem value="none" disabled>No Courts Free</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
               {waitingMatches.length === 0 && draftPlayerIds.length === 0 && (
                 <div className="py-20 text-center text-muted-foreground font-bold italic opacity-20 text-compact">Queue Empty</div>
               )}
@@ -1005,6 +1016,7 @@ export default function HomePage() {
                 const draft = courtDrafts[court.id];
                 const teamAScore = match?.teamAScore || 0;
                 const teamBScore = match?.teamBScore || 0;
+                const isPlayerOnCourt = user?.uid && match && (match.teamA.includes(user.uid) || match.teamB.includes(user.uid));
 
                 return (
                   <Card
@@ -1039,7 +1051,7 @@ export default function HomePage() {
                     }}
                     className={cn(
                       "border-2 transition-all duration-200 overflow-hidden flex flex-col min-h-[380px]",
-                      isOccupied ? "bg-card border-primary/20" : "bg-muted/10 border-border",
+                      isPlayerOnCourt ? "border-green-500/50 bg-green-500/5" : isOccupied ? "bg-card border-primary/20" : "bg-muted/10 border-border",
                       isStaff && !isOccupied && draggedMatchId && "border-orange-500 bg-orange-500/10",
                       dragOverCourtId === court.id && "ring-2 ring-orange-500 ring-offset-2"
                     )}
