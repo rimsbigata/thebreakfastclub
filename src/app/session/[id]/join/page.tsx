@@ -1,16 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useClub } from '@/context/ClubContext';
-import { useUser } from '@/firebase';
+import { useUser, useFirebase } from '@/firebase';
 import { Loader2 } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function JoinSessionPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useUser();
-  const { joinSession, loadSessionById, activeSession, isRestoringSession } = useClub();
+  const { firestore } = useFirebase();
+  const { joinSession, isRestoringSession } = useClub();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,22 +24,39 @@ export default function JoinSessionPage({ params }: { params: { id: string } }) 
         return;
       }
 
+      if (!firestore) {
+        setError('Firebase not initialized');
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
-        // Load the session by ID to get the session code
-        await loadSessionById(params.id);
-        
-        // Join the session using the loaded session's code
-        if (activeSession) {
-          await joinSession(activeSession.code, true, false);
-          // Redirect to the session page
-          router.push(`/session/${params.id}`);
-        } else {
-          setError('Session not found or inactive');
+
+        // Fetch the session document directly
+        const sessionDoc = await getDoc(doc(firestore, 'sessions', params.id));
+
+        if (!sessionDoc.exists()) {
+          setError('Session not found');
+          setLoading(false);
+          return;
         }
+
+        const sessionData = { ...sessionDoc.data(), id: sessionDoc.id } as any;
+
+        if (sessionData.status !== 'active') {
+          setError('Session is not active');
+          setLoading(false);
+          return;
+        }
+
+        // Join the session using the session code
+        await joinSession(sessionData.code, true, false);
+
+        // Redirect to the session page
+        router.push(`/session/${params.id}`);
       } catch (err: any) {
         setError(err.message || 'Failed to join session');
-      } finally {
         setLoading(false);
       }
     };
@@ -47,7 +65,7 @@ export default function JoinSessionPage({ params }: { params: { id: string } }) 
     if (!isRestoringSession) {
       handleJoin();
     }
-  }, [user, params.id, router, loadSessionById, joinSession, activeSession, isRestoringSession]);
+  }, [user, params.id, router, firestore, joinSession, isRestoringSession]);
 
   if (error) {
     return (
