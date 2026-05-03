@@ -16,7 +16,7 @@ export function QRCodeGenerator({ sessionId, baseUrl }: QRCodeGeneratorProps) {
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
 
-  const qrUrl = `${baseUrl || window.location.origin}/session/${sessionId}`
+  const qrUrl = `${baseUrl || window.location.origin}/session/${sessionId}/join`
 
   const handleCopy = async () => {
     try {

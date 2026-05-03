@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -57,11 +57,15 @@ export default function AuthPage() {
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Get redirect URL from query params
+  const redirectUrl = searchParams.get('redirect');
 
   // Signup Specific State
   const [skillLevel, setSkillLevel] = useState('3');
@@ -115,7 +119,12 @@ export default function AuthPage() {
         });
 
       toast({ title: "Account created!", description: "Welcome to The Breakfast Club." });
-      router.push('/auth/session');
+      // Redirect to the redirect URL if provided, otherwise go to session gate
+      if (redirectUrl) {
+        router.push(decodeURIComponent(redirectUrl));
+      } else {
+        router.push('/auth/session');
+      }
     } catch (error: any) {
       toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
     } finally {
@@ -130,7 +139,12 @@ export default function AuthPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({ title: "Welcome back!" });
-      router.push('/');
+      // Redirect to the redirect URL if provided, otherwise go to home
+      if (redirectUrl) {
+        router.push(decodeURIComponent(redirectUrl));
+      } else {
+        router.push('/');
+      }
     } catch (error: any) {
       toast({ title: "Login failed", description: "Invalid email or password.", variant: "destructive" });
     } finally {

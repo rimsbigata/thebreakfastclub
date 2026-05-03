@@ -17,7 +17,6 @@ import NextImage from 'next/image';
 import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 import { sendBoostCodeEmail } from '@/app/actions/email';
 import { useUser } from '@/firebase';
-import { NotificationSettings } from '@/components/profile/NotificationSettings';
 import { QRCodeGenerator } from '@/components/qr/QRCodeGenerator';
 
 export default function SettingsPage() {
@@ -548,11 +547,6 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* User Notification Settings */}
-          {user && (
-            <NotificationSettings userId={user.uid} />
-          )}
         </div>
       </div>
     </div>
