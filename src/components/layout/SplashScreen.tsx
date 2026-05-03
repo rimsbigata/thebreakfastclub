@@ -37,6 +37,7 @@ export function SplashScreen({ logo }: SplashScreenProps) {
               src={displayLogo}
               alt="Club Logo"
               fill
+              sizes="128px"
               className="object-cover"
               priority
             />

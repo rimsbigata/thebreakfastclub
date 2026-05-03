@@ -55,7 +55,7 @@
     "genkit": "^1.28.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.475.0",
-    "next": "^15.1.0",
+    "next": "^16.2.4",
     "nodemailer": "^8.0.7",
     "patch-package": "^8.0.0",
     "react": "^19.2.5",

@@ -133,7 +133,7 @@ export function Header() {
       <div className="flex items-center gap-6">
         <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="relative h-10 w-10">
-            <Image src={tbcLogo} alt="TBC Logo" fill className="object-contain" />
+            <Image src={tbcLogo} alt="TBC Logo" fill sizes="40px" className="object-contain" />
           </div>
         </Link>
 

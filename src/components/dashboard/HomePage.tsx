@@ -326,40 +326,111 @@ export default function HomePage() {
     toast({ title: courtId ? "Match Started" : "Match Drafted" });
   };
 
-  const onDropInQueue = async (event: React.DragEvent<HTMLElement>) => {
+  const handleDraftDrop = async (event: React.DragEvent<HTMLElement>, targetTeam: 'teamA' | 'teamB') => {
     if (!isStaff) return;
     event.preventDefault();
-    setIsQueueOver(false);
-    setDraggedPlayerId(null);
-    const droppedTeam = dragOverTeam;
-    setDragOverTeam(null);
+    event.stopPropagation();
 
     const playerId = getDraggedPlayerId(event);
-    if (!playerId || allDraftedIds.includes(playerId)) return;
+    if (!playerId) return;
 
-    let nextDraft = [...draftPlayerIds];
+    // Remove player from current position if already in draft
+    let nextDraft = draftPlayerIds.filter(id => id !== playerId);
 
-    if (droppedTeam === 'teamA') {
-      const teamASlots = nextDraft.slice(0, 2);
-      const teamBSlots = nextDraft.slice(2);
+    const teamASlots = nextDraft.slice(0, 2);
+    const teamBSlots = nextDraft.slice(2);
+
+    if (targetTeam === 'teamA') {
       if (teamASlots.length < 2) {
         teamASlots.push(playerId);
       } else {
         teamBSlots.push(playerId);
       }
-      nextDraft = [...teamASlots, ...teamBSlots];
-    } else if (droppedTeam === 'teamB') {
-      const teamASlots = nextDraft.slice(0, 2);
-      const teamBSlots = nextDraft.slice(2);
+    } else {
       if (teamBSlots.length < 2) {
         teamBSlots.push(playerId);
       } else {
         teamASlots.push(playerId);
       }
-      nextDraft = [...teamASlots, ...teamBSlots];
-    } else {
-      nextDraft = [...draftPlayerIds, playerId];
     }
+
+    nextDraft = [...teamASlots, ...teamBSlots];
+
+    if (nextDraft.length === 4) {
+      const availableCourt = courts.find(c => c.status === 'available');
+      await createMatchFromDraft(nextDraft, availableCourt?.id);
+      setDraftPlayerIds([]);
+    } else {
+      setDraftPlayerIds(nextDraft);
+    }
+    setDragOverTeam(null);
+  };
+
+  const handleCourtDraftDrop = async (event: React.DragEvent<HTMLElement>, courtId: string, targetTeam: 'teamA' | 'teamB') => {
+    if (!isStaff) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const playerId = getDraggedPlayerId(event);
+    if (!playerId) return;
+
+    const currentDraft = courtDrafts[courtId] || [];
+    // Remove player from current position if already in draft
+    let nextDraft = currentDraft.filter(id => id !== playerId);
+
+    const teamASlots = nextDraft.slice(0, 2);
+    const teamBSlots = nextDraft.slice(2);
+
+    if (targetTeam === 'teamA') {
+      if (teamASlots.length < 2) {
+        teamASlots.push(playerId);
+      } else {
+        teamBSlots.push(playerId);
+      }
+    } else {
+      if (teamBSlots.length < 2) {
+        teamBSlots.push(playerId);
+      } else {
+        teamASlots.push(playerId);
+      }
+    }
+
+    nextDraft = [...teamASlots, ...teamBSlots];
+
+    if (nextDraft.length === 4) {
+      await createMatchFromDraft(nextDraft, courtId);
+      setCourtDrafts(prev => {
+        const next = { ...prev };
+        delete next[courtId];
+        return next;
+      });
+    } else {
+      setCourtDrafts(prev => ({ ...prev, [courtId]: nextDraft }));
+    }
+    setDragOverTeam(null);
+  };
+
+  const onDropInQueue = async (event: React.DragEvent<HTMLElement>) => {
+    if (!isStaff) return;
+    event.preventDefault();
+
+    // If drafting is active or a team was specified, let the team box handlers handle it
+    if (draftPlayerIds.length > 0 || dragOverTeam) {
+      setIsQueueOver(false);
+      setDraggedPlayerId(null);
+      setDragOverTeam(null);
+      return;
+    }
+
+    setIsQueueOver(false);
+    setDraggedPlayerId(null);
+    setDragOverTeam(null);
+
+    const playerId = getDraggedPlayerId(event);
+    if (!playerId || allDraftedIds.includes(playerId)) return;
+
+    // Simple FIFO: add to end of draft
+    const nextDraft = [...draftPlayerIds, playerId];
 
     if (nextDraft.length === 4) {
       const availableCourt = courts.find(c => c.status === 'available');
@@ -374,8 +445,24 @@ export default function HomePage() {
     if (!isStaff) return;
     event.preventDefault();
     event.stopPropagation();
+
+    // Check if drop was on a team box (they have their own handlers)
+    const target = event.target as HTMLElement;
+    const teamBox = target.closest('[data-team-box]');
+    if (teamBox) {
+      setDragOverCourtId(null);
+      setDragOverTeam(null);
+      return;
+    }
+
+    // If drafting is active on this court, let the team box handlers handle it
+    if (courtDrafts[courtId] && courtDrafts[courtId].length > 0) {
+      setDragOverCourtId(null);
+      setDragOverTeam(null);
+      return;
+    }
+
     setDragOverCourtId(null);
-    const droppedTeam = dragOverTeam;
     setDragOverTeam(null);
 
     const court = courts.find(c => c.id === courtId);
@@ -390,30 +477,9 @@ export default function HomePage() {
     const playerId = getDraggedPlayerId(event);
     if (!playerId || allDraftedIds.includes(playerId)) return;
 
+    // Simple FIFO: add to end of draft
     const currentDraft = courtDrafts[courtId] || [];
-    let nextDraft = [...currentDraft];
-
-    if (droppedTeam === 'teamA') {
-      const teamASlots = nextDraft.slice(0, 2);
-      const teamBSlots = nextDraft.slice(2);
-      if (teamASlots.length < 2) {
-        teamASlots.push(playerId);
-      } else {
-        teamBSlots.push(playerId);
-      }
-      nextDraft = [...teamASlots, ...teamBSlots];
-    } else if (droppedTeam === 'teamB') {
-      const teamASlots = nextDraft.slice(0, 2);
-      const teamBSlots = nextDraft.slice(2);
-      if (teamBSlots.length < 2) {
-        teamBSlots.push(playerId);
-      } else {
-        teamASlots.push(playerId);
-      }
-      nextDraft = [...teamASlots, ...teamBSlots];
-    } else {
-      nextDraft = [...currentDraft, playerId];
-    }
+    const nextDraft = [...currentDraft, playerId];
 
     if (nextDraft.length === 4) {
       await createMatchFromDraft(nextDraft, courtId);
@@ -706,11 +772,20 @@ export default function HomePage() {
           )}
           onDragOver={(event) => {
             if (!isStaff) return;
+            // Don't activate queue drag over if hovering over team boxes
+            const target = event.target as HTMLElement;
+            if (target.closest('[data-team-box]')) return;
             event.preventDefault();
             setIsQueueOver(true);
           }}
-          onDragLeave={() => setIsQueueOver(false)}
-          onDrop={onDropInQueue}
+          onDragLeave={(event) => {
+            const target = event.target as HTMLElement;
+            // Only clear if not entering a team box
+            if (!target.closest('[data-team-box]')) {
+              setIsQueueOver(false);
+            }
+          }}
+          onDrop={draftPlayerIds.length > 0 ? undefined : onDropInQueue}
         >
           <div className="p-3 bg-card border-b flex items-center justify-between h-14">
             <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
@@ -730,21 +805,29 @@ export default function HomePage() {
                   </div>
                   <div className="space-y-2">
                     <div
+                      data-team-box="teamA"
                       className={cn(
                         "p-3 rounded-lg border-2 border-dashed transition-all",
                         dragOverTeam === 'teamA' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
                       )}
                       onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamA'); }}
                       onDragLeave={() => setDragOverTeam(null)}
+                      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDraftDrop(e, 'teamA'); }}
                     >
                       <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 1</p>
                       <div className="grid grid-cols-2 gap-2">
                         {draftPlayerIds.slice(0, 2).map(id => {
                           const player = players.find(p => p.id === id);
                           return (
-                            <div key={id} className="text-[11px] font-black bg-card p-2 rounded border flex flex-col gap-1 group relative overflow-hidden">
+                            <div
+                              key={id}
+                              draggable
+                              onDragStart={(e) => onDragStartPlayer(e, id)}
+                              onDragEnd={onDragEndPlayer}
+                              className="text-[11px] font-black bg-card p-2 rounded border flex flex-col gap-1 group relative overflow-hidden cursor-grab active:cursor-grabbing"
+                            >
                               <span className="truncate pr-4">{player?.name}</span>
-                              <X className="h-3 w-3 absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(playerId => playerId !== id))} />
+                              <X className="h-3 w-3 absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={(e) => { e.stopPropagation(); setDraftPlayerIds(prev => prev.filter(playerId => playerId !== id)); }} />
                               {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
                             </div>
                           );
@@ -756,33 +839,43 @@ export default function HomePage() {
                         )}
                       </div>
                     </div>
-                    <div
-                      className={cn(
-                        "p-3 rounded-lg border-2 border-dashed transition-all",
-                        dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
-                      )}
-                      onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
-                      onDragLeave={() => setDragOverTeam(null)}
-                    >
-                      <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {draftPlayerIds.slice(2).map(id => {
-                          const player = players.find(p => p.id === id);
-                          return (
-                            <div key={id} className="text-[11px] font-black bg-card p-2 rounded border flex flex-col gap-1 group relative overflow-hidden">
-                              <span className="truncate pr-4">{player?.name}</span>
-                              <X className="h-3 w-3 absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={() => setDraftPlayerIds(prev => prev.filter(playerId => playerId !== id))} />
-                              {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
-                            </div>
-                          );
-                        })}
-                        {draftPlayerIds.slice(2).length < 2 && (
-                          <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
-                            Empty
-                          </div>
+                    {draftPlayerIds.slice(0, 2).length === 2 && (
+                      <div
+                        data-team-box="teamB"
+                        className={cn(
+                          "p-3 rounded-lg border-2 border-dashed transition-all",
+                          dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
                         )}
+                        onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
+                        onDragLeave={() => setDragOverTeam(null)}
+                        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDraftDrop(e, 'teamB'); }}
+                      >
+                        <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {draftPlayerIds.slice(2).map(id => {
+                            const player = players.find(p => p.id === id);
+                            return (
+                              <div
+                                key={id}
+                                draggable
+                                onDragStart={(e) => onDragStartPlayer(e, id)}
+                                onDragEnd={onDragEndPlayer}
+                                className="text-[11px] font-black bg-card p-2 rounded border flex flex-col gap-1 group relative overflow-hidden cursor-grab active:cursor-grabbing"
+                              >
+                                <span className="truncate pr-4">{player?.name}</span>
+                                <X className="h-3 w-3 absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer text-destructive" onClick={(e) => { e.stopPropagation(); setDraftPlayerIds(prev => prev.filter(playerId => playerId !== id)); }} />
+                                {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                              </div>
+                            );
+                          })}
+                          {draftPlayerIds.slice(2).length < 2 && (
+                            <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                              Empty
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </Card>
               )}
@@ -916,11 +1009,6 @@ export default function HomePage() {
                 return (
                   <Card
                     key={court.id}
-                    onDragOver={(event) => {
-                      if (!isStaff || isOccupied) return;
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = 'move';
-                    }}
                     onDragEnter={(event) => {
                       if (!isStaff || isOccupied) return;
                       event.preventDefault();
@@ -933,8 +1021,18 @@ export default function HomePage() {
                         setDragOverCourtId(null);
                       }
                     }}
+                    onDragEnd={() => {
+                      setDragOverCourtId(null);
+                      setDragOverTeam(null);
+                    }}
+                    onClick={() => {
+                      setDragOverCourtId(null);
+                      setDragOverTeam(null);
+                    }}
                     onDrop={(event) => {
                       if (!isStaff || isOccupied) return;
+                      // If drafting is active on this court, let the team box handlers handle it
+                      if (courtDrafts[court.id] && courtDrafts[court.id].length > 0) return;
                       setDraggedMatchId(null);
                       setDragOverCourtId(null);
                       onDropInCourt(event, court.id);
@@ -1010,12 +1108,14 @@ export default function HomePage() {
                           </div>
                           <div className="space-y-2">
                             <div
+                              data-team-box="teamA"
                               className={cn(
                                 "p-3 rounded-lg border-2 border-dashed transition-all",
                                 dragOverTeam === 'teamA' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
                               )}
                               onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamA'); }}
                               onDragLeave={() => setDragOverTeam(null)}
+                              onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleCourtDraftDrop(e, court.id, 'teamA'); }}
                             >
                               <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 1</p>
                               <div className="space-y-1.5">
@@ -1035,32 +1135,36 @@ export default function HomePage() {
                                 )}
                               </div>
                             </div>
-                            <div
-                              className={cn(
-                                "p-3 rounded-lg border-2 border-dashed transition-all",
-                                dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
-                              )}
-                              onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
-                              onDragLeave={() => setDragOverTeam(null)}
-                            >
-                              <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
-                              <div className="space-y-1.5">
-                                {draft.slice(2).map((id: string) => {
-                                  const player = players.find(p => p.id === id);
-                                  return (
-                                    <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
-                                      <span className="truncate flex-1">{player?.name}</span>
-                                      {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
-                                    </div>
-                                  );
-                                })}
-                                {draft.slice(2).length < 2 && (
-                                  <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
-                                    Empty
-                                  </div>
+                            {draft.slice(0, 2).length === 2 && (
+                              <div
+                                data-team-box="teamB"
+                                className={cn(
+                                  "p-3 rounded-lg border-2 border-dashed transition-all",
+                                  dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
                                 )}
+                                onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
+                                onDragLeave={() => setDragOverTeam(null)}
+                                onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleCourtDraftDrop(e, court.id, 'teamB'); }}
+                              >
+                                <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
+                                <div className="space-y-1.5">
+                                  {draft.slice(2).map((id: string) => {
+                                    const player = players.find(p => p.id === id);
+                                    return (
+                                      <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
+                                        <span className="truncate flex-1">{player?.name}</span>
+                                        {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                      </div>
+                                    );
+                                  })}
+                                  {draft.slice(2).length < 2 && (
+                                    <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                      Empty
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         </div>
                       ) : (
@@ -1093,12 +1197,14 @@ export default function HomePage() {
                                     </div>
                                     <div className="space-y-2">
                                       <div
+                                        data-team-box="teamA"
                                         className={cn(
                                           "p-3 rounded-lg border-2 border-dashed transition-all",
                                           dragOverTeam === 'teamA' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
                                         )}
                                         onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamA'); }}
                                         onDragLeave={() => setDragOverTeam(null)}
+                                        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleCourtDraftDrop(e, court.id, 'teamA'); }}
                                       >
                                         <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 1</p>
                                         <div className="space-y-1.5">
@@ -1118,32 +1224,36 @@ export default function HomePage() {
                                           )}
                                         </div>
                                       </div>
-                                      <div
-                                        className={cn(
-                                          "p-3 rounded-lg border-2 border-dashed transition-all",
-                                          dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
-                                        )}
-                                        onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
-                                        onDragLeave={() => setDragOverTeam(null)}
-                                      >
-                                        <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
-                                        <div className="space-y-1.5">
-                                          {currentDraft.slice(2).map((id: string) => {
-                                            const player = players.find(p => p.id === id);
-                                            return (
-                                              <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
-                                                <span className="truncate flex-1">{player?.name}</span>
-                                                {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
-                                              </div>
-                                            );
-                                          })}
-                                          {currentDraft.slice(2).length < 2 && (
-                                            <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
-                                              Empty
-                                            </div>
+                                      {currentDraft.slice(0, 2).length === 2 && (
+                                        <div
+                                          data-team-box="teamB"
+                                          className={cn(
+                                            "p-3 rounded-lg border-2 border-dashed transition-all",
+                                            dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/20 bg-muted/5"
                                           )}
+                                          onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
+                                          onDragLeave={() => setDragOverTeam(null)}
+                                          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleCourtDraftDrop(e, court.id, 'teamB'); }}
+                                        >
+                                          <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Team 2</p>
+                                          <div className="space-y-1.5">
+                                            {currentDraft.slice(2).map((id: string) => {
+                                              const player = players.find(p => p.id === id);
+                                              return (
+                                                <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
+                                                  <span className="truncate flex-1">{player?.name}</span>
+                                                  {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                                </div>
+                                              );
+                                            })}
+                                            {currentDraft.slice(2).length < 2 && (
+                                              <div className="text-[11px] font-black bg-muted/10 p-2 rounded border border-dashed flex items-center justify-center text-muted-foreground/40">
+                                                Empty
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
-                                      </div>
+                                      )}
                                     </div>
                                   </div>
                                 )}

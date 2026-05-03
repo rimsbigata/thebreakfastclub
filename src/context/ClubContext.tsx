@@ -789,7 +789,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const fee = fees.find(f => f.id === date);
     const payments = { ...(fee?.payments || {}) };
     payments[playerId] = !payments[playerId];
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'fees', date), { payments });
+    await setDoc(doc(firestore, 'sessions', activeSession.id, 'fees', date), { payments }, { merge: true });
   };
 
   const addPaymentMethod = async (name: string, imageUrl: string) => {

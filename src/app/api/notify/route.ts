@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMessaging } from 'firebase-admin/messaging'
-import { initializeApp, getApps, cert } from 'firebase-admin/app'
+import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app'
 
 // Initialize Firebase Admin (only once)
-let adminApp: any = null
+const adminApp = getApps().length === 0
+  ? initializeApp({
+    credential: cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  })
+  : getApp();
 
-if (getApps().length === 0) {
-  const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
-  if (credentialsPath) {
-    try {
-      adminApp = initializeApp({
-        credential: cert(credentialsPath),
-      })
-    } catch (error) {
-      console.error('Failed to initialize Firebase Admin:', error)
-    }
-  }
-}
-
-const messaging = adminApp ? getMessaging(adminApp) : null
+export const messaging = getMessaging(adminApp);
 
 interface NotificationPayload {
   token: string

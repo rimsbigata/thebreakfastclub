@@ -292,6 +292,7 @@ export default function SettingsPage() {
                       src={clubLogo || tbcLogo.src}
                       alt="Club Logo"
                       fill
+                      sizes="64px"
                       className="object-cover p-1"
                     />
                   </div>
@@ -539,7 +540,7 @@ export default function SettingsPage() {
                       <Trash2 className="h-3 w-3" />
                     </Button>
                     <div className="relative h-20 w-full border bg-white rounded-lg overflow-hidden mb-1 shadow-inner">
-                      <NextImage src={method.imageUrl} alt={method.name} fill className="object-contain p-1" />
+                      <NextImage src={method.imageUrl} alt={method.name} fill sizes="80px" className="object-contain p-1" />
                     </div>
                     <span className="font-black text-[9px] uppercase truncate w-full text-center">{method.name}</span>
                   </div>
