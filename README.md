@@ -1,12 +1,20 @@
 # ShuttleQueue | TheBreakfastClub Badminton Manager
 
-A professional-grade badminton club management application built with **Next.js 15**, **Tailwind CSS**, **Firebase**, and **Genkit AI**.
+A professional-grade badminton club management application built with **Next.js 16**, **Tailwind CSS**, **Firebase**, and **Genkit AI**.
 
 ## 🚀 Quick Start & Setup
 
 ### **1. Firebase Project Connection**
 The app is configured to connect to:
 - **Project ID**: `studio-8289009920-31c2b`
+
+**Firebase Services Used:**
+- **Firestore** - Primary database for sessions, players, matches, and rankings
+- **Firebase Authentication** - User authentication and session management
+- **Firebase Storage** - File storage for images and documents
+- **Firebase Cloud Messaging (FCM)** - Push notifications for court assignments
+- **Realtime Database** - Real-time data synchronization
+- **Remote Config** - Remote configuration management
 
 ### **2. Environment Variables**
 Create a `.env.local` file in the project root with the following variables:
@@ -103,6 +111,31 @@ npm run dev
 ```bash
 npm run build
 npm start
+```
+
+### **Firebase Deployment**
+```bash
+# Deploy to Firebase Hosting
+firebase deploy
+
+# Deploy specific services
+firebase deploy --only firestore
+firebase deploy --only functions
+firebase deploy --only hosting
+```
+
+### **Local Development with Firebase Emulators**
+The project includes Firebase emulator configuration in `firebase.json`:
+- **Hosting**: Port 5000
+- **Functions**: Port 5001
+- **Firestore**: Port 8080
+- **Database**: Port 9000
+- **Auth**: Port 9099
+- **Storage**: Port 9199
+
+Start emulators:
+```bash
+firebase emulators:start
 ```
 
 ### **Testing Push Notifications**
