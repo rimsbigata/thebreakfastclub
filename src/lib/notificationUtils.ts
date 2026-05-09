@@ -49,16 +49,17 @@ export async function sendMatchStartingNotification(
 }
 
 /**
- * Send 'Your Turn!' notification to a specific player
+ * Send 'Your Turn!' notification to specific players
  */
 export async function sendYourTurnNotification(
-  playerId: string,
+  playerIds: string | string[],
   courtId?: string,
   courtName?: string
 ): Promise<void> {
   const courtInfo = courtName ? ` on ${courtName}` : '';
+  const ids = Array.isArray(playerIds) ? playerIds : [playerIds];
   await sendNotification({
-    playerIds: [playerId],
+    playerIds: ids,
     title: 'The Breakfast Club',
     body: `Your Turn${courtInfo}! Head to the court.`,
     data: {

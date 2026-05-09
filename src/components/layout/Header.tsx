@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2, Target, KeyRound, History } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2, Target, KeyRound, History, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useClub } from '@/context/ClubContext';
@@ -38,6 +38,7 @@ export function Header() {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('queue');
   const [loadingMatch, setLoadingMatch] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isAdmin = role === 'admin';
   const isQueueMaster = role === 'queueMaster';
@@ -130,15 +131,16 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-6 shrink-0 shadow-md z-50 transition-colors">
-      <div className="flex items-center gap-6">
+    <header className="h-16 border-b bg-card flex items-center justify-between px-4 lg:px-6 shrink-0 shadow-md z-50 transition-colors">
+      <div className="flex items-center gap-4 lg:gap-6">
         <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="relative h-10 w-10">
             <Image src={tbcLogo} alt="TBC Logo" fill sizes="40px" className="object-contain" />
           </div>
         </Link>
 
-        <nav className="flex items-center gap-1 ml-6 border-l pl-6">
+        {/* Desktop Navigation */}
+        <nav className="hidden lg:flex items-center gap-1 ml-6 border-l pl-6">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -158,9 +160,53 @@ export function Header() {
             );
           })}
         </nav>
+
+        {/* Mobile Menu Toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden h-10 w-10 text-muted-foreground"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </Button>
       </div>
 
-      <div className="flex items-center gap-3">
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="absolute top-16 left-0 right-0 bg-card border-b lg:hidden p-4 space-y-2 z-40">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+                <Button
+                  variant={isActive ? "default" : "ghost"}
+                  className={cn(
+                    "w-full justify-start gap-3 h-12 transition-all",
+                    isActive ? "shadow-md shadow-primary/20" : "text-muted-foreground hover:text-primary hover:bg-primary/5"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Button>
+              </Link>
+            );
+          })}
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-12 text-muted-foreground hover:text-destructive hover:bg-destructive/5"
+            onClick={() => {
+              handleLogout();
+              setMobileMenuOpen(false);
+            }}
+          >
+            <LogOut className="h-5 w-5" />
+            Logout
+          </Button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 lg:gap-3">
         {activeSession && (
           <Badge variant="outline" className="hidden lg:flex gap-2 font-black uppercase text-[10px] tracking-widest px-3 h-8 border-2 bg-secondary/50">
             Session: <span className="text-primary">{activeSession.code}</span>
@@ -187,16 +233,32 @@ export function Header() {
               onClick={handleQuickMatch}
               disabled={loadingMatch}
               variant="default"
-              className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 shadow-md shadow-primary/10 px-4"
+              className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 shadow-md shadow-primary/10 px-4 hidden md:flex"
             >
               {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-primary-foreground" />}
-              <span className="hidden md:inline">Quick Match</span>
+              Quick Match
+            </Button>
+
+            <Button
+              onClick={handleQuickMatch}
+              disabled={loadingMatch}
+              variant="default"
+              size="icon"
+              className="h-10 w-10 shadow-md shadow-primary/10 md:hidden"
+              title="Quick Match"
+            >
+              {loadingMatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-primary-foreground" />}
             </Button>
 
             <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 border-2 hover:bg-secondary px-4">
-                  <Swords className="h-4 w-4" /> <span className="hidden md:inline">Match</span>
+                <Button variant="outline" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 border-2 hover:bg-secondary px-4 hidden md:flex">
+                  <Swords className="h-4 w-4" /> Match
+                </Button>
+              </DialogTrigger>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon" className="h-10 w-10 border-2 hover:bg-secondary md:hidden" title="Manual Match">
+                  <Swords className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
@@ -277,13 +339,14 @@ export function Header() {
                   });
                 }
               }}
+              title="Add Court"
             >
               <Plus className="h-5 w-5" />
             </Button>
           </>
         )}
 
-        <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout" className="text-muted-foreground hover:text-destructive">
+        <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout" className="hidden lg:flex text-muted-foreground hover:text-destructive">
           <LogOut className="h-5 w-5" />
         </Button>
       </div>

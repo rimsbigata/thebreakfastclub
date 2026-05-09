@@ -11,12 +11,13 @@ export async function getPushTokensForPlayers(playerIds: string[]) {
   const firestore = getFirebaseAdminFirestore();
   const tokens = await Promise.all(
     playerIds.map(async (playerId) => {
-      const tokenDoc = await firestore.collection('pushTokens').doc(playerId).get();
-      if (!tokenDoc.exists) {
+      // Look for FCM token in the users collection (where it's actually stored)
+      const userDoc = await firestore.collection('users').doc(playerId).get();
+      if (!userDoc.exists) {
         return null;
       }
-      const data = tokenDoc.data();
-      return typeof data?.token === 'string' ? data.token : null;
+      const data = userDoc.data();
+      return typeof data?.fcmToken === 'string' ? data.fcmToken : null;
     }),
   );
 
