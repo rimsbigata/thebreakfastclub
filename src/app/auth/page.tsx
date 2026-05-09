@@ -141,13 +141,13 @@ export default function AuthPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({ title: "Welcome back!" });
-      // Redirect to the redirect URL if provided, otherwise go to home
+      // Redirect to the redirect URL if provided, otherwise go to session gate
       if (redirectUrl) {
         // Clear sessionStorage after use
         sessionStorage.removeItem('redirectAfterAuth');
         router.push(redirectUrl);
       } else {
-        router.push('/');
+        router.push('/auth/session');
       }
     } catch (error: any) {
       toast({ title: "Login failed", description: "Invalid email or password.", variant: "destructive" });
