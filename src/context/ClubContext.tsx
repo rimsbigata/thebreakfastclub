@@ -15,7 +15,7 @@ import {
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
-import { sendMatchStartingNotification, sendYourTurnNotification } from '@/lib/notificationUtils';
+import { sendMatchStartingNotification, sendYourTurnNotification, sendNotification } from '@/lib/notificationUtils';
 import { getLocalStorageService } from '@/lib/localStorageService';
 
 interface ClubSettings {
@@ -646,16 +646,35 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'playing' });
     }
 
-    // Send 'Match Starting' notification to all participants
+    // Send notification based on match type
     try {
       const court = matchData.courtId ? courts.find(c => c.id === matchData.courtId) : undefined;
-      await sendMatchStartingNotification(
-        [...matchData.teamA, ...matchData.teamB],
-        matchData.courtId,
-        court?.name
-      );
+      console.log('Sending match notification to players:', [...matchData.teamA, ...matchData.teamB]);
+      console.log('Court:', court?.name, 'Court ID:', matchData.courtId);
+      
+      if (matchData.courtId) {
+        // Match assigned to court - send "Match Starting" notification
+        await sendMatchStartingNotification(
+          [...matchData.teamA, ...matchData.teamB],
+          matchData.courtId,
+          court?.name
+        );
+        console.log('Match starting notification sent successfully');
+      } else {
+        // Match queued without court - send "You're in Queue" notification
+        await sendNotification({
+          playerIds: [...matchData.teamA, ...matchData.teamB],
+          title: 'The Breakfast Club',
+          body: "You're in the match queue! Waiting for court assignment.",
+          data: {
+            type: 'match_queued',
+            matchId,
+          },
+        });
+        console.log('Match queued notification sent successfully');
+      }
     } catch (error) {
-      console.error('Failed to send match starting notification:', error);
+      console.error('Failed to send match notification:', error);
     }
   };
 
@@ -819,7 +838,12 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
       if (match && court) {
         const playerIds = [...match.teamA, ...match.teamB];
+        console.log('Sending your turn notification to players:', playerIds);
+        console.log('Court:', court.name, 'Match ID:', matchId);
         await sendYourTurnNotification(playerIds.join(','), courtId, court.name);
+        console.log('Your turn notification sent successfully');
+      } else {
+        console.warn('Match or court not found for notification');
       }
     } catch (error) {
       console.error('Failed to send your turn notifications:', error);

@@ -152,3 +152,115 @@ export async function notifyPlayersOfAssignments(assignments: Array<{ playerId: 
     failed,
   }
 }
+
+/**
+ * Sends a match notification to a player within a specific session
+ * @param playerId - The ID of the player to notify
+ * @param sessionId - The session ID for the URL and Firestore path
+ * @param title - Notification title
+ * @param body - Notification body
+ */
+export async function sendMatchNotification(
+  playerId: string,
+  sessionId: string,
+  title: string = 'The Breakfast Club',
+  body: string = 'Match update!'
+) {
+  try {
+    const firestore = getAdminFirestore()
+    const messaging = getAdminMessaging()
+
+    // Fetch the player's FCM token from the session players collection
+    const playerDoc = await firestore
+      .collection('sessions')
+      .doc(sessionId)
+      .collection('players')
+      .doc(playerId)
+      .get()
+
+    if (!playerDoc.exists) {
+      console.warn(`Player ${playerId} not found in session ${sessionId}`)
+      return { success: false, error: 'Player not found in session' }
+    }
+
+    const playerData = playerDoc.data()
+    const fcmToken = playerData?.fcmToken
+
+    if (!fcmToken) {
+      console.warn(`Player ${playerId} has no FCM token in session ${sessionId}`)
+      return { success: false, error: 'No FCM token registered' }
+    }
+
+    // Send the FCM message with dynamic URL
+    const message = {
+      token: fcmToken,
+      notification: {
+        title,
+        body,
+      },
+      data: {
+        type: 'match_notification',
+        sessionId: sessionId,
+        playerId: playerId,
+      },
+      webpush: {
+        fcmOptions: {
+          link: `/session/${sessionId}`,
+        },
+        notification: {
+          icon: '/icon.png',
+          badge: '/icon.png',
+          tag: `match-${sessionId}`,
+          requireInteraction: false,
+        },
+      },
+      android: {
+        notification: {
+          icon: '/icon.png',
+          sound: 'default',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
+    }
+
+    const response = await messaging.send(message)
+    console.log(`Successfully sent match notification to player ${playerId} in session ${sessionId}:`, response)
+
+    return { success: true, messageId: response }
+  } catch (error) {
+    console.error('Failed to send match notification:', error)
+
+    // Handle specific FCM errors
+    if (error instanceof Error) {
+      if (error.message.includes('registration-token-not-registered')) {
+        console.warn(`FCM token for player ${playerId} is invalid or expired`)
+        // Optionally update the player document to remove the invalid token using setDoc with merge
+        try {
+          const firestore = getAdminFirestore()
+          await firestore
+            .collection('sessions')
+            .doc(sessionId)
+            .collection('players')
+            .doc(playerId)
+            .set({ fcmToken: null }, { merge: true })
+          console.log(`Removed invalid FCM token for player ${playerId}`)
+        } catch (updateError) {
+          console.error('Failed to remove invalid token:', updateError)
+        }
+        return { success: false, error: 'Invalid or expired FCM token' }
+      }
+      if (error.message.includes('message-too-large')) {
+        return { success: false, error: 'Message payload too large' }
+      }
+    }
+
+    return { success: false, error: 'Failed to send notification' }
+  }
+}
