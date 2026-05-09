@@ -50,11 +50,9 @@ export default function SessionGatePage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await joinSession(code, true, role === 'admin' ? joinAsPlayer : false);
+      const sessionId = await joinSession(code, true, role === 'admin' ? joinAsPlayer : false);
       toast({ title: "Joined Session!" });
-      if (activeSession) {
-        router.push(`/session/${activeSession.id}`);
-      }
+      router.push(`/session/${sessionId}`);
     } catch (error: any) {
       toast({ title: "Failed to join", description: error.message, variant: "destructive" });
     } finally {
@@ -65,11 +63,9 @@ export default function SessionGatePage() {
   const handleCreate = async () => {
     setLoading(true);
     try {
-      const newCode = await createSession(false, undefined, venueName, scheduledDate, scheduledTime);
-      toast({ title: "Session Created!", description: `Code: ${newCode}` });
-      if (activeSession) {
-        router.push(`/session/${activeSession.id}`);
-      }
+      const sessionId = await createSession(false, undefined, venueName, scheduledDate, scheduledTime);
+      toast({ title: "Session Created!" });
+      router.push(`/session/${sessionId}`);
       // Reset form
       setVenueName('');
       setScheduledDate('');

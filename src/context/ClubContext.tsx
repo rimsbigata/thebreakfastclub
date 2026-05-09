@@ -42,7 +42,7 @@ interface ClubContextType {
   currentPlayer: Player | null;
 
   // Auth & Session
-  joinSession: (code: string, participate?: boolean, joinAsPlayer?: boolean) => Promise<void>;
+  joinSession: (code: string, participate?: boolean, joinAsPlayer?: boolean) => Promise<string>;
   createSession: (isDoubleStar?: boolean, sessionCode?: string, venueName?: string, scheduledDate?: string, scheduledTime?: string) => Promise<string>;
   regenerateQueueSessionCode: () => Promise<string>;
   endSession: () => Promise<void>;
@@ -323,6 +323,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }
 
     setActiveSession(session);
+    return session.id;
   };
 
   const createSession = async (isDoubleStar = false, sessionCode = '', venueName = '', scheduledDate = '', scheduledTime = '') => {
@@ -335,30 +336,34 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         bs => bs.sessionCode === sessionCode && bs.date === today && bs.isActive
       );
       if (!boostSchedule) {
-        throw new Error('Invalid session code or no boost scheduled for today');
+        throw new Error('Invalid boost schedule code for today');
       }
     }
 
     const sessionId = Math.random().toString(36).substr(2, 9);
     const code = sessionCode || Math.random().toString(36).substr(2, 6).toUpperCase();
+
     const session: QueueSession = {
       id: sessionId,
       code,
       status: 'active',
-      createdBy: user.uid,
       createdAt: new Date().toISOString(),
-      isDoubleStar,
-      venueName,
-      scheduledDate,
-      scheduledTime
+      createdBy: user.uid,
+      venueName: venueName || '',
+      scheduledDate: scheduledDate || '',
+      scheduledTime: scheduledTime || '',
+      isDoubleStar: isDoubleStar
     };
+
     await setDoc(doc(firestore, 'sessions', sessionId), session);
 
-    for (let courtNumber = 1; courtNumber <= defaultCourtCount; courtNumber += 1) {
-      const courtId = `court_${courtNumber}`;
+    // Create default courts
+    const defaultCourtCount = sessionSettings?.defaultCourtCount || 0;
+    for (let i = 1; i <= defaultCourtCount; i++) {
+      const courtId = Math.random().toString(36).substr(2, 9);
       const court: Court = {
         id: courtId,
-        name: `Court ${courtNumber}`,
+        name: `Court ${i}`,
         status: 'available',
         queue: [],
         estimatedWaitMinutes: 0,
@@ -368,7 +373,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }
 
     setActiveSession(session);
-    return code;
+    return sessionId;
   };
 
   const regenerateQueueSessionCode = async () => {
