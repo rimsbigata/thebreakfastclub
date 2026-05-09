@@ -64,8 +64,8 @@ export default function AuthPage() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Get redirect URL from query params or sessionStorage
-  const redirectUrl = searchParams.get('redirect') || sessionStorage.getItem('redirectAfterAuth');
+  // Get redirect URL from query params or sessionStorage (client-side only)
+  const redirectUrl = searchParams.get('redirect') || (typeof window !== 'undefined' ? sessionStorage.getItem('redirectAfterAuth') : null);
 
   // Signup Specific State
   const [skillLevel, setSkillLevel] = useState('3');

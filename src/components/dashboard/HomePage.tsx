@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { Switch } from '@radix-ui/react-switch';
+import { NotificationPermissionButton } from '@/components/NotificationPermissionButton';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -625,6 +626,13 @@ export default function HomePage() {
             <p className="text-sm font-black uppercase tracking-widest text-yellow-700 dark:text-yellow-500">
               Double Star Boost on {new Date(upcomingBoost.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}! ⭐️ x2
             </p>
+          </div>
+        </div>
+      )}
+      {isSessionActive && (
+        <div className="bg-primary/5 border-b-2 border-primary/20 px-4 py-2">
+          <div className="flex items-center justify-center gap-2">
+            <NotificationPermissionButton />
           </div>
         </div>
       )}

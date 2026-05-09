@@ -20,8 +20,8 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   // Hide nav for non-admin users when there's no active session
   // Admins can access global Rankings, Players, Fees tabs even without active session
   // /auth/session page should always show nav for players to navigate
-  // Global tabs (rankings, players, fees) should show nav even without active session
-  const isGlobalTab = pathname?.startsWith('/rankings') || pathname?.startsWith('/players') || pathname?.startsWith('/fees');
+  // Global tabs (rankings, players, fees, match-history) should show nav even without active session
+  const isGlobalTab = pathname?.startsWith('/rankings') || pathname?.startsWith('/players') || pathname?.startsWith('/fees') || pathname?.startsWith('/match-history');
   const shouldHideNavForSession = !isSessionActive && role !== 'admin' && pathname !== '/auth/session' && !isGlobalTab;
 
   return (

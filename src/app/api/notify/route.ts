@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     // Check if Firebase Admin is initialized
     if (!messaging) {
       return NextResponse.json(
-        { error: 'Firebase Admin not initialized - check GOOGLE_APPLICATION_CREDENTIALS' },
+        { error: 'Firebase Admin not initialized - check FIREBASE_SERVICE_ACCOUNT_BASE64' },
         { status: 500 }
       )
     }
