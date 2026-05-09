@@ -49,5 +49,6 @@ local.env
 firebase-debug.log
 firestore-debug.log
 firebase-admin-key.json
+firebase-key.json
 *-admin-key.json
 serviceAccountKey.json
