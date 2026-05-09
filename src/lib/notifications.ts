@@ -11,8 +11,8 @@ export async function getPushTokensForPlayers(playerIds: string[]) {
   const firestore = getFirebaseAdminFirestore();
   const tokens = await Promise.all(
     playerIds.map(async (playerId) => {
-      // Look for FCM token in the users collection (where it's actually stored)
-      const userDoc = await firestore.collection('users').doc(playerId).get();
+      // Look for FCM token in the userProfiles collection (where it's actually stored)
+      const userDoc = await firestore.collection('userProfiles').doc(playerId).get();
       if (!userDoc.exists) {
         return null;
       }

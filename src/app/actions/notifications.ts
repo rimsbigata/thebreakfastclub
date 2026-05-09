@@ -41,7 +41,7 @@ export async function notifyPlayerOfAssignment(playerId: string, courtName: stri
     const messaging = getAdminMessaging()
 
     // Fetch the player's data from Firestore
-    const playerDoc = await firestore.collection('users').doc(playerId).get()
+    const playerDoc = await firestore.collection('userProfiles').doc(playerId).get()
 
     if (!playerDoc.exists) {
       console.warn(`Player ${playerId} not found in Firestore`)

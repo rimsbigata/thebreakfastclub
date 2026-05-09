@@ -48,7 +48,7 @@ export function useFcmToken() {
     }
 
     try {
-      const userDocRef = doc(firestore, 'users', user.uid)
+      const userDocRef = doc(firestore, 'userProfiles', user.uid)
       const userDoc = await getDoc(userDocRef)
 
       // Check if token has changed
@@ -204,7 +204,7 @@ export function useFcmToken() {
       // Remove token from Firestore
       if (user && firestore) {
         try {
-          const userDocRef = doc(firestore, 'users', user.uid)
+          const userDocRef = doc(firestore, 'userProfiles', user.uid)
           await setDoc(userDocRef, { fcmToken: null }, { merge: true })
           console.log('FCM token removed from Firestore for user:', user.uid)
         } catch (error) {
