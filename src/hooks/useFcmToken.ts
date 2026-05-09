@@ -157,30 +157,74 @@ export function useFcmToken() {
       throw new Error('NEXT_PUBLIC_FIREBASE_VAPID_KEY environment variable is missing')
     }
 
-    // Ensure service worker is ready before getting token
-    const serviceWorkerRegistration = await navigator.serviceWorker.ready
+    try {
+      // Ensure service worker is registered before getting token
+      await registerServiceWorker()
 
-    // Verify service worker controller exists
-    if (!navigator.serviceWorker.controller) {
-      throw new Error('Service worker controller not available')
+      // Wait for service worker to be ready and pass registration directly to getToken
+      const registration = await navigator.serviceWorker.ready
+      if (!registration) {
+        throw new Error('Service worker registration failed')
+      }
+      console.log('Service worker registration:', registration)
+
+      const currentToken = await getToken(messaging, {
+        vapidKey: vapidKey,
+        serviceWorkerRegistration: registration,
+      })
+
+      if (!currentToken) {
+        throw new Error('No registration token available')
+      }
+
+      setToken(currentToken)
+      console.log('FCM Token:', currentToken)
+
+      // Save token to Firestore after successful generation
+      await saveTokenToFirestore(currentToken)
+
+      return currentToken
+    } catch (error) {
+      console.error('Error getting FCM token:', error)
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.name === 'AbortError' || error.message.includes('push service error')) {
+          // This can happen due to network issues or browser restrictions
+          // Try once more after a short delay
+          console.log('Retrying token generation after AbortError...')
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
+          try {
+            const registration = await navigator.serviceWorker.ready
+            const currentToken = await getToken(messaging, {
+              vapidKey: vapidKey,
+              serviceWorkerRegistration: registration,
+            })
+            
+            if (!currentToken) {
+              throw new Error('No registration token available after retry')
+            }
+
+            setToken(currentToken)
+            console.log('FCM Token (retry):', currentToken)
+            await saveTokenToFirestore(currentToken)
+            return currentToken
+          } catch (retryError) {
+            console.error('Retry failed:', retryError)
+            throw new Error('Push service error: Please ensure you are using HTTPS or localhost, and that push notifications are enabled in your browser')
+          }
+        }
+        if (error.message.includes('messaging/invalid-credentials')) {
+          throw new Error('Invalid Firebase credentials: Please check your VAPID key configuration')
+        }
+        if (error.message.includes('messaging/permission-denied')) {
+          throw new Error('Permission denied: Please enable notifications in your browser settings')
+        }
+      }
+      
+      throw error
     }
-
-    const currentToken = await getToken(messaging, {
-      serviceWorkerRegistration: serviceWorkerRegistration,
-      vapidKey: vapidKey,
-    })
-
-    if (!currentToken) {
-      throw new Error('No registration token available')
-    }
-
-    setToken(currentToken)
-    console.log('FCM Token:', currentToken)
-
-    // Save token to Firestore after successful generation
-    await saveTokenToFirestore(currentToken)
-
-    return currentToken
   }
 
   // Delete token (for cleanup)
@@ -191,10 +235,8 @@ export function useFcmToken() {
       // Ensure service worker is ready before deleting token
       await navigator.serviceWorker.ready
 
-      // Verify service worker controller exists
-      if (!navigator.serviceWorker.controller) {
-        throw new Error('Service worker controller not available')
-      }
+      // Note: Service worker controller might not be available on first load
+      // Firebase SDK will handle background message cleanup appropriately
 
       const messaging = getMessaging(app)
       await deleteToken(messaging)
@@ -215,7 +257,7 @@ export function useFcmToken() {
       console.error('Failed to delete FCM token:', err)
       throw err
     }
-  }, [token, user, firestore])
+  }, [token, app, user, firestore])
 
   // Listen for incoming messages (when app is in foreground)
   useEffect(() => {

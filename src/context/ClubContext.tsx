@@ -601,9 +601,15 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const updateFcmToken = async (token: string) => {
     if (!firestore || !activeSession?.id || !user?.uid) return;
     try {
-      await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), {
-        fcmToken: token,
-      });
+      // Check if player document exists before updating
+      const playerDoc = await getDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid));
+      if (playerDoc.exists()) {
+        await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), {
+          fcmToken: token,
+        });
+      } else {
+        console.log('Player document does not exist in session, skipping FCM token update');
+      }
     } catch (error) {
       console.error('Failed to update FCM token:', error);
     }

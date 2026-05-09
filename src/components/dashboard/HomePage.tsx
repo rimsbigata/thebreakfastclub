@@ -20,6 +20,7 @@ import { SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { Switch } from '@radix-ui/react-switch';
 import { NotificationPermissionButton } from '@/components/NotificationPermissionButton';
+import { useFcmToken } from '@/hooks/useFcmToken';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -66,6 +67,7 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 export default function HomePage() {
   const router = useRouter();
   const { user } = useUser();
+  const { token, permission } = useFcmToken();
   const {
     courts, players, matches, deleteCourt, startMatch, startTimer,
     updateMatchScore, endMatch, swapPlayer, assignMatchToCourt,
@@ -99,6 +101,7 @@ export default function HomePage() {
   } | null>(null);
   const [isDoubleStarSession, setIsDoubleStarSession] = useState(false);
   const [sessionCodeInput, setSessionCodeInput] = useState('');
+  const [notificationBannerDismissed, setNotificationBannerDismissed] = useState(false);
 
   // Scoring Modal State
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
@@ -629,11 +632,19 @@ export default function HomePage() {
           </div>
         </div>
       )}
-      {isSessionActive && (
-        <div className="bg-primary/5 border-b-2 border-primary/20 px-4 py-2">
+      {isSessionActive && !notificationBannerDismissed && (permission !== 'granted' || !token) && (
+        <div className="bg-primary/5 border-b-2 border-primary/20 px-4 py-2 relative">
           <div className="flex items-center justify-center gap-2">
             <NotificationPermissionButton />
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6"
+            onClick={() => setNotificationBannerDismissed(true)}
+          >
+            <X className="h-3 w-3" />
+          </Button>
         </div>
       )}
       {!isSessionActive && (

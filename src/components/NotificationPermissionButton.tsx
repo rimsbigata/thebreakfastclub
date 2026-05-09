@@ -50,13 +50,11 @@ export function NotificationPermissionButton() {
     return (
       <Card className="border-2 border-red-500/30 bg-red-500/5">
         <CardContent className="p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="h-4 w-4 text-red-500" />
-              <div className="text-xs">
-                <span className="font-bold text-red-700 dark:text-red-500">Notifications blocked</span>
-                <span className="text-muted-foreground ml-1">- enable in browser settings</span>
-              </div>
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-4 w-4 text-red-500" />
+            <div className="text-xs">
+              <span className="font-bold text-red-700 dark:text-red-500">Notifications blocked</span>
+              <span className="text-muted-foreground ml-1">- enable in browser settings</span>
             </div>
           </div>
         </CardContent>

@@ -16,6 +16,22 @@ firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
+// Handle service worker activation - immediately claim clients
+self.addEventListener('activate', function (event) {
+  console.log('[firebase-messaging-sw] Service worker activating');
+  event.waitUntil(
+    clients.claim().then(() => {
+      console.log('[firebase-messaging-sw] Service worker claimed all clients');
+    })
+  );
+});
+
+// Handle service worker installation - skip waiting to activate immediately
+self.addEventListener('install', function (event) {
+  console.log('[firebase-messaging-sw] Service worker installing');
+  self.skipWaiting();
+});
+
 // Handle background messages
 messaging.onBackgroundMessage(function (payload) {
   console.log('[firebase-messaging-sw] Received background message:', payload);
