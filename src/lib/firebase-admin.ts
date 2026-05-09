@@ -11,23 +11,19 @@ export function initializeFirebaseAdmin() {
   if (getApps().length > 0) {
     adminApp = getApps()[0]
   } else {
-    const projectId = process.env.FIREBASE_PROJECT_ID
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY
+    const base64String = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
 
-    if (!projectId || !clientEmail || !privateKey) {
-      throw new Error('Missing Firebase Admin environment variables. Please set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.')
+    if (!base64String) {
+      throw new Error('Missing Firebase Admin environment variable. Please set FIREBASE_SERVICE_ACCOUNT_BASE64.')
     }
 
-    // Handle escaped newlines in private key
-    const formattedPrivateKey = privateKey.replace(/\\n/g, '\n')
+    // Decode from Base64 to a JSON string, then parse into an object
+    const serviceAccount = JSON.parse(
+      Buffer.from(base64String, 'base64').toString('utf8')
+    )
 
     adminApp = initializeApp({
-      credential: cert({
-        projectId,
-        clientEmail,
-        privateKey: formattedPrivateKey,
-      }),
+      credential: cert(serviceAccount),
     })
   }
 
