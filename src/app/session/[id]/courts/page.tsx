@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trophy, Trash2 } from 'lucide-react';
@@ -126,7 +126,12 @@ export default function CourtsPage() {
               <Button size="icon" variant="outline" className="transition-all hover:bg-secondary"><Plus className="h-4 w-4" /></Button>
             </DialogTrigger>
             <DialogContent className="animate-in zoom-in duration-300">
-              <DialogHeader><DialogTitle>Add New Court</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Add New Court</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Add a new court to the session
+                </DialogDescription>
+              </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>Court Identifier</Label>

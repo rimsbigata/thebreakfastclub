@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Player } from '@/lib/types';
@@ -93,6 +93,9 @@ export function MatchScoreDialog({ open, onOpenChange, teamA, teamB, onScoreSubm
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black uppercase">Record Match Score</DialogTitle>
+          <DialogDescription className="sr-only">
+            Enter the final scores for the match
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-8 py-6">
           {error && (

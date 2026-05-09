@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Banknote, QrCode, UserCheck, Calculator, CreditCard, ShieldCheck } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -19,8 +19,16 @@ export default function FeesPage() {
   const { players, fees, paymentMethods, updateFee, togglePayment, role, currentPlayer } = useClub();
   const [today, setToday] = useState<string>('');
 
-  const [shuttleFee, setShuttleFee] = useState(0);
-  const [courtFee, setCourtFee] = useState(0);
+  // Shuttle inputs
+  const [shuttleUnits, setShuttleUnits] = useState(0);
+  const [shuttlePricePerPiece, setShuttlePricePerPiece] = useState(0);
+
+  // Court inputs
+  const [courts, setCourts] = useState<Array<{ id: string; name: string; feePerHour: number; hoursRented: number }>>([
+    { id: '1', name: 'Court 1', feePerHour: 0, hoursRented: 0 }
+  ]);
+
+  // Entrance fee
   const [entranceFee, setEntranceFee] = useState(0);
   const [includeEntranceFee, setIncludeEntranceFee] = useState(true);
 
@@ -33,8 +41,11 @@ export default function FeesPage() {
   // Sync admin inputs if fee already exists
   useEffect(() => {
     if (currentFee && role === 'admin') {
-      setShuttleFee(currentFee.shuttleFee || 0);
-      setCourtFee(currentFee.courtFee || 0);
+      setShuttleUnits(currentFee.shuttleUnits || 0);
+      setShuttlePricePerPiece(currentFee.shuttlePricePerPiece || 0);
+      if (currentFee.courts) {
+        setCourts(currentFee.courts);
+      }
       setEntranceFee(currentFee.entranceFee || 0);
       setIncludeEntranceFee(!!currentFee.entranceFee);
     }
@@ -45,16 +56,46 @@ export default function FeesPage() {
   const isStaff = isAdmin || isQueueMaster;
   const isPlayer = role === 'player';
 
+  // Calculate shuttle subtotal
+  const shuttleSubtotal = useMemo(() => {
+    return shuttleUnits * shuttlePricePerPiece;
+  }, [shuttleUnits, shuttlePricePerPiece]);
+
+  // Calculate court subtotal
+  const courtSubtotal = useMemo(() => {
+    return courts.reduce((total, court) => total + (court.feePerHour * court.hoursRented), 0);
+  }, [courts]);
+
+  // Calculate total per player
   const perPlayerFee = useMemo(() => {
     if (isAdmin) {
-      const total = shuttleFee + courtFee + (includeEntranceFee ? entranceFee : 0);
+      const total = shuttleSubtotal + courtSubtotal + (includeEntranceFee ? entranceFee : 0);
       return (total / (players.length || 1)).toFixed(2);
     } else {
       if (!currentFee) return "0.00";
-      const total = (currentFee.shuttleFee || 0) + (currentFee.courtFee || 0) + (currentFee.entranceFee || 0);
+      const shuttleTotal = (currentFee.shuttleUnits || 0) * (currentFee.shuttlePricePerPiece || 0);
+      const courtTotal = (currentFee.courts || []).reduce((total: number, court: any) => total + (court.feePerHour * court.hoursRented), 0);
+      const total = shuttleTotal + courtTotal + (currentFee.entranceFee || 0);
       return (total / (players.length || 1)).toFixed(2);
     }
-  }, [shuttleFee, courtFee, entranceFee, includeEntranceFee, players.length, currentFee, isAdmin]);
+  }, [shuttleSubtotal, courtSubtotal, entranceFee, includeEntranceFee, players.length, currentFee, isAdmin]);
+
+  // Add new court
+  const addCourt = () => {
+    setCourts([...courts, { id: Date.now().toString(), name: `Court ${courts.length + 1}`, feePerHour: 0, hoursRented: 0 }]);
+  };
+
+  // Remove court
+  const removeCourt = (courtId: string) => {
+    if (courts.length > 1) {
+      setCourts(courts.filter(c => c.id !== courtId));
+    }
+  };
+
+  // Update court
+  const updateCourt = (courtId: string, field: 'feePerHour' | 'hoursRented', value: number) => {
+    setCourts(courts.map(c => c.id === courtId ? { ...c, [field]: value } : c));
+  };
 
   const sortedPlayers = useMemo(() => {
     // For players, only show their own entry
@@ -96,31 +137,99 @@ export default function FeesPage() {
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
             {isAdmin ? (
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Shuttle Fee</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
-                    <input
-                      type="number"
-                      className="flex h-12 w-full rounded-md border-2 border-input bg-background pl-8 pr-3 py-2 text-lg font-black ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      value={shuttleFee}
-                      onChange={e => setShuttleFee(parseFloat(e.target.value) || 0)}
-                    />
+              <div className="grid grid-cols-1 gap-6">
+                {/* Shuttle Section */}
+                <div className="space-y-4 p-4 rounded-xl border-2 bg-secondary/30">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Shuttle / Tube</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Units</Label>
+                      <Input
+                        type="number"
+                        className="h-12 font-black"
+                        value={shuttleUnits}
+                        onChange={e => setShuttleUnits(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Price / Piece</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
+                        <Input
+                          type="number"
+                          className="h-12 font-black pl-8"
+                          value={shuttlePricePerPiece}
+                          onChange={e => setShuttlePricePerPiece(parseFloat(e.target.value) || 0)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-background rounded-lg border-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Subtotal</span>
+                    <span className="text-lg font-black">₱{shuttleSubtotal.toFixed(2)}</span>
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Court Rental</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
-                    <input
-                      type="number"
-                      className="flex h-12 w-full rounded-md border-2 border-input bg-background pl-8 pr-3 py-2 text-lg font-black ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      value={courtFee}
-                      onChange={e => setCourtFee(parseFloat(e.target.value) || 0)}
-                    />
+
+                {/* Court Section */}
+                <div className="space-y-4 p-4 rounded-xl border-2 bg-secondary/30">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Court Rental</h3>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={addCourt}
+                      className="h-8 text-[10px] font-black uppercase border-2"
+                    >
+                      + Add Court
+                    </Button>
+                  </div>
+                  {courts.map((court, index) => (
+                    <div key={court.id} className="space-y-3 p-4 bg-background rounded-lg border-2 relative">
+                      {courts.length > 1 && (
+                        <button
+                          onClick={() => removeCourt(court.id)}
+                          className="absolute top-2 right-2 text-red-500 hover:text-red-600 font-black text-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                      <div className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">{court.name}</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Fee / Hour</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
+                            <Input
+                              type="number"
+                              className="h-12 font-black pl-8"
+                              value={court.feePerHour}
+                              onChange={e => updateCourt(court.id, 'feePerHour', parseFloat(e.target.value) || 0)}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Hours</Label>
+                          <Input
+                            type="number"
+                            className="h-12 font-black"
+                            value={court.hoursRented}
+                            onChange={e => updateCourt(court.id, 'hoursRented', parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-secondary/50 rounded text-xs">
+                        <span className="font-black uppercase tracking-widest text-muted-foreground">Court Subtotal</span>
+                        <span className="font-black">₱{(court.feePerHour * court.hoursRented).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center p-3 bg-background rounded-lg border-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Court Total</span>
+                    <span className="text-lg font-black">₱{courtSubtotal.toFixed(2)}</span>
                   </div>
                 </div>
+
+                {/* Entrance Fee Section */}
                 <div className="space-y-1.5 p-4 rounded-xl bg-secondary/50 border-2 border-dashed">
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-[10px] font-black uppercase tracking-widest">Entry Fee</Label>
@@ -175,7 +284,13 @@ export default function FeesPage() {
             {isAdmin && (
               <Button
                 className="w-full h-12 font-black uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
-                onClick={() => updateFee({ id: today, shuttleFee, courtFee, entranceFee: includeEntranceFee ? entranceFee : 0 })}
+                onClick={() => updateFee({ 
+                  id: today, 
+                  shuttleUnits, 
+                  shuttlePricePerPiece, 
+                  courts, 
+                  entranceFee: includeEntranceFee ? entranceFee : 0 
+                })}
               >
                 Apply to Today's Board
               </Button>
@@ -188,7 +303,12 @@ export default function FeesPage() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-md">
-                  <DialogHeader><DialogTitle className="text-center font-black uppercase">Scan to Pay ₱{perPlayerFee}</DialogTitle></DialogHeader>
+                  <DialogHeader>
+                    <DialogTitle className="text-center font-black uppercase">Scan to Pay ₱{perPlayerFee}</DialogTitle>
+                    <DialogDescription className="sr-only">
+                      Scan QR code to pay your session fee
+                    </DialogDescription>
+                  </DialogHeader>
                   <div className="space-y-4 py-4">
                     {paymentMethods.length > 0 ? (
                       paymentMethods.map(method => (
@@ -223,7 +343,12 @@ export default function FeesPage() {
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl">
-                    <DialogHeader><DialogTitle>QR Methods</DialogTitle></DialogHeader>
+                    <DialogHeader>
+                      <DialogTitle>QR Methods</DialogTitle>
+                      <DialogDescription className="sr-only">
+                        Manage payment QR codes
+                      </DialogDescription>
+                    </DialogHeader>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
                       {paymentMethods.map(method => (
                         <Card key={method.id} className="overflow-hidden border-2">

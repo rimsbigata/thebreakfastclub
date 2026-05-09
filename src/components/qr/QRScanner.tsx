@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Camera, Loader2 } from 'lucide-react'
@@ -118,6 +118,9 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
           <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
             <Camera className="h-4 w-4" /> Scan QR Code
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Scan a QR code to join a session
+          </DialogDescription>
         </DialogHeader>
 
         <div className="relative">

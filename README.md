@@ -1,6 +1,18 @@
 # ShuttleQueue | TheBreakfastClub Badminton Manager
 
-A professional-grade badminton club management application built with **Next.js 16**, **Tailwind CSS**, **Firebase**, and **Genkit AI**.
+A professional-grade badminton club management application built with **Next.js 16**, **Tailwind CSS**, **Firebase**, **Supabase**, and **Genkit AI**.
+
+## 🏗️ Architecture
+
+### **Hybrid Data Layer**
+- **Local Storage (Primary)**: Fast UI experience with immediate data updates
+- **Firebase Firestore (Backend)**: Reliable cloud storage with real-time sync
+- **Automatic Sync**: Background synchronization between local storage and Firebase
+- **Offline Support**: Works offline with automatic sync when connection restored
+
+### **Image Storage**
+- **Supabase Storage**: Free tier for QR codes and club logos
+- **Automatic Compression**: Images compressed before upload to save bandwidth
 
 ## 🚀 Quick Start & Setup
 
@@ -9,12 +21,14 @@ The app is configured to connect to:
 - **Project ID**: `studio-8289009920-31c2b`
 
 **Firebase Services Used:**
-- **Firestore** - Primary database for sessions, players, matches, and rankings
+- **Firestore** - Backend database for sessions, players, matches, and rankings
 - **Firebase Authentication** - User authentication and session management
-- **Firebase Storage** - File storage for images and documents
 - **Firebase Cloud Messaging (FCM)** - Push notifications for court assignments
 - **Realtime Database** - Real-time data synchronization
 - **Remote Config** - Remote configuration management
+
+**Supabase Services Used:**
+- **Storage** - Free tier image storage for QR codes and club logos
 
 ### **2. Environment Variables**
 Create a `.env.local` file in the project root with the following variables:
@@ -25,6 +39,10 @@ GOOGLE_APPLICATION_CREDENTIALS=D:\Dev\TheBreakfastClub-Badminton-App\firebase-ad
 
 # Firebase VAPID Key (for web push notifications)
 NEXT_PUBLIC_FIREBASE_VAPID_KEY=YOUR_VAPID_KEY_HERE
+
+# Supabase (for image storage)
+NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 
 # SMTP Configuration (for email notifications)
 SMTP_HOST=smtp.gmail.com
@@ -38,6 +56,20 @@ SMTP_PASSWORD=your-app-password
 2. Click "Generate New Private Key" and save as `firebase-admin-key.json` in project root
 3. Go to Project Settings → Cloud Messaging → Web Push Certificates
 4. Generate a VAPID key pair and copy the public key to `NEXT_PUBLIC_FIREBASE_VAPID_KEY`
+
+**To get Supabase credentials:**
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard) and create a new project
+2. Go to Project Settings → API
+3. Copy the Project URL to `NEXT_PUBLIC_SUPABASE_URL`
+4. Copy the anon/public key to `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+5. Create a storage bucket named `payment-qr-codes` in the Supabase Storage section
+6. Configure Storage RLS policies to allow public uploads:
+   - Go to Storage → payment-qr-codes → Policies
+   - Add a new policy with:
+     - Policy name: "Allow public uploads"
+     - Allowed operations: INSERT, SELECT
+     - Target roles: anon, authenticated
+     - Policy definition: `bucket_id = 'payment-qr-codes'`
 
 ### **3. Enabling Admin Features**
 Security rules prevent client-side elevation to Admin. To enable admin controls for a user:
@@ -137,6 +169,13 @@ Start emulators:
 ```bash
 firebase emulators:start
 ```
+
+### **Testing Local Storage Sync**
+The app uses a hybrid data layer with local storage as the primary source of truth and Firebase as the backend:
+- All write operations immediately update local storage for fast UI
+- Changes are synced to Firebase in the background
+- Firebase real-time listeners keep local storage in sync with other clients
+- Check browser DevTools > Application > Local Storage to see synced data
 
 ### **Testing Push Notifications**
 1. Start the development server

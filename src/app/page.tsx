@@ -41,7 +41,10 @@ export default function RootPage() {
       if (role === 'player' && !isSessionActive) {
         router.replace('/auth/session');
       }
-      // Remove automatic redirect to session page - allow users to navigate freely
+      // If session is active, redirect to session page
+      if (isSessionActive && activeSession) {
+        router.replace(`/session/${activeSession.id}`);
+      }
     }
   }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, activeSession, role, isAdminRoleLoading, router, hasSplashDelayElapsed]);
 
@@ -55,17 +58,11 @@ export default function RootPage() {
     return null;
   }
 
-  // Priority 3: Redirect to session gate for everyone (No Active Session page disconnected)
-  if (role && !isSessionActive) {
-    router.replace('/auth/session');
-    return null;
+  // Priority 3: Show homepage for admins or players with active session
+  if (role === 'admin' || isSessionActive) {
+    return <HomePage />;
   }
 
-  // If session is active, redirect to session page
-  if (isSessionActive && activeSession) {
-    router.replace(`/session/${activeSession.id}`);
-    return null;
-  }
-
+  // Priority 4: Players without active session will be redirected by useEffect
   return null;
 }

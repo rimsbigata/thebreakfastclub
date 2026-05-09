@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, ArrowLeftRight, Trophy, Ban, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -1385,7 +1385,12 @@ export default function HomePage() {
       <Dialog open={!!swapping
       } onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="text-compact font-black uppercase">Swap Player</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="text-compact font-black uppercase">Swap Player</DialogTitle>
+            <DialogDescription className="sr-only">
+              Select a player to swap into the match
+            </DialogDescription>
+          </DialogHeader>
           <ScrollArea className="h-[400px]">
             <div className="space-y-3 p-1">
               {players.filter(player => player.status === 'available').map(player => (
@@ -1409,6 +1414,9 @@ export default function HomePage() {
             <DialogTitle className="text-lg font-black uppercase flex items-center gap-2">
               <Trophy className="h-5 w-5 text-yellow-500" /> Confirm Winner
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Confirm which team won the match
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="p-4 bg-primary/5 rounded-xl border-2 border-primary/20 text-center">
@@ -1506,6 +1514,9 @@ export default function HomePage() {
             <DialogContent className="max-w-sm">
               <DialogHeader>
                 <DialogTitle className="text-lg font-black uppercase">Confirm Zero Score</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Confirm that the losing team has a score of zero
+                </DialogDescription>
               </DialogHeader>
               <p className="text-sm font-medium">The losing team has a score of 0. Is this correct?</p>
               <div className="flex gap-2 mt-4">

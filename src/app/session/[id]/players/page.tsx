@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, TrendingUp, Users, Trash2, Pencil, Search, Filter, ArrowUpDown, RefreshCw, CheckSquare, Square, X, ArrowUp, ArrowDown, Minus, Shield, ShieldCheck, ShieldAlert, Timer } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, Cell } from 'recharts';
@@ -456,7 +456,12 @@ export default function PlayersPage() {
 
       <Dialog open={!!editingPlayer} onOpenChange={(open) => !open && setEditingPlayer(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle className="text-compact font-black uppercase">Edit Profile</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="text-compact font-black uppercase">Edit Profile</DialogTitle>
+            <DialogDescription className="sr-only">
+              Edit player name, skill level, and notes
+            </DialogDescription>
+          </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase opacity-60">Name</Label>
@@ -496,6 +501,9 @@ export default function PlayersPage() {
             <DialogTitle className="text-compact font-black uppercase flex items-center gap-2">
               <Shield className="h-5 w-5" /> Manage Role
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Manage player role and permissions
+            </DialogDescription>
           </DialogHeader>
           {roleDialogPlayer && (
             <div className="space-y-4 py-4">

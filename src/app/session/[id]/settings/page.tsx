@@ -18,6 +18,7 @@ import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 import { sendBoostCodeEmail } from '@/app/actions/email';
 import { useUser } from '@/firebase';
 import { QRCodeGenerator } from '@/components/qr/QRCodeGenerator';
+import { processAndUploadPaymentQR, processAndUploadClubLogo } from '@/lib/imageUpload';
 
 export default function SettingsPage({ params }: { params: { id: string } }) {
   const {
@@ -42,63 +43,45 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
   const [newBoostVenue, setNewBoostVenue] = useState('');
   const [newBoostTime, setNewBoostTime] = useState('');
 
-  const processAndUpload = (file: File, callback: (data: string) => void) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 400;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        const compressedData = canvas.toDataURL('image/jpeg', 0.7);
-        callback(compressedData);
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setIsUploading(true);
-      processAndUpload(e.target.files[0], (data) => {
-        addPaymentMethod(newMethodName || 'Unnamed QR', data);
+      try {
+        const paymentMethodId = Math.random().toString(36).substr(2, 9);
+        const imageUrl = await processAndUploadPaymentQR(e.target.files[0], paymentMethodId);
+        addPaymentMethod(newMethodName || 'Unnamed QR', imageUrl);
         setNewMethodName('');
         if (fileInputRef.current) fileInputRef.current.value = '';
-        setIsUploading(false);
         toast({ title: "QR Method Added" });
-      });
+      } catch (error) {
+        toast({ 
+          title: "Upload failed", 
+          description: error instanceof Error ? error.message : "Failed to upload QR code",
+          variant: "destructive" 
+        });
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setIsLogoUploading(true);
-      processAndUpload(e.target.files[0], (data) => {
-        setClubLogo(data);
+      try {
+        const imageUrl = await processAndUploadClubLogo(e.target.files[0]);
+        setClubLogo(imageUrl);
         if (logoInputRef.current) logoInputRef.current.value = '';
-        setIsLogoUploading(false);
         toast({ title: "Club Logo Updated" });
-      });
+      } catch (error) {
+        toast({ 
+          title: "Upload failed", 
+          description: error instanceof Error ? error.message : "Failed to upload logo",
+          variant: "destructive" 
+        });
+      } finally {
+        setIsLogoUploading(false);
+      }
     }
   };
 

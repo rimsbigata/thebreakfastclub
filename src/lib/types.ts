@@ -125,11 +125,15 @@ export interface Match {
 
 export interface Fee {
   id: string;
-  shuttleFee: number;
-  courtFee: number;
+  shuttleUnits: number;
+  shuttlePricePerPiece: number;
+  courts: Array<{ id: string; name: string; feePerHour: number; hoursRented: number }>;
   entranceFee: number;
   qrCodeUrl?: string;
   payments: Record<string, boolean>;
+  // Legacy fields for backward compatibility
+  shuttleFee?: number;
+  courtFee?: number;
 }
 
 export interface PaymentMethod {

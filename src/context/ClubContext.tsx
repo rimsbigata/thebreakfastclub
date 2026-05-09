@@ -16,6 +16,7 @@ import {
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { sendMatchStartingNotification, sendYourTurnNotification } from '@/lib/notificationUtils';
+import { getLocalStorageService } from '@/lib/localStorageService';
 
 interface ClubSettings {
   clubLogo: string | null;
@@ -105,6 +106,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [activeSession, setActiveSession] = useState<QueueSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isRestoringSession, setIsRestoringSession] = useState(false);
+
+  // Initialize local storage service
+  const localStorageService = useMemo(() => {
+    return firestore ? getLocalStorageService(firestore) : null;
+  }, [firestore]);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -510,7 +516,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const addPlayer = async (input: { name: string; skillLevel: number; playStyle: string }) => {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
     const userId = 'member_' + Math.random().toString(36).substr(2, 9);
-    const playerRef = doc(firestore, 'sessions', activeSession.id, 'players', userId);
     const playerData = {
       userId,
       sessionId: activeSession.id,
@@ -520,7 +525,14 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       name: input.name,
       skillLevel: input.skillLevel
     };
-    await setDoc(playerRef, playerData);
+    
+    // Write to local storage immediately for fast UI
+    if (localStorageService) {
+      await localStorageService.setDocument(`sessions/${activeSession.id}/players`, userId, playerData);
+    }
+    
+    // Sync to Firebase in background
+    await setDoc(doc(firestore, 'sessions', activeSession.id, 'players', userId), playerData);
   };
 
   const updatePlayer = async (id: string, updates: Partial<Player>) => {
@@ -531,7 +543,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if ((updates.role || updates.roleExpiresAt !== undefined) && role !== 'admin') {
       throw new Error('Only admin can change player roles');
     }
-    const playerRef = doc(firestore, 'sessions', activeSession.id, 'players', id);
     const sessionUpdates: any = {};
     if (updates.name) sessionUpdates.name = updates.name;
     if (updates.skillLevel) sessionUpdates.skillLevel = updates.skillLevel;
@@ -540,7 +551,14 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (updates.playStyle) sessionUpdates.playStyle = updates.playStyle;
     if (updates.role) sessionUpdates.role = updates.role;
     if (updates.roleExpiresAt !== undefined) sessionUpdates.roleExpiresAt = updates.roleExpiresAt;
-    await updateDoc(playerRef, sessionUpdates);
+    
+    // Update local storage immediately for fast UI
+    if (localStorageService) {
+      await localStorageService.updateDocument(`sessions/${activeSession.id}/players`, id, sessionUpdates);
+    }
+    
+    // Sync to Firebase in background
+    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', id), sessionUpdates);
   };
 
   const deletePlayer = async (id: string) => {
@@ -559,6 +577,13 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       estimatedWaitMinutes: 0,
       currentPlayers: []
     };
+    
+    // Write to local storage immediately for fast UI
+    if (localStorageService) {
+      await localStorageService.setDocument(`sessions/${activeSession.id}/courts`, courtId, court);
+    }
+    
+    // Sync to Firebase in background
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), court);
     return courtId;
   };
@@ -813,11 +838,26 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const addPaymentMethod = async (name: string, imageUrl: string) => {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized: Only admin can add payment methods');
     const id = Math.random().toString(36).substr(2, 9);
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id), { id, name, imageUrl });
+    const paymentMethod = { id, name, imageUrl };
+    
+    // Write to local storage immediately for fast UI
+    if (localStorageService) {
+      await localStorageService.setDocument(`sessions/${activeSession.id}/paymentMethods`, id, paymentMethod);
+    }
+    
+    // Sync to Firebase in background
+    await setDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id), paymentMethod);
   };
 
   const deletePaymentMethod = async (id: string) => {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized: Only admin can delete payment methods');
+    
+    // Delete from local storage immediately for fast UI
+    if (localStorageService) {
+      await localStorageService.deleteDocument(`sessions/${activeSession.id}/paymentMethods`, id);
+    }
+    
+    // Sync to Firebase in background
     await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id));
   };
 

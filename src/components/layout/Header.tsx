@@ -9,7 +9,7 @@ import { useClub } from '@/context/ClubContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -200,7 +200,12 @@ export function Header() {
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
-                <DialogHeader><DialogTitle className="text-lg font-black uppercase">Manual Match Selection</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-black uppercase">Manual Match Selection</DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Manually select players and assign them to a court
+                  </DialogDescription>
+                </DialogHeader>
                 <div className="space-y-6 py-6">
                   <div className="space-y-2">
                     <Label className="text-xs font-black uppercase tracking-widest">Target Court</Label>
