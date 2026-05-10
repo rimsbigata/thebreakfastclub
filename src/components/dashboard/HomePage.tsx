@@ -11,12 +11,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, Swords, Ban, Target, Loader2, Pencil } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, Swords, Ban, Target, Loader2, Pencil, Coffee, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
+import { SKILL_LEVELS_SHORT, getSkillColor, Player } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { Switch } from '@/components/ui/switch';
 import { NotificationPermissionButton } from '@/components/NotificationPermissionButton';
@@ -72,12 +72,13 @@ export default function HomePage() {
     courts, players, matches, deleteCourt, startMatch, startTimer,
     updateMatchScore, endMatch, swapPlayer, assignMatchToCourt,
     createCourtAndAssignMatch, addCourt, updateCourt, deleteMatch, defaultWinningScore,
-    role, isSessionActive, createSession, joinSession, deuceEnabled, upcomingBoost
+    role, isSessionActive, createSession, joinSession, deuceEnabled, upcomingBoost, updatePlayer
   } = useClub();
 
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [sortOption, setSortOption] = useState<string>('default');
+  const [benchTab, setBenchTab] = useState<'available' | 'resting'>('available');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [joinCode, setJoinCode] = useState('');
@@ -107,7 +108,7 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
-  // Sync drafts when courts list changes (clean up drafts for deleted courts)
+  // Sync drafts when courts list changes
   useEffect(() => {
     setCourtDrafts(prev => {
       const next = { ...prev };
@@ -127,9 +128,9 @@ export default function HomePage() {
     ...Object.values(courtDrafts).flat(),
   ], [courtDrafts, draftPlayerIds]);
 
-  const sortedAvailablePlayers = useMemo(() => {
+  const sortedBenchPlayers = useMemo(() => {
     return players
-      .filter(p => p.status === 'available' && !allDraftedIds.includes(p.id))
+      .filter(p => p.status === benchTab && !allDraftedIds.includes(p.id))
       .sort((a, b) => {
         let res = 0;
         switch (sortOption) {
@@ -140,7 +141,10 @@ export default function HomePage() {
         }
         return res || (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0);
       });
-  }, [players, allDraftedIds, sortOption]);
+  }, [players, allDraftedIds, sortOption, benchTab]);
+
+  const restingCount = useMemo(() => players.filter(p => p.status === 'resting').length, [players]);
+  const availableCount = useMemo(() => players.filter(p => p.status === 'available').length, [players]);
 
   const waitingMatches = useMemo(() => {
     return matches.filter(m => !m.isCompleted && !m.courtId).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -199,7 +203,20 @@ export default function HomePage() {
     }
   };
 
+  const handleSetStatus = async (playerId: string, status: Player['status']) => {
+    try {
+      await updatePlayer(playerId, { status });
+      toast({ title: `Status updated to ${status}` });
+    } catch (e) {
+      toast({ title: "Update failed", variant: "destructive" });
+    }
+  };
+
   const onDragStartPlayer = (event: React.DragEvent, playerId: string) => {
+    if (benchTab === 'resting') {
+      event.preventDefault();
+      return;
+    }
     event.dataTransfer.setData('playerId', playerId);
     setDraggedPlayerId(playerId);
   };
@@ -223,7 +240,7 @@ export default function HomePage() {
   const onDropInCourt = async (event: React.DragEvent, courtId: string) => {
     if (!isStaff) return;
     event.preventDefault();
-    event.stopPropagation(); // CRITICAL: Stop bubbling to prevent onDropInCourtPanel
+    event.stopPropagation();
     setDragOverCourtId(null);
     const matchId = event.dataTransfer.getData('application/x-tbc-match-id');
     if (matchId) {
@@ -245,7 +262,6 @@ export default function HomePage() {
 
   const onDropInCourtPanel = async (event: React.DragEvent) => {
     if (!isStaff) return;
-    // Don't trigger if dropping on a specific court card (handled by dragOverCourtId check)
     if (dragOverCourtId) return;
     
     event.preventDefault();
@@ -302,37 +318,67 @@ export default function HomePage() {
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12">
         {isStaff && (
           <div className="md:col-span-3 border-r flex flex-col bg-secondary/5 min-h-0">
-            <div className="p-3 bg-card border-b flex items-center justify-between sticky top-0 z-10 gap-2 h-14">
-              <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" /> Bench
-              </h2>
-              <Select value={sortOption} onValueChange={setSortOption}>
-                <SelectTrigger className="h-7 text-[9px] font-black uppercase border-2 w-[100px] bg-background px-2">
-                  <SelectValue placeholder="Sort" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default" className="text-[9px] font-bold uppercase">Waiting</SelectItem>
-                  <SelectItem value="skill-desc" className="text-[9px] font-bold uppercase">Skill ↓</SelectItem>
-                  <SelectItem value="name-asc" className="text-[9px] font-bold uppercase">A-Z</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="p-3 bg-card border-b flex flex-col gap-3 sticky top-0 z-10 h-28">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" /> Bench
+                </h2>
+                <Select value={sortOption} onValueChange={setSortOption}>
+                  <SelectTrigger className="h-7 text-[9px] font-black uppercase border-2 w-[100px] bg-background px-2">
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default" className="text-[9px] font-bold uppercase">Waiting</SelectItem>
+                    <SelectItem value="skill-desc" className="text-[9px] font-bold uppercase">Skill ↓</SelectItem>
+                    <SelectItem value="name-asc" className="text-[9px] font-bold uppercase">A-Z</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Tabs value={benchTab} onValueChange={(v) => setBenchTab(v as any)} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 h-8 p-1 bg-secondary/50">
+                  <TabsTrigger value="available" className="text-[9px] font-black uppercase h-6">
+                    Ready ({availableCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="resting" className="text-[9px] font-black uppercase h-6">
+                    Resting ({restingCount})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
             <ScrollArea className="flex-1">
               <div className="p-2 grid grid-cols-2 gap-2 pb-24">
-                {sortedAvailablePlayers.map((p) => (
+                {sortedBenchPlayers.map((p) => (
                   <Card
                     key={p.id}
-                    draggable
+                    draggable={benchTab === 'available'}
                     onDragStart={(e) => onDragStartPlayer(e, p.id)}
-                    className="p-3 border-2 shadow-sm bg-card cursor-grab active:cursor-grabbing hover:border-primary transition-all"
+                    className={cn(
+                      "p-3 border-2 shadow-sm bg-card transition-all group",
+                      benchTab === 'available' ? "cursor-grab active:cursor-grabbing hover:border-primary" : "opacity-80 grayscale-[0.5]"
+                    )}
                   >
                     <div className="flex items-center justify-between mb-1.5 gap-2">
                       <span className="font-black text-compact truncate flex-1">{p.name}</span>
-                      <WaitTimeBadge lastAvailableAt={p.lastAvailableAt} />
+                      {benchTab === 'available' ? (
+                        <WaitTimeBadge lastAvailableAt={p.lastAvailableAt} />
+                      ) : (
+                        <Coffee className="h-3 w-3 text-muted-foreground" />
+                      )}
                     </div>
-                    <Badge variant="outline" className={cn("text-[8px] font-black uppercase h-4 px-1.5", getSkillColor(p.skillLevel))}>
-                      {SKILL_LEVELS_SHORT[p.skillLevel]}
-                    </Badge>
+                    <div className="flex items-center justify-between gap-1">
+                      <Badge variant="outline" className={cn("text-[8px] font-black uppercase h-4 px-1.5", getSkillColor(p.skillLevel))}>
+                        {SKILL_LEVELS_SHORT[p.skillLevel]}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleSetStatus(p.id, benchTab === 'available' ? 'resting' : 'available')}
+                        title={benchTab === 'available' ? "Move to resting" : "Ready to play"}
+                      >
+                        {benchTab === 'available' ? <Coffee className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3 text-green-600" />}
+                      </Button>
+                    </div>
                   </Card>
                 ))}
               </div>
@@ -515,6 +561,11 @@ export default function HomePage() {
                                       </div>
                                     );
                                   })}
+                                  {currentDraft.slice(0, 2).length < 2 && (
+                                    <div className="h-8 border-2 border-dashed rounded-lg bg-background/50 flex items-center justify-center">
+                                      <p className="text-[8px] font-black uppercase opacity-30 italic">Drop player</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               {currentDraft.length >= 2 && (
@@ -530,6 +581,11 @@ export default function HomePage() {
                                         </div>
                                       );
                                     })}
+                                    {currentDraft.slice(2).length < 2 && (
+                                      <div className="h-8 border-2 border-dashed rounded-lg bg-background/50 flex items-center justify-center">
+                                        <p className="text-[8px] font-black uppercase opacity-30 italic">Drop opponent</p>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               )}
