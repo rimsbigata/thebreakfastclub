@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
-import clubLogo from '@/assets/images/tbc_logo_loading.png';
+import clubLogo from '@/assets/images/tbclogo_white.png';
 
 interface SplashScreenProps {
   logo?: string | null;
