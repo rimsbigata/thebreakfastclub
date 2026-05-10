@@ -240,54 +240,17 @@ export default function HomePage() {
     }
 
     try {
+      // Logic centralized in ClubContext - will trigger notifications automatically
       await assignMatchToCourt(matchId, courtId);
       setDraggedMatchId(null);
       setDragOverCourtId(null);
-      try {
-        toast({ title: "Match assigned", description: `${targetCourt.name} is now occupied.` });
-      } catch (toastError) {
-        console.error('Toast error:', toastError);
-      }
-
-      // Send FCM notifications to players in the match
-      const match = matches.find(m => m.id === matchId);
-      if (match) {
-        const playerIds = [...match.teamA, ...match.teamB];
-        playerIds.forEach(async (playerId) => {
-          const player = players.find(p => p.id === playerId);
-          if (player?.fcmToken) {
-            try {
-              await fetch('/api/notify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  token: player.fcmToken,
-                  title: 'You have been assigned to a court!',
-                  body: `Your match has been assigned to ${targetCourt.name}`,
-                  data: {
-                    url: '/',
-                    type: 'court_assignment',
-                    courtId: targetCourt.id,
-                    matchId: match.id,
-                  },
-                }),
-              });
-            } catch (notifyError) {
-              console.error('Failed to send FCM notification:', notifyError);
-            }
-          }
-        });
-      }
+      toast({ title: "Match assigned", description: `${targetCourt.name} is now occupied.` });
     } catch (error) {
-      try {
-        toast({
-          title: "Could not assign match",
-          description: error instanceof Error ? error.message : "Database write failed.",
-          variant: "destructive",
-        });
-      } catch (toastError) {
-        console.error('Toast error:', toastError);
-      }
+      toast({
+        title: "Could not assign match",
+        description: error instanceof Error ? error.message : "Database write failed.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -420,7 +383,6 @@ export default function HomePage() {
     if (!isStaff) return;
     event.preventDefault();
 
-    // If drafting is active or a team was specified, let the team box handlers handle it
     if (draftPlayerIds.length > 0 || dragOverTeam) {
       setIsQueueOver(false);
       setDraggedPlayerId(null);
@@ -435,7 +397,6 @@ export default function HomePage() {
     const playerId = getDraggedPlayerId(event);
     if (!playerId || allDraftedIds.includes(playerId)) return;
 
-    // Simple FIFO: add to end of draft
     const nextDraft = [...draftPlayerIds, playerId];
 
     if (nextDraft.length === 4) {
@@ -452,7 +413,6 @@ export default function HomePage() {
     event.preventDefault();
     event.stopPropagation();
 
-    // Check if drop was on a team box (they have their own handlers)
     const target = event.target as HTMLElement;
     const teamBox = target.closest('[data-team-box]');
     if (teamBox) {
@@ -461,7 +421,6 @@ export default function HomePage() {
       return;
     }
 
-    // If drafting is active on this court, let the team box handlers handle it
     if (courtDrafts[courtId] && courtDrafts[courtId].length > 0) {
       setDragOverCourtId(null);
       setDragOverTeam(null);
@@ -483,7 +442,6 @@ export default function HomePage() {
     const playerId = getDraggedPlayerId(event);
     if (!playerId || allDraftedIds.includes(playerId)) return;
 
-    // Simple FIFO: add to end of draft
     const currentDraft = courtDrafts[courtId] || [];
     const nextDraft = [...currentDraft, playerId];
 
@@ -537,12 +495,10 @@ export default function HomePage() {
     const clampedScoreA = Math.max(0, scoreA);
     const clampedScoreB = Math.max(0, scoreB);
 
-    // Only validate if both scores are provided
     if (clampedScoreA > 0 && clampedScoreB > 0) {
       const validation = validateMatchScore(clampedScoreA, clampedScoreB);
       if (!validation.valid) {
         toast({ title: "Invalid Score", description: validation.message, variant: "destructive" });
-        // Still update the score but show error
       }
     }
 
@@ -731,7 +687,6 @@ export default function HomePage() {
 
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12">
 
-        {/* THE BENCH - Only for staff */}
         {isStaff && (
           <div className="md:col-span-3 border-r flex flex-col bg-secondary/5 min-h-0">
             <div className="p-3 bg-card border-b flex items-center justify-between sticky top-0 z-10 gap-2 h-14">
@@ -787,7 +742,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* MATCH QUEUE */}
         <div
           className={cn(
             "md:col-span-3 border-r flex flex-col bg-background transition-all min-h-0",
@@ -795,7 +749,6 @@ export default function HomePage() {
           )}
           onDragOver={(event) => {
             if (!isStaff) return;
-            // Don't activate queue drag over if hovering over team boxes
             const target = event.target as HTMLElement;
             if (target.closest('[data-team-box]')) return;
             event.preventDefault();
@@ -803,7 +756,6 @@ export default function HomePage() {
           }}
           onDragLeave={(event) => {
             const target = event.target as HTMLElement;
-            // Only clear if not entering a team box
             if (!target.closest('[data-team-box]')) {
               setIsQueueOver(false);
             }
@@ -1007,7 +959,6 @@ export default function HomePage() {
           </ScrollArea>
         </div>
 
-        {/* ACTIVE COURTS */}
         <div
           className={cn(
             "md:col-span-6 flex flex-col transition-all min-h-0",
@@ -1062,7 +1013,6 @@ export default function HomePage() {
                     }}
                     onDrop={(event) => {
                       if (!isStaff || isOccupied) return;
-                      // If drafting is active on this court, let the team box handlers handle it
                       if (courtDrafts[court.id] && courtDrafts[court.id].length > 0) return;
                       setDraggedMatchId(null);
                       setDragOverCourtId(null);
@@ -1244,7 +1194,7 @@ export default function HomePage() {
                                             return (
                                               <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
                                                 <span className="truncate flex-1">{player?.name}</span>
-                                                {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                                {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>
                                               </div>
                                             );
                                           })}
@@ -1273,7 +1223,7 @@ export default function HomePage() {
                                               return (
                                                 <div key={id} className="text-[11px] font-black bg-background p-2 rounded border flex items-center justify-between gap-1 overflow-hidden">
                                                   <span className="truncate flex-1">{player?.name}</span>
-                                                  {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                                  {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>
                                                 </div>
                                               );
                                             })}
@@ -1400,9 +1350,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* MODALS */}
-      <Dialog open={!!swapping
-      } onOpenChange={(open) => !open && setSwapping(null)}>
+      <Dialog open={!!swapping} onOpenChange={(open) => !open && setSwapping(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-compact font-black uppercase">Swap Player</DialogTitle>
@@ -1425,7 +1373,7 @@ export default function HomePage() {
             </div>
           </ScrollArea>
         </DialogContent>
-      </Dialog >
+      </Dialog>
 
       <Dialog open={!!winningTeam} onOpenChange={(open) => !open && setWinningTeam(null)}>
         <DialogContent className="max-w-sm">
@@ -1494,8 +1442,7 @@ export default function HomePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {
-        scoringCourtId && (() => {
+      {scoringCourtId && (() => {
           const court = courts.find(c => c.id === scoringCourtId);
           const match = matches.find(m => m.id === court?.currentMatchId);
           if (!match) return null;
@@ -1524,11 +1471,9 @@ export default function HomePage() {
               deuceEnabled={deuceEnabled}
             />
           );
-        })()
-      }
+        })()}
 
-      {
-        activeModal === 'zeroConfirm' && (
+      {activeModal === 'zeroConfirm' && (
           <Dialog open={true} onOpenChange={(open) => !open && setActiveModal(null)}>
             <DialogContent className="max-w-sm">
               <DialogHeader>
@@ -1558,8 +1503,7 @@ export default function HomePage() {
               </div>
             </DialogContent>
           </Dialog>
-        )
-      }
+        )}
     </div >
   );
 }

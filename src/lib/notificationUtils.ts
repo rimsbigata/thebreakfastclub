@@ -29,6 +29,48 @@ export async function sendNotification(params: SendNotificationParams): Promise<
 }
 
 /**
+ * Send 'Match Queued' notification with partner info
+ */
+export async function sendMatchQueuedNotification(
+  playerIds: string[],
+  teamANames: string,
+  teamBNames: string,
+  matchId: string
+): Promise<void> {
+  await sendNotification({
+    playerIds,
+    title: '🏸 Match Queued!',
+    body: `${teamANames} vs ${teamBNames}. Waiting for court.`,
+    data: {
+      type: 'match_queued',
+      matchId,
+    },
+  });
+}
+
+/**
+ * Send 'Court Assigned' notification with full matchup
+ */
+export async function sendCourtAssignedNotification(
+  playerIds: string[],
+  teamANames: string,
+  teamBNames: string,
+  courtName: string,
+  matchId: string
+): Promise<void> {
+  await sendNotification({
+    playerIds,
+    title: `🏸 Court Ready: ${courtName}`,
+    body: `${teamANames} vs ${teamBNames}. Your turn!`,
+    data: {
+      type: 'court_assigned',
+      courtName,
+      matchId,
+    },
+  });
+}
+
+/**
  * Send 'Match Starting' notification to all match participants
  */
 export async function sendMatchStartingNotification(
@@ -39,8 +81,8 @@ export async function sendMatchStartingNotification(
   const courtInfo = courtName ? ` on ${courtName}` : '';
   await sendNotification({
     playerIds,
-    title: 'The Breakfast Club',
-    body: `Match Starting${courtInfo}! Get ready.`,
+    title: '🏸 Match Starting!',
+    body: `Ready${courtInfo}? Let's go!`,
     data: {
       type: 'match_starting',
       ...(courtId && { courtId }),
@@ -60,8 +102,8 @@ export async function sendYourTurnNotification(
   const ids = Array.isArray(playerIds) ? playerIds : [playerIds];
   await sendNotification({
     playerIds: ids,
-    title: 'The Breakfast Club',
-    body: `Your Turn${courtInfo}! Head to the court.`,
+    title: '🏸 Your Turn!',
+    body: `Head to ${courtName || 'your court'}.`,
     data: {
       type: 'your_turn',
       ...(courtId && { courtId }),

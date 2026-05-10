@@ -15,7 +15,7 @@ import {
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
-import { sendMatchStartingNotification, sendYourTurnNotification, sendNotification } from '@/lib/notificationUtils';
+import { sendMatchStartingNotification, sendYourTurnNotification, sendNotification, sendMatchQueuedNotification, sendCourtAssignedNotification } from '@/lib/notificationUtils';
 import { getLocalStorageService } from '@/lib/localStorageService';
 
 interface ClubSettings {
@@ -431,7 +431,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         starsEarned[player.id] = isDoubleStar ? baseStars * 2 : baseStars;
       });
 
-      // Update player documents with stars (wrapped in try-catch to handle permission errors)
+      // Update player documents with stars
       try {
         for (const [playerId, stars] of Object.entries(starsEarned)) {
           await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', playerId), {
@@ -440,7 +440,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Failed to update player stars:', error);
-        // Continue anyway - session ending is more important
       }
 
       // Store final star distribution in session document
@@ -449,7 +448,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         finalStars: starsEarned,
       });
 
-      // Trigger star distribution notifications (wrapped in try-catch)
+      // Trigger star distribution notifications
       try {
         if (Object.keys(starsEarned).length > 0) {
           const notificationsRef = collection(firestore, 'sessions', activeSession.id, 'notifications');
@@ -467,19 +466,16 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Failed to add notification:', error);
-        // Continue anyway - session ending is more important
       }
 
       setActiveSession(null);
     } catch (error) {
-      // Re-throw if it's a critical error
       if (error instanceof Error && error.message.includes('No active session')) {
         throw error;
       }
       if (error instanceof Error && error.message.includes('Only admins can end sessions')) {
         throw error;
       }
-      // Log other errors but don't fail the operation
       console.error('Error during session end:', error);
     }
   };
@@ -531,20 +527,16 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       skillLevel: input.skillLevel
     };
     
-    // Write to local storage immediately for fast UI
     if (localStorageService) {
       await localStorageService.setDocument(`sessions/${activeSession.id}/players`, userId, playerData);
     }
     
-    // Sync to Firebase in background
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'players', userId), playerData);
   };
 
   const updatePlayer = async (id: string, updates: Partial<Player>) => {
     if (!firestore || !activeSession?.id) throw new Error('No active session');
-    // Only admin or queueMaster can update players
     if (role !== 'admin' && role !== 'queueMaster') throw new Error('Unauthorized');
-    // Only admin can change roles
     if ((updates.role || updates.roleExpiresAt !== undefined) && role !== 'admin') {
       throw new Error('Only admin can change player roles');
     }
@@ -557,12 +549,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (updates.role) sessionUpdates.role = updates.role;
     if (updates.roleExpiresAt !== undefined) sessionUpdates.roleExpiresAt = updates.roleExpiresAt;
     
-    // Update local storage immediately for fast UI
     if (localStorageService) {
       await localStorageService.updateDocument(`sessions/${activeSession.id}/players`, id, sessionUpdates);
     }
     
-    // Sync to Firebase in background
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', id), sessionUpdates);
   };
 
@@ -583,12 +573,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       currentPlayers: []
     };
     
-    // Write to local storage immediately for fast UI
     if (localStorageService) {
       await localStorageService.setDocument(`sessions/${activeSession.id}/courts`, courtId, court);
     }
     
-    // Sync to Firebase in background
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), court);
     return courtId;
   };
@@ -601,14 +589,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const updateFcmToken = async (token: string) => {
     if (!firestore || !activeSession?.id || !user?.uid) return;
     try {
-      // Check if player document exists before updating
       const playerDoc = await getDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid));
       if (playerDoc.exists()) {
         await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), {
           fcmToken: token,
         });
-      } else {
-        console.log('Player document does not exist in session, skipping FCM token update');
       }
     } catch (error) {
       console.error('Failed to update FCM token:', error);
@@ -649,29 +634,14 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     // Send notification based on match type
     try {
       const court = matchData.courtId ? courts.find(c => c.id === matchData.courtId) : undefined;
-      console.log('Sending match notification to players:', [...matchData.teamA, ...matchData.teamB]);
-      console.log('Court:', court?.name, 'Court ID:', matchData.courtId);
+      const teamANames = matchData.teamA.map((id: string) => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
+      const teamBNames = matchData.teamB.map((id: string) => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
+      const playerIds = [...matchData.teamA, ...matchData.teamB];
       
       if (matchData.courtId) {
-        // Match assigned to court - send "Match Starting" notification
-        await sendMatchStartingNotification(
-          [...matchData.teamA, ...matchData.teamB],
-          matchData.courtId,
-          court?.name
-        );
-        console.log('Match starting notification sent successfully');
+        await sendCourtAssignedNotification(playerIds, teamANames, teamBNames, court?.name || 'assigned court', matchId);
       } else {
-        // Match queued without court - send "You're in Queue" notification
-        await sendNotification({
-          playerIds: [...matchData.teamA, ...matchData.teamB],
-          title: 'The Breakfast Club',
-          body: "You're in the match queue! Waiting for court assignment.",
-          data: {
-            type: 'match_queued',
-            matchId,
-          },
-        });
-        console.log('Match queued notification sent successfully');
+        await sendMatchQueuedNotification(playerIds, teamANames, teamBNames, matchId);
       }
     } catch (error) {
       console.error('Failed to send match notification:', error);
@@ -703,8 +673,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const match = matches.find(m => m.id === court.currentMatchId);
     if (!match) return;
 
-    // Stars are now awarded only at session end to top 4 players, not per match
-    // Store match data for session-end star calculation
     const isDoubleStar = activeSession.isDoubleStar || false;
 
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', court.currentMatchId), {
@@ -754,6 +722,15 @@ export function ClubProvider({ children }: { children: ReactNode }) {
           status: 'occupied',
           currentMatchId: nextMatch.id,
         });
+
+        // Trigger notification for the auto-advanced match
+        try {
+          const teamANames = nextMatch.teamA.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
+          const teamBNames = nextMatch.teamB.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
+          await sendCourtAssignedNotification([...nextMatch.teamA, ...nextMatch.teamB], teamANames, teamBNames, court.name, nextMatch.id);
+        } catch (error) {
+          console.error('Failed to send auto-advance notification:', error);
+        }
       }
     }
   };
@@ -793,7 +770,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       status: 'playing',
     });
 
-    // Send 'Your Turn!' notification to the new player
     try {
       if (match.courtId) {
         const court = courts.find(c => c.id === match.courtId);
@@ -831,23 +807,19 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), { courtId });
     await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { status: 'occupied', currentMatchId: matchId });
 
-    // Send 'Your Turn!' notifications to players in the match
+    // Send notifications to players in the match
     try {
       const match = matches.find(m => m.id === matchId);
       const court = courts.find(c => c.id === courtId);
 
       if (match && court) {
+        const teamANames = match.teamA.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
+        const teamBNames = match.teamB.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
         const playerIds = [...match.teamA, ...match.teamB];
-        console.log('Sending your turn notification to players:', playerIds);
-        console.log('Court:', court.name, 'Match ID:', matchId);
-        await sendYourTurnNotification(playerIds.join(','), courtId, court.name);
-        console.log('Your turn notification sent successfully');
-      } else {
-        console.warn('Match or court not found for notification');
+        await sendCourtAssignedNotification(playerIds, teamANames, teamBNames, court.name, matchId);
       }
     } catch (error) {
-      console.error('Failed to send your turn notifications:', error);
-      // Don't throw error - notification failure shouldn't block match assignment
+      console.error('Failed to send court assignment notifications:', error);
     }
   };
 
@@ -875,24 +847,20 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const id = Math.random().toString(36).substr(2, 9);
     const paymentMethod = { id, name, imageUrl };
     
-    // Write to local storage immediately for fast UI
     if (localStorageService) {
       await localStorageService.setDocument(`sessions/${activeSession.id}/paymentMethods`, id, paymentMethod);
     }
     
-    // Sync to Firebase in background
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id), paymentMethod);
   };
 
   const deletePaymentMethod = async (id: string) => {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized: Only admin can delete payment methods');
     
-    // Delete from local storage immediately for fast UI
     if (localStorageService) {
       await localStorageService.deleteDocument(`sessions/${activeSession.id}/paymentMethods`, id);
     }
     
-    // Sync to Firebase in background
     await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id));
   };
 
@@ -924,12 +892,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const addBoostSchedule = async (date: string, venueName = '', scheduledTime = '') => {
     if (!firestore || !user?.uid) throw new Error('Unauthorized');
-    // Generate session ID and 6-digit session code
     const sessionId = Math.random().toString(36).substr(2, 9);
     const sessionCode = Math.floor(100000 + Math.random() * 900000).toString();
     const code = Math.random().toString(36).substr(2, 6).toUpperCase();
 
-    // Create a session with isDoubleStar enabled
     const session: QueueSession = {
       id: sessionId,
       code,
@@ -943,7 +909,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     };
     await setDoc(doc(firestore, 'sessions', sessionId), session);
 
-    // Create boost schedule record
     const boostRef = doc(collection(firestore, 'boost_schedules'));
     await setDoc(boostRef, {
       id: boostRef.id,
