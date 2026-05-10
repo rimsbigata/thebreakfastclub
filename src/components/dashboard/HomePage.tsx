@@ -137,6 +137,22 @@ export default function HomePage() {
   const restingCount = useMemo(() => players.filter(p => p.status === 'resting').length, [players]);
   const availableCount = useMemo(() => players.filter(p => p.status === 'available').length, [players]);
 
+  // Generate unique display name: first name, or first name + surname initial if duplicate
+  const getUniqueDisplayName = (playerName: string, allPlayerNames: string[]): string => {
+    const firstName = playerName.split(' ')[0];
+    const firstNameCount = allPlayerNames.filter(n => n.split(' ')[0] === firstName).length;
+    
+    if (firstNameCount > 1) {
+      const nameParts = playerName.split(' ');
+      const surnameInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1][0] : '';
+      return surnameInitial ? `${firstName} ${surnameInitial}.` : firstName;
+    }
+    
+    return firstName;
+  };
+
+  const allPlayerNames = useMemo(() => players.map(p => p.name), [players]);
+
   const waitingMatches = useMemo(() => {
     return matches.filter(m => !m.isCompleted && !m.courtId).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [matches]);
@@ -349,7 +365,7 @@ export default function HomePage() {
                     )}
                   >
                     <div className="flex items-center justify-between mb-1.5 gap-2">
-                      <span className="font-black text-compact truncate flex-1">{p.name}</span>
+                      <span className="font-black text-compact truncate flex-1">{getUniqueDisplayName(p.name, allPlayerNames)}</span>
                       {benchTab === 'available' ? (
                         <WaitTimeBadge lastAvailableAt={p.lastAvailableAt} />
                       ) : (
@@ -405,7 +421,7 @@ export default function HomePage() {
                           const p = players.find(x => x.id === id);
                           return (
                             <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1">
-                              <span className="truncate">{p?.name}</span>
+                              <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
                               {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                             </div>
                           );
@@ -420,7 +436,7 @@ export default function HomePage() {
                             const p = players.find(x => x.id === id);
                             return (
                               <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1">
-                                <span className="truncate">{p?.name}</span>
+                                <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
                                 {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                               </div>
                             );
@@ -441,14 +457,14 @@ export default function HomePage() {
                     <div className="space-y-2">
                       {m.teamA.map(id => {
                         const p = players.find(x => x.id === id);
-                        return <div key={id} className="flex flex-col"><span className="text-[11px] font-black truncate">{p?.name}</span>{p && <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                        return <div key={id} className="flex flex-col"><span className="text-[11px] font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
                       })}
                     </div>
                     <span className="text-[8px] font-black opacity-30">VS</span>
                     <div className="space-y-2 text-right">
                       {m.teamB.map(id => {
                         const p = players.find(x => x.id === id);
-                        return <div key={id} className="flex flex-col items-end"><span className="text-[11px] font-black truncate">{p?.name}</span>{p && <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                        return <div key={id} className="flex flex-col items-end"><span className="text-[11px] font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
                       })}
                     </div>
                   </div>
@@ -516,14 +532,14 @@ export default function HomePage() {
                               <div className="space-y-2 p-3 rounded-xl border-l-4 border-primary bg-primary/5">
                                 {match.teamA.map(id => {
                                   const p = players.find(x => x.id === id);
-                                  return <div key={id} className="flex flex-col"><span className="text-compact font-black truncate">{p?.name}</span>{p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                                  return <div key={id} className="flex flex-col"><span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
                                 })}
                               </div>
                               <span className="text-[10px] font-black opacity-20">VS</span>
                               <div className="space-y-2 p-3 rounded-xl border-r-4 border-primary bg-primary/5 text-right">
                                 {match.teamB.map(id => {
                                   const p = players.find(x => x.id === id);
-                                  return <div key={id} className="flex flex-col items-end"><span className="text-compact font-black truncate">{p?.name}</span>{p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                                  return <div key={id} className="flex flex-col items-end"><span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
                                 })}
                               </div>
                             </div>
@@ -547,7 +563,7 @@ export default function HomePage() {
                                     const p = players.find(x => x.id === id);
                                     return (
                                       <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex items-center justify-between">
-                                        <span className="truncate flex-1">{p?.name}</span>
+                                        <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
                                         {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                       </div>
                                     );
@@ -567,7 +583,7 @@ export default function HomePage() {
                                       const p = players.find(x => x.id === id);
                                       return (
                                         <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex items-center justify-between">
-                                          <span className="truncate flex-1">{p?.name}</span>
+                                          <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
                                           {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                         </div>
                                       );
