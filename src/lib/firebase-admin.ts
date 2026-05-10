@@ -13,25 +13,16 @@ export function initializeFirebaseAdmin() {
   } else {
     let serviceAccount
 
-    if (process.env.NODE_ENV === 'production') {
-      const base64String = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
+    const base64String = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
 
-      if (!base64String) {
-        throw new Error('Missing Firebase Admin environment variable. Please set FIREBASE_SERVICE_ACCOUNT_BASE64.')
-      }
-
-      // Decode from Base64 to a JSON string, then parse into an object
-      serviceAccount = JSON.parse(
-        Buffer.from(base64String, 'base64').toString('utf8')
-      )
-    } else {
-      // Local development: use firebase-key.json file
-      try {
-        serviceAccount = require('./firebase-key.json')
-      } catch (error) {
-        throw new Error('Firebase service account key file not found. Please ensure firebase-key.json exists in the project root.')
-      }
+    if (!base64String) {
+      throw new Error('Missing Firebase Admin environment variable. Please set FIREBASE_SERVICE_ACCOUNT_BASE64.')
     }
+
+    // Decode from Base64 to a JSON string, then parse into an object
+    serviceAccount = JSON.parse(
+      Buffer.from(base64String, 'base64').toString('utf8')
+    )
 
     adminApp = initializeApp({
       credential: cert(serviceAccount),

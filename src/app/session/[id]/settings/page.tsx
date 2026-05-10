@@ -253,7 +253,7 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
     }
     setIsTestingPlayerNotification(true);
     try {
-      const sessionId = params.id;
+      const sessionId = resolvedParams.id;
       const result = await sendMatchNotification(selectedPlayerId, sessionId, 'Test Notification', 'This is a test notification from the settings page.');
       if (result.success) {
         toast({ title: "Test Sent", description: "Notification sent to selected player." });
