@@ -107,6 +107,21 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
+  // Sync drafts when courts list changes (clean up drafts for deleted courts)
+  useEffect(() => {
+    setCourtDrafts(prev => {
+      const next = { ...prev };
+      let changed = false;
+      Object.keys(next).forEach(id => {
+        if (!courts.find(c => c.id === id)) {
+          delete next[id];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [courts]);
+
   const allDraftedIds = useMemo(() => [
     ...draftPlayerIds,
     ...Object.values(courtDrafts).flat(),
@@ -208,6 +223,7 @@ export default function HomePage() {
   const onDropInCourt = async (event: React.DragEvent, courtId: string) => {
     if (!isStaff) return;
     event.preventDefault();
+    event.stopPropagation(); // CRITICAL: Stop bubbling to prevent onDropInCourtPanel
     setDragOverCourtId(null);
     const matchId = event.dataTransfer.getData('application/x-tbc-match-id');
     if (matchId) {
@@ -229,6 +245,9 @@ export default function HomePage() {
 
   const onDropInCourtPanel = async (event: React.DragEvent) => {
     if (!isStaff) return;
+    // Don't trigger if dropping on a specific court card (handled by dragOverCourtId check)
+    if (dragOverCourtId) return;
+    
     event.preventDefault();
     setIsCourtPanelOver(false);
     const matchId = event.dataTransfer.getData('application/x-tbc-match-id');
@@ -311,7 +330,7 @@ export default function HomePage() {
                       <span className="font-black text-compact truncate flex-1">{p.name}</span>
                       <WaitTimeBadge lastAvailableAt={p.lastAvailableAt} />
                     </div>
-                    <Badge variant="outline" className={cn("text-[9px] font-black uppercase h-4 px-1.5", getSkillColor(p.skillLevel))}>
+                    <Badge variant="outline" className={cn("text-[8px] font-black uppercase h-4 px-1.5", getSkillColor(p.skillLevel))}>
                       {SKILL_LEVELS_SHORT[p.skillLevel]}
                     </Badge>
                   </Card>

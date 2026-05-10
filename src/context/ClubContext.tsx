@@ -557,6 +557,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const deleteCourt = async (id: string) => {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    const court = courts.find(c => c.id === id);
+    if (court?.currentMatchId) {
+      await deleteMatch(court.currentMatchId);
+    }
     await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id));
   };
 
