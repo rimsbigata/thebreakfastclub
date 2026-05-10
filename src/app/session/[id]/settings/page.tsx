@@ -10,12 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power, Target, Coffee, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 import { sendBoostCodeEmail } from '@/app/actions/email';
+import { sendMatchNotification } from '@/app/actions/notifications';
 import { useUser } from '@/firebase';
 import { QRCodeGenerator } from '@/components/qr/QRCodeGenerator';
 import { processAndUploadPaymentQR, processAndUploadClubLogo } from '@/lib/imageUpload';
@@ -28,7 +30,7 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
     defaultCourtCount, setDefaultCourtCount, deuceEnabled, setDeuceEnabled,
     autoRestEnabled, setAutoRestEnabled,
     boostSchedules, addBoostSchedule, deleteBoostSchedule, upcomingBoost, clearClubData,
-    sendTestNotification
+    sendTestNotification, players
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -42,6 +44,8 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isClearingClubData, setIsClearingClubData] = useState(false);
   const [isTestingNotifications, setIsTestingNotifications] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [isTestingPlayerNotification, setIsTestingPlayerNotification] = useState(false);
   const [newBoostDate, setNewBoostDate] = useState('');
   const [newBoostVenue, setNewBoostVenue] = useState('');
   const [newBoostTime, setNewBoostTime] = useState('');
@@ -239,6 +243,27 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
       toast({ title: "Test Failed", description: "Could not send notification. Check your settings.", variant: "destructive" });
     } finally {
       setIsTestingNotifications(false);
+    }
+  };
+
+  const handleTestPlayerNotification = async () => {
+    if (!selectedPlayerId) {
+      toast({ title: "Select a player", description: "Please select a player to send the test notification to.", variant: "destructive" });
+      return;
+    }
+    setIsTestingPlayerNotification(true);
+    try {
+      const sessionId = params.id;
+      const result = await sendMatchNotification(selectedPlayerId, sessionId, 'Test Notification', 'This is a test notification from the settings page.');
+      if (result.success) {
+        toast({ title: "Test Sent", description: "Notification sent to selected player." });
+      } else {
+        toast({ title: "Test Failed", description: result.error || "Could not send notification.", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Test Failed", description: "Could not send notification. Check your settings.", variant: "destructive" });
+    } finally {
+      setIsTestingPlayerNotification(false);
     }
   };
 
@@ -570,9 +595,39 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
                   className="w-full h-10 font-black uppercase text-[10px] border-2"
                 >
                   {isTestingNotifications ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Bell className="h-3 w-3 mr-2" />}
-                  Send Test Notification
+                  Send Test to Yourself
                 </Button>
               </div>
+              {players && players.length > 0 && (
+                <div className="p-4 bg-secondary/10 rounded-xl border-2 border-dashed">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground mb-4">
+                    Send a test notification to a specific player (works in production).
+                  </p>
+                  <div className="space-y-3">
+                    <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+                      <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2">
+                        <SelectValue placeholder="Select a player" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {players.map((player) => (
+                          <SelectItem key={player.id} value={player.id} className="text-[10px] font-bold uppercase">
+                            {player.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      onClick={handleTestPlayerNotification} 
+                      disabled={isTestingPlayerNotification || !selectedPlayerId}
+                      variant="outline" 
+                      className="w-full h-10 font-black uppercase text-[10px] border-2"
+                    >
+                      {isTestingPlayerNotification ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Bell className="h-3 w-3 mr-2" />}
+                      Send Test to Player
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
