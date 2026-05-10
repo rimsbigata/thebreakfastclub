@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power, Target, Coffee } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power, Target, Coffee, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
@@ -27,7 +27,8 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
     autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode,
     defaultCourtCount, setDefaultCourtCount, deuceEnabled, setDeuceEnabled,
     autoRestEnabled, setAutoRestEnabled,
-    boostSchedules, addBoostSchedule, deleteBoostSchedule, upcomingBoost, clearClubData
+    boostSchedules, addBoostSchedule, deleteBoostSchedule, upcomingBoost, clearClubData,
+    sendTestNotification
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -40,6 +41,7 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
   const [isUploading, setIsUploading] = useState(false);
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isClearingClubData, setIsClearingClubData] = useState(false);
+  const [isTestingNotifications, setIsTestingNotifications] = useState(false);
   const [newBoostDate, setNewBoostDate] = useState('');
   const [newBoostVenue, setNewBoostVenue] = useState('');
   const [newBoostTime, setNewBoostTime] = useState('');
@@ -184,11 +186,6 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
         const adminEmail = user?.email;
         if (!adminEmail) {
           console.warn('No admin email found, skipping email notification');
-          toast({
-            title: "Email Notification Skipped",
-            description: "No email found for current user.",
-            variant: "destructive",
-          });
         } else {
           sendBoostCodeEmail(sessionCode, newBoostDate, sessionLink, adminEmail)
             .then(emailResult => {
@@ -230,6 +227,18 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
         description: error instanceof Error ? error.message : "Database update failed.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleTestNotifications = async () => {
+    setIsTestingNotifications(true);
+    try {
+      await sendTestNotification();
+      toast({ title: "Test Sent", description: "If permissions are granted, you should see a notification shortly." });
+    } catch (err) {
+      toast({ title: "Test Failed", description: "Could not send notification. Check your settings.", variant: "destructive" });
+    } finally {
+      setIsTestingNotifications(false);
     }
   };
 
@@ -538,6 +547,31 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
                     <span className="font-black text-[9px] uppercase truncate w-full text-center">{method.name}</span>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <Bell className="h-4 w-4" /> Notification System
+              </CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase">Verify browser alerts are working.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-secondary/10 rounded-xl border-2 border-dashed">
+                <p className="text-[10px] font-bold uppercase text-muted-foreground mb-4">
+                  Send a test alert to your browser to confirm setup.
+                </p>
+                <Button 
+                  onClick={handleTestNotifications} 
+                  disabled={isTestingNotifications}
+                  variant="outline" 
+                  className="w-full h-10 font-black uppercase text-[10px] border-2"
+                >
+                  {isTestingNotifications ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Bell className="h-3 w-3 mr-2" />}
+                  Send Test Notification
+                </Button>
               </div>
             </CardContent>
           </Card>
