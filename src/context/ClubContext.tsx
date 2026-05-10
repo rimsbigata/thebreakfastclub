@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
@@ -15,7 +16,7 @@ import {
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore';
-import { sendMatchStartingNotification, sendYourTurnNotification, sendNotification, sendMatchQueuedNotification, sendCourtAssignedNotification } from '@/lib/notificationUtils';
+import { sendYourTurnNotification, sendNotification, sendMatchQueuedNotification, sendCourtAssignedNotification } from '@/lib/notificationUtils';
 import { getLocalStorageService } from '@/lib/localStorageService';
 
 interface ClubSettings {
@@ -98,7 +99,7 @@ interface ClubContextType {
   // System
   resetDailyBoard: () => Promise<void>;
   clearClubData: () => Promise<void>;
-  sendTestNotification: () => Promise<void>;
+  sendTestNotification: () => Promise<boolean>;
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -111,10 +112,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [activeSession, setActiveSession] = useState<QueueSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isRestoringSession, setIsRestoringSession] = useState(false);
-
-  const localStorageService = useMemo(() => {
-    return firestore ? getLocalStorageService(firestore) : null;
-  }, [firestore]);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -142,56 +139,25 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!firestore || !user?.uid || activeSession) return;
-
     const storedSessionId = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
     if (!storedSessionId) return;
-
-    let isCancelled = false;
-
     const restoreSession = async () => {
       setIsRestoringSession(true);
       try {
         const sessionSnapshot = await getDoc(doc(firestore, 'sessions', storedSessionId));
-
-        if (isCancelled) return;
-
-        if (!sessionSnapshot.exists()) {
-          window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
-          return;
-        }
-
+        if (!sessionSnapshot.exists()) return;
         const session = { ...sessionSnapshot.data(), id: sessionSnapshot.id } as QueueSession;
-
-        if (session.status !== 'active') {
-          window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
-          return;
+        if (session.status === 'active') {
+          setActiveSession(session);
         }
-
-        setActiveSession(session);
       } catch (error) {
-        console.error('Failed to restore active session:', error);
-        window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+        console.error('Failed to restore session:', error);
       } finally {
         setIsRestoringSession(false);
       }
     };
-
     restoreSession();
-
-    return () => {
-      isCancelled = true;
-    };
   }, [firestore, user?.uid, activeSession]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    if (activeSession?.id) {
-      window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, activeSession.id);
-    } else {
-      window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
-    }
-  }, [activeSession?.id]);
 
   const playersQuery = useMemoFirebase(() => {
     if (!firestore || !activeSession?.id || !user?.uid) return null;
@@ -240,7 +206,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const today = new Date();
     const threeDaysFromNow = new Date();
     threeDaysFromNow.setDate(today.getDate() + 3);
-
     return boostSchedules
       .filter(bs => bs.isActive)
       .find(bs => {
@@ -253,13 +218,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (adminRoleData) return 'admin';
     if (userProfile?.role === 'admin') return 'admin';
     if (userProfile?.role === 'queueMaster') {
-      if (userProfile.roleExpiresAt && new Date(userProfile.roleExpiresAt) < new Date()) {
-        return 'player';
-      }
+      if (userProfile.roleExpiresAt && new Date(userProfile.roleExpiresAt) < new Date()) return 'player';
       return 'queueMaster';
     }
-    if (userProfile?.role === 'player') return 'player';
-    return null;
+    return userProfile?.role || null;
   }, [adminRoleData, userProfile]);
 
   const players: Player[] = (sessionPlayers || []).map(sp => ({
@@ -278,7 +240,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   }));
 
   const currentPlayer = players.find(p => p.id === user?.uid) || null;
-  const effectiveRole = role;
   const courts: Court[] = sessionCourts || [];
   const matches: Match[] = sessionMatches || [];
   const fees: Fee[] = sessionFees || [];
@@ -292,220 +253,24 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const autoRestEnabled = sessionSettings?.autoRestEnabled ?? false;
   const queueSessionCode = activeSession?.code || '';
 
-  const joinSession = async (code: string, participate: boolean = true, joinAsPlayer: boolean = false) => {
-    if (!firestore || !user?.uid) throw new Error('You must be signed in to join a session.');
-    if (participate && !userProfile) throw new Error('Your player profile is still loading. Try again in a moment.');
-    const sessionCode = code.trim().toUpperCase();
-    if (!sessionCode) throw new Error('Session code is required.');
-
-    const sessionsRef = collection(firestore, 'sessions');
-    const q = query(sessionsRef, where('code', '==', sessionCode), where('status', '==', 'active'));
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) throw new Error('Valid session code required');
-
-    const sessionDoc = snapshot.docs[0];
-    const session = { ...sessionDoc.data(), id: sessionDoc.id } as QueueSession;
-
-    if (participate) {
-      const playerRef = doc(firestore, 'sessions', session.id, 'players', user.uid);
-      const playerData = {
-        userId: user.uid,
-        sessionId: session.id,
-        status: 'available',
-        joinedAt: new Date().toISOString(),
-        sessionRole: joinAsPlayer ? 'player' : role,
-        lastAvailableAt: Date.now(),
-        name: userProfile?.name || 'Unknown',
-        skillLevel: userProfile?.skillLevel || 3
-      };
-      await setDoc(playerRef, playerData);
-    }
-
-    setActiveSession(session);
-    return session.id;
-  };
-
-  const createSession = async (isDoubleStar = false, sessionCode = '', venueName = '', scheduledDate = '', scheduledTime = '') => {
-    if (!firestore || !user?.uid || role !== 'admin') throw new Error('Unauthorized');
-
-    const sessionId = Math.random().toString(36).substr(2, 9);
-    const code = sessionCode || Math.random().toString(36).substr(2, 6).toUpperCase();
-
-    const session: QueueSession = {
-      id: sessionId,
-      code,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      createdBy: user.uid,
-      venueName: venueName || '',
-      scheduledDate: scheduledDate || '',
-      scheduledTime: scheduledTime || '',
-      isDoubleStar: isDoubleStar
-    };
-
-    await setDoc(doc(firestore, 'sessions', sessionId), session);
-
-    const defaultCourtCountVal = sessionSettings?.defaultCourtCount || 0;
-    for (let i = 1; i <= defaultCourtCountVal; i++) {
-      const courtId = Math.random().toString(36).substr(2, 9);
-      const court: Court = {
-        id: courtId,
-        name: `Court ${i}`,
-        status: 'available',
-        queue: [],
-        estimatedWaitMinutes: 0,
-        currentPlayers: []
-      };
-      await setDoc(doc(firestore, 'sessions', sessionId, 'courts', courtId), court);
-    }
-
-    setActiveSession(session);
-    return sessionId;
-  };
-
-  const regenerateQueueSessionCode = async () => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
-    const newCode = Math.random().toString(36).substr(2, 6).toUpperCase();
-    await updateDoc(doc(firestore, 'sessions', activeSession.id), { code: newCode });
-    setActiveSession(prev => prev ? { ...prev, code: newCode } : null);
-    return newCode;
-  };
-
-  const endSession = async () => {
-    if (!firestore || !activeSession?.id) throw new Error('No active session');
-    if (role !== 'admin') throw new Error('Unauthorized: Only admins can end sessions');
-
-    try {
-      await updateDoc(doc(firestore, 'sessions', activeSession.id), {
-        status: 'inactive',
-      });
-      setActiveSession(null);
-    } catch (error) {
-      console.error('Error during session end:', error);
-      throw error;
-    }
-  };
-
-  const loadSessionById = async (sessionId: string) => {
-    if (!firestore || !user?.uid) throw new Error('You must be signed in to load a session.');
-    const sessionSnapshot = await getDoc(doc(firestore, 'sessions', sessionId));
-
-    if (!sessionSnapshot.exists()) {
-      throw new Error('Session not found');
-    }
-
-    const session = { ...sessionSnapshot.data(), id: sessionSnapshot.id } as QueueSession;
-
-    if (session.status !== 'active') {
-      throw new Error('Session is not active');
-    }
-
-    setActiveSession(session);
-  };
-
-  const endSessionById = async (sessionId: string) => {
-    if (!firestore || !user?.uid) throw new Error('You must be signed in.');
-    if (role !== 'admin') throw new Error('Unauthorized: Only admins can end sessions');
-
-    await updateDoc(doc(firestore, 'sessions', sessionId), {
-      status: 'inactive',
-    });
-  };
-
-  const getAllSessions = async (): Promise<QueueSession[]> => {
-    if (!firestore || !user?.uid) throw new Error('You must be signed in.');
-    if (role !== 'admin') throw new Error('Unauthorized: Only admins can view all sessions');
-
-    const sessionsSnapshot = await getDocs(collection(firestore, 'sessions'));
-    return sessionsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as QueueSession));
-  };
-
-  const addPlayer = async (input: { name: string; skillLevel: number; playStyle: string }) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
-    const userId = 'member_' + Math.random().toString(36).substr(2, 9);
-    const playerData = {
-      userId,
-      sessionId: activeSession.id,
-      status: 'available',
-      joinedAt: new Date().toISOString(),
-      lastAvailableAt: Date.now(),
-      name: input.name,
-      skillLevel: input.skillLevel
-    };
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'players', userId), playerData);
-  };
-
-  const updatePlayer = async (id: string, updates: Partial<Player>) => {
-    if (!firestore || !activeSession?.id) throw new Error('No active session');
-    if (role !== 'admin' && role !== 'queueMaster') throw new Error('Unauthorized');
-    
-    const sessionUpdates: any = {};
-    if (updates.name) sessionUpdates.name = updates.name;
-    if (updates.skillLevel) sessionUpdates.skillLevel = updates.skillLevel;
-    if (updates.status) sessionUpdates.status = updates.status;
-    if (updates.notes !== undefined) sessionUpdates.notes = updates.notes;
-    if (updates.playStyle) sessionUpdates.playStyle = updates.playStyle;
-    if (updates.role) sessionUpdates.role = updates.role;
-    if (updates.roleExpiresAt !== undefined) sessionUpdates.roleExpiresAt = updates.roleExpiresAt;
-    
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', id), sessionUpdates);
-  };
-
-  const deletePlayer = async (id: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
-    await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'players', id));
-  };
-
-  const addCourt = async (name?: string) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
-    const courtId = Math.random().toString(36).substr(2, 9);
-    const court: Court = {
-      id: courtId,
-      name: name || `Court ${courts.length + 1}`,
-      status: 'available',
-      queue: [],
-      estimatedWaitMinutes: 0,
-      currentPlayers: []
-    };
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), court);
-    return courtId;
-  };
-
-  const updateCourt = async (id: string, updates: Partial<Court>) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id), updates);
-  };
-
-  const deleteCourt = async (id: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
-    const court = courts.find(c => c.id === id);
-    if (court?.currentMatchId) {
-      const match = matches.find(m => m.id === court.currentMatchId);
-      if (match) {
-        const batch = writeBatch(firestore);
-        for (const pid of [...match.teamA, ...match.teamB]) {
-          batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'available', lastAvailableAt: Date.now() });
-        }
-        batch.delete(doc(firestore, 'sessions', activeSession.id, 'matches', match.id));
-        await batch.commit();
-      }
-    }
-    await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id));
-  };
-
   const updateFcmToken = async (token: string) => {
-    if (!firestore || !activeSession?.id || !user?.uid) return;
+    if (!firestore || !user?.uid) return;
     try {
-      await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), {
-        fcmToken: token,
-      });
+      const batch = writeBatch(firestore);
+      // Update global profile
+      batch.update(doc(firestore, 'userProfiles', user.uid), { fcmToken: token });
+      // Update session record if active
+      if (activeSession?.id) {
+        batch.update(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), { fcmToken: token });
+      }
+      await batch.commit();
     } catch (error) {
-      console.error('Failed to update FCM token:', error);
+      console.error('Update FCM failed:', error);
     }
   };
 
   const startMatch = async (matchData: any) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || role === 'player') throw new Error('Unauthorized');
     const matchId = Math.random().toString(36).substr(2, 9);
     const match: Match = {
       id: matchId,
@@ -529,63 +294,35 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
     const batch = writeBatch(firestore);
     batch.set(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), match);
-
     if (matchData.courtId) {
       batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', matchData.courtId), { 
         status: 'occupied', 
         currentMatchId: matchId 
       });
     }
-
     for (const pid of [...matchData.teamA, ...matchData.teamB]) {
       batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'playing' });
     }
-
     await batch.commit();
 
-    try {
-      const court = matchData.courtId ? courts.find(c => c.id === matchData.courtId) : undefined;
-      const teamANames = matchData.teamA.map((id: string) => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
-      const teamBNames = matchData.teamB.map((id: string) => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
-      const playerIds = [...matchData.teamA, ...matchData.teamB];
-      
-      if (matchData.courtId) {
-        await sendCourtAssignedNotification(playerIds, teamANames, teamBNames, court?.name || 'assigned court', matchId);
-      } else {
-        await sendMatchQueuedNotification(playerIds, teamANames, teamBNames, matchId);
-      }
-    } catch (error) {
-      console.error('Failed to send match notification:', error);
+    const teamANames = matchData.teamA.map((id: string) => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
+    const teamBNames = matchData.teamB.map((id: string) => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
+    if (matchData.courtId) {
+      const court = courts.find(c => c.id === matchData.courtId);
+      await sendCourtAssignedNotification([...matchData.teamA, ...matchData.teamB], teamANames, teamBNames, court?.name || 'Court', matchId);
+    } else {
+      await sendMatchQueuedNotification([...matchData.teamA, ...matchData.teamB], teamANames, teamBNames, matchId);
     }
   };
 
-  const startTimer = async (courtId: string) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
-    const court = courts.find(c => c.id === courtId);
-    if (!court?.currentMatchId) return;
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', court.currentMatchId), {
-      startTime: new Date().toISOString(),
-    });
-  };
-
-  const updateMatchScore = async (matchId: string, teamAScore: number, teamBScore: number) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), {
-      teamAScore: Math.max(0, teamAScore),
-      teamBScore: Math.max(0, teamBScore),
-    });
-  };
-
   const endMatch = async (courtId: string, status: MatchStatus, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || role === 'player') throw new Error('Unauthorized');
     const court = courts.find(c => c.id === courtId);
     if (!court?.currentMatchId) return;
-
     const match = matches.find(m => m.id === court.currentMatchId);
     if (!match) return;
 
     const batch = writeBatch(firestore);
-
     batch.update(doc(firestore, 'sessions', activeSession.id, 'matches', court.currentMatchId), {
       isCompleted: status === 'completed',
       status,
@@ -594,7 +331,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       ...(teamAScore !== undefined ? { teamAScore } : {}),
       ...(teamBScore !== undefined ? { teamBScore } : {}),
     });
-
     batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { 
       status: 'available', 
       currentMatchId: null 
@@ -610,9 +346,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       const won = status === 'completed' && winner
         ? (winner === 'teamA' && isTeamA) || (winner === 'teamB' && !isTeamA)
         : false;
-
       const nextStatus = autoRestEnabled ? 'resting' : 'available';
-
       batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), {
         status: nextStatus,
         lastAvailableAt: Date.now(),
@@ -623,95 +357,22 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         totalPlayTimeMinutes: (p?.totalPlayTimeMinutes || 0) + playDuration,
       });
     }
-
     await batch.commit();
 
     if (status === 'completed' && autoAdvanceEnabled) {
       const nextMatch = matches
         .filter(m => !m.isCompleted && !m.courtId && m.id !== court.currentMatchId)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0];
-
-      if (nextMatch) {
-        await assignMatchToCourt(nextMatch.id, courtId);
-      }
+      if (nextMatch) await assignMatchToCourt(nextMatch.id, courtId);
     }
-  };
-
-  const swapPlayer = async (matchId: string, oldPlayerId: string, newPlayerId: string) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
-    const match = matches.find(m => m.id === matchId);
-    if (!match) return;
-
-    const replacement = players.find(p => p.id === newPlayerId);
-    const replacementSnapshot = {
-      id: newPlayerId,
-      name: replacement?.name || 'Unknown',
-      skillLevel: replacement?.skillLevel || 3,
-    };
-    
-    const isTeamA = match.teamA.includes(oldPlayerId);
-    const teamA = isTeamA ? match.teamA.map(id => id === oldPlayerId ? newPlayerId : id) : match.teamA;
-    const teamB = !isTeamA ? match.teamB.map(id => id === oldPlayerId ? newPlayerId : id) : match.teamB;
-    const teamASnapshots = isTeamA
-      ? (match.teamASnapshots || []).map(snapshot => snapshot.id === oldPlayerId ? replacementSnapshot : snapshot)
-      : match.teamASnapshots;
-    const teamBSnapshots = !isTeamA
-      ? (match.teamBSnapshots || []).map(snapshot => snapshot.id === oldPlayerId ? replacementSnapshot : snapshot)
-      : match.teamBSnapshots;
-
-    const batch = writeBatch(firestore);
-    batch.update(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), {
-      teamA,
-      teamB,
-      ...(teamASnapshots ? { teamASnapshots } : {}),
-      ...(teamBSnapshots ? { teamBSnapshots } : {}),
-    });
-    batch.update(doc(firestore, 'sessions', activeSession.id, 'players', oldPlayerId), {
-      status: 'available',
-      lastAvailableAt: Date.now(),
-    });
-    batch.update(doc(firestore, 'sessions', activeSession.id, 'players', newPlayerId), {
-      status: 'playing',
-    });
-    await batch.commit();
-
-    try {
-      if (match.courtId) {
-        const targetCourt = courts.find(c => c.id === match.courtId);
-        if (targetCourt) {
-          await sendYourTurnNotification(newPlayerId, match.courtId, targetCourt.name);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to send notification for swap:', error);
-    }
-  };
-
-  const deleteMatch = async (matchId: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
-    const match = matches.find(m => m.id === matchId);
-    const batch = writeBatch(firestore);
-    
-    if (match?.courtId) {
-      batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', match.courtId), {
-        status: 'available',
-        currentMatchId: null,
-      });
-    }
-    if (match) {
-      for (const pid of [...match.teamA, ...match.teamB]) {
-        batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), {
-          status: 'available',
-          lastAvailableAt: Date.now(),
-        });
-      }
-    }
-    batch.delete(doc(firestore, 'sessions', activeSession.id, 'matches', matchId));
-    await batch.commit();
   };
 
   const assignMatchToCourt = async (matchId: string, courtId: string) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
+    if (!firestore || !activeSession?.id || role === 'player') throw new Error('Unauthorized');
+    const match = matches.find(m => m.id === matchId);
+    const court = courts.find(c => c.id === courtId);
+    if (!match || !court) return;
+
     const batch = writeBatch(firestore);
     batch.update(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), { courtId });
     batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', courtId), { 
@@ -720,165 +381,294 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     });
     await batch.commit();
 
-    try {
-      const match = matches.find(m => m.id === matchId);
-      const targetCourt = courts.find(c => c.id === courtId);
-
-      if (match && targetCourt) {
-        const teamANames = match.teamA.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
-        const teamBNames = match.teamB.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
-        const playerIds = [...match.teamA, ...match.teamB];
-        await sendCourtAssignedNotification(playerIds, teamANames, teamBNames, targetCourt.name, matchId);
-      }
-    } catch (error) {
-      console.error('Failed to send notifications:', error);
-    }
+    const teamANames = match.teamA.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
+    const teamBNames = match.teamB.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
+    await sendCourtAssignedNotification([...match.teamA, ...match.teamB], teamANames, teamBNames, court.name, matchId);
   };
 
   const createCourtAndAssignMatch = async (matchId: string) => {
-    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
     const courtId = await addCourt();
     await assignMatchToCourt(matchId, courtId);
   };
 
-  const updateFee = async (feeData: Partial<Fee> & { id: string }) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'fees', feeData.id), feeData, { merge: true });
+  const joinSession = async (code: string, participate: boolean = true, joinAsPlayer: boolean = false) => {
+    if (!firestore || !user?.uid) throw new Error('Not signed in');
+    const sessionCode = code.trim().toUpperCase();
+    const q = query(collection(firestore, 'sessions'), where('code', '==', sessionCode), where('status', '==', 'active'));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) throw new Error('Invalid code');
+    const sessionDoc = snapshot.docs[0];
+    const session = { ...sessionDoc.data(), id: sessionDoc.id } as QueueSession;
+    if (participate) {
+      await setDoc(doc(firestore, 'sessions', session.id, 'players', user.uid), {
+        userId: user.uid,
+        status: 'available',
+        joinedAt: new Date().toISOString(),
+        lastAvailableAt: Date.now(),
+        name: userProfile?.name || 'Unknown',
+        skillLevel: userProfile?.skillLevel || 3
+      });
+    }
+    setActiveSession(session);
+    return session.id;
   };
 
-  const togglePayment = async (date: string, playerId: string) => {
+  const createSession = async (isDoubleStar = false, sessionCode = '', venueName = '', scheduledDate = '', scheduledTime = '') => {
+    if (!firestore || !user?.uid || role !== 'admin') throw new Error('Unauthorized');
+    const sessionId = Math.random().toString(36).substr(2, 9);
+    const code = sessionCode || Math.random().toString(36).substr(2, 6).toUpperCase();
+    const session: QueueSession = {
+      id: sessionId,
+      code,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      createdBy: user.uid,
+      venueName,
+      scheduledDate,
+      scheduledTime,
+      isDoubleStar
+    };
+    await setDoc(doc(firestore, 'sessions', sessionId), session);
+    const count = sessionSettings?.defaultCourtCount || 0;
+    for (let i = 1; i <= count; i++) {
+      const id = Math.random().toString(36).substr(2, 9);
+      await setDoc(doc(firestore, 'sessions', sessionId, 'courts', id), {
+        id, name: `Court ${i}`, status: 'available', queue: [], estimatedWaitMinutes: 0, currentPlayers: []
+      });
+    }
+    setActiveSession(session);
+    return sessionId;
+  };
+
+  const regenerateQueueSessionCode = async () => {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    const newCode = Math.random().toString(36).substr(2, 6).toUpperCase();
+    await updateDoc(doc(firestore, 'sessions', activeSession.id), { code: newCode });
+    setActiveSession(prev => prev ? { ...prev, code: newCode } : null);
+    return newCode;
+  };
+
+  const endSession = async () => {
+    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    await updateDoc(doc(firestore, 'sessions', activeSession.id), { status: 'inactive' });
+    setActiveSession(null);
+  };
+
+  const loadSessionById = async (sessionId: string) => {
+    const snap = await getDoc(doc(firestore, 'sessions', sessionId));
+    if (!snap.exists()) throw new Error('Not found');
+    const session = { ...snap.data(), id: snap.id } as QueueSession;
+    if (session.status !== 'active') throw new Error('Inactive');
+    setActiveSession(session);
+  };
+
+  const endSessionById = async (sessionId: string) => {
+    if (role !== 'admin') throw new Error('Unauthorized');
+    await updateDoc(doc(firestore, 'sessions', sessionId), { status: 'inactive' });
+  };
+
+  const getAllSessions = async () => {
+    if (role !== 'admin') throw new Error('Unauthorized');
+    const snap = await getDocs(collection(firestore, 'sessions'));
+    return snap.docs.map(d => ({ ...d.data(), id: d.id } as QueueSession));
+  };
+
+  const addPlayer = async (input: { name: string; skillLevel: number; playStyle: string }) => {
+    if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
+    const id = 'member_' + Math.random().toString(36).substr(2, 9);
+    await setDoc(doc(firestore, 'sessions', activeSession.id, 'players', id), {
+      userId: id, status: 'available', joinedAt: new Date().toISOString(), lastAvailableAt: Date.now(),
+      name: input.name, skillLevel: input.skillLevel
+    });
+  };
+
+  const updatePlayer = async (id: string, updates: Partial<Player>) => {
+    if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
+    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', id), updates);
+  };
+
+  const deletePlayer = async (id: string) => {
+    if (!activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'players', id));
+  };
+
+  const addCourt = async (name?: string) => {
+    if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
+    const id = Math.random().toString(36).substr(2, 9);
+    await setDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id), {
+      id, name: name || `Court ${courts.length + 1}`, status: 'available', queue: [], estimatedWaitMinutes: 0, currentPlayers: []
+    });
+    return id;
+  };
+
+  const updateCourt = async (id: string, updates: Partial<Court>) => {
+    if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
+    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id), updates);
+  };
+
+  const deleteCourt = async (id: string) => {
+    if (!activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    const court = courts.find(c => c.id === id);
+    if (court?.currentMatchId) {
+      const match = matches.find(m => m.id === court.currentMatchId);
+      if (match) {
+        const batch = writeBatch(firestore);
+        for (const pid of [...match.teamA, ...match.teamB]) {
+          batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'available', lastAvailableAt: Date.now() });
+        }
+        batch.delete(doc(firestore, 'sessions', activeSession.id, 'matches', match.id));
+        await batch.commit();
+      }
+    }
+    await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id));
+  };
+
+  const startTimer = async (courtId: string) => {
+    if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
+    const court = courts.find(c => c.id === courtId);
+    if (court?.currentMatchId) {
+      await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', court.currentMatchId), { startTime: new Date().toISOString() });
+    }
+  };
+
+  const updateMatchScore = async (matchId: string, teamAScore: number, teamBScore: number) => {
+    if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
+    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), { teamAScore, teamBScore });
+  };
+
+  const swapPlayer = async (matchId: string, oldId: string, newId: string) => {
+    if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+    const replacement = players.find(p => p.id === newId);
+    const snap = { id: newId, name: replacement?.name || 'Unknown', skillLevel: replacement?.skillLevel || 3 };
+    const isA = match.teamA.includes(oldId);
+    const teamA = isA ? match.teamA.map(i => i === oldId ? newId : i) : match.teamA;
+    const teamB = !isA ? match.teamB.map(i => i === oldId ? newId : i) : match.teamB;
+    const batch = writeBatch(firestore);
+    batch.update(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), { teamA, teamB });
+    batch.update(doc(firestore, 'sessions', activeSession.id, 'players', oldId), { status: 'available', lastAvailableAt: Date.now() });
+    batch.update(doc(firestore, 'sessions', activeSession.id, 'players', newId), { status: 'playing' });
+    await batch.commit();
+    if (match.courtId) {
+      const c = courts.find(x => x.id === match.courtId);
+      await sendYourTurnNotification(newId, match.courtId, c?.name);
+    }
+  };
+
+  const deleteMatch = async (id: string) => {
+    if (!activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    const match = matches.find(m => m.id === id);
+    const batch = writeBatch(firestore);
+    if (match?.courtId) batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', match.courtId), { status: 'available', currentMatchId: null });
+    if (match) {
+      for (const pid of [...match.teamA, ...match.teamB]) {
+        batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'available', lastAvailableAt: Date.now() });
+      }
+    }
+    batch.delete(doc(firestore, 'sessions', activeSession.id, 'matches', id));
+    await batch.commit();
+  };
+
+  const updateFee = async (data: any) => {
+    if (!activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    await setDoc(doc(firestore, 'sessions', activeSession.id, 'fees', data.id), data, { merge: true });
+  };
+
+  const togglePayment = async (date: string, pid: string) => {
+    if (!activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
     const fee = fees.find(f => f.id === date);
     const payments = { ...(fee?.payments || {}) };
-    payments[playerId] = !payments[playerId];
+    payments[pid] = !payments[pid];
     await setDoc(doc(firestore, 'sessions', activeSession.id, 'fees', date), { payments }, { merge: true });
   };
 
   const addPaymentMethod = async (name: string, imageUrl: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
     const id = Math.random().toString(36).substr(2, 9);
-    const paymentMethod = { id, name, imageUrl };
-    await setDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id), paymentMethod);
+    await setDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id), { id, name, imageUrl });
   };
 
   const deletePaymentMethod = async (id: string) => {
-    if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
+    if (!activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
     await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'paymentMethods', id));
   };
 
-  const setClubLogo = async (logo: string | null) => {
-    if (!firestore || !user?.uid) return;
-    await setDoc(doc(firestore, 'clubSettings', 'config'), { clubLogo: logo }, { merge: true });
-  };
-
-  const setDefaultWinningScore = async (score: number) => {
-    if (!firestore || !user?.uid) return;
-    await setDoc(doc(firestore, 'clubSettings', 'config'), { defaultWinningScore: score }, { merge: true });
-  };
-
-  const setAutoAdvanceEnabled = async (enabled: boolean) => {
-    if (!firestore || !user?.uid) return;
-    await setDoc(doc(firestore, 'clubSettings', 'config'), { autoAdvanceEnabled: enabled }, { merge: true });
-  };
-
-  const setDefaultCourtCount = async (count: number) => {
+  const setClubLogo = async (l: string | null) => {
     if (!firestore) return;
-    const safeCount = Math.max(0, Math.min(20, Math.floor(count)));
-    await setDoc(doc(firestore, 'clubSettings', 'config'), { defaultCourtCount: safeCount }, { merge: true });
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { clubLogo: l }, { merge: true });
   };
 
-  const setDeuceEnabled = async (enabled: boolean) => {
-    if (!firestore || !user?.uid) return;
-    await setDoc(doc(firestore, 'clubSettings', 'config'), { deuceEnabled: enabled }, { merge: true });
+  const setDefaultWinningScore = async (s: number) => {
+    if (!firestore) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { defaultWinningScore: s }, { merge: true });
   };
 
-  const setAutoRestEnabled = async (enabled: boolean) => {
-    if (!firestore || !user?.uid) return;
-    await setDoc(doc(firestore, 'clubSettings', 'config'), { autoRestEnabled: enabled }, { merge: true });
+  const setAutoAdvanceEnabled = async (e: boolean) => {
+    if (!firestore) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { autoAdvanceEnabled: e }, { merge: true });
+  };
+
+  const setDefaultCourtCount = async (c: number) => {
+    if (!firestore) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { defaultCourtCount: c }, { merge: true });
+  };
+
+  const setDeuceEnabled = async (e: boolean) => {
+    if (!firestore) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { deuceEnabled: e }, { merge: true });
+  };
+
+  const setAutoRestEnabled = async (e: boolean) => {
+    if (!firestore) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { autoRestEnabled: e }, { merge: true });
   };
 
   const addBoostSchedule = async (date: string, venueName = '', scheduledTime = '') => {
     if (!firestore || !user?.uid) throw new Error('Unauthorized');
     const sessionId = Math.random().toString(36).substr(2, 9);
     const sessionCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    const session: QueueSession = {
-      id: sessionId,
-      code: Math.random().toString(36).substr(2, 6).toUpperCase(),
-      status: 'active',
-      createdBy: user.uid,
-      createdAt: new Date().toISOString(),
-      isDoubleStar: true,
-      venueName,
-      scheduledDate: date,
-      scheduledTime
-    };
-    await setDoc(doc(firestore, 'sessions', sessionId), session);
-
-    const boostRef = doc(collection(firestore, 'boost_schedules'));
-    await setDoc(boostRef, {
-      id: boostRef.id,
-      sessionId,
-      date,
-      sessionCode,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      venueName,
-      scheduledTime
+    await setDoc(doc(firestore, 'sessions', sessionId), {
+      id: sessionId, code: Math.random().toString(36).substr(2, 6).toUpperCase(), status: 'active',
+      createdBy: user.uid, createdAt: new Date().toISOString(), isDoubleStar: true, venueName, scheduledDate: date, scheduledTime
     });
-
+    const boostRef = doc(collection(firestore, 'boost_schedules'));
+    await setDoc(boostRef, { id: boostRef.id, sessionId, date, sessionCode, isActive: true, createdAt: new Date().toISOString(), venueName, scheduledTime });
     return { sessionCode, sessionId };
   };
 
   const deleteBoostSchedule = async (id: string) => {
-    if (!firestore || !user?.uid) throw new Error('Unauthorized');
+    if (!firestore) return;
     await deleteDoc(doc(firestore, 'boost_schedules', id));
   };
 
   const resetDailyBoard = async () => {
-    if (!firestore || !activeSession?.id) return;
+    if (!activeSession?.id) return;
     const batch = writeBatch(firestore);
-    for (const match of matches.filter(m => !m.isCompleted)) {
-      batch.update(doc(firestore, 'sessions', activeSession.id, 'matches', match.id), { isCompleted: true, status: 'cancelled' });
-    }
-    for (const court of courts) {
-      batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', court.id), { status: 'available', currentMatchId: null });
-    }
-    for (const p of players) {
-      batch.update(doc(firestore, 'sessions', activeSession.id, 'players', p.id), { status: 'available', lastAvailableAt: Date.now() });
-    }
+    matches.filter(m => !m.isCompleted).forEach(m => batch.update(doc(firestore, 'sessions', activeSession.id, 'matches', m.id), { isCompleted: true, status: 'cancelled' }));
+    courts.forEach(c => batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', c.id), { status: 'available', currentMatchId: null }));
+    players.forEach(p => batch.update(doc(firestore, 'sessions', activeSession.id, 'players', p.id), { status: 'available', lastAvailableAt: Date.now() }));
     await batch.commit();
   };
 
   const clearClubData = async () => {
     if (role !== 'admin') throw new Error('Unauthorized');
     const token = await auth.currentUser?.getIdToken();
-    if (!token) throw new Error('Auth required');
-
-    const response = await fetch('/api/admin/clear-club-data', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+    const res = await fetch('/api/admin/clear-club-data', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ scope: 'allSessions' }),
     });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      throw new Error(body?.error || 'Failed to clear data');
-    }
-
+    if (!res.ok) throw new Error('Failed');
     setActiveSession(null);
   };
 
   const sendTestNotification = async () => {
-    if (!user?.uid) return;
-    await sendNotification({
+    if (!user?.uid) return false;
+    return await sendNotification({
       playerIds: [user.uid],
-      title: '🏸 Test Notification',
-      body: 'Your notification system is working correctly!',
-      data: { type: 'test' }
+      title: '🏸 Notification System Active',
+      body: 'If you can see this, your browser is ready for match alerts!',
+      data: { type: 'test', tag: 'test-alert' }
     });
   };
 
@@ -887,14 +677,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       userProfile, activeSession, players, courts, matches, fees, paymentMethods, role,
       isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, isRestoringSession, currentPlayer,
       joinSession, createSession, regenerateQueueSessionCode, endSession, loadSessionById, endSessionById, getAllSessions,
-      addPlayer, updatePlayer, deletePlayer,
-      addCourt, updateCourt, deleteCourt, updateFcmToken, startMatch, startTimer, updateMatchScore, endMatch,
+      addPlayer, updatePlayer, deletePlayer, addCourt, updateCourt, deleteCourt, updateFcmToken, startMatch, startTimer, updateMatchScore, endMatch,
       swapPlayer, deleteMatch, assignMatchToCourt, createCourtAndAssignMatch,
       updateFee, togglePayment, addPaymentMethod, deletePaymentMethod,
-      clubLogo, setClubLogo, defaultWinningScore, setDefaultWinningScore,
-      autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode,
-      resetDailyBoard, defaultCourtCount, setDefaultCourtCount, deuceEnabled, setDeuceEnabled,
-      autoRestEnabled, setAutoRestEnabled,
+      clubLogo, setClubLogo, defaultWinningScore, setDefaultWinningScore, autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode,
+      resetDailyBoard, defaultCourtCount, setDefaultCourtCount, deuceEnabled, setDeuceEnabled, autoRestEnabled, setAutoRestEnabled,
       boostSchedules: boostSchedules || [], addBoostSchedule, deleteBoostSchedule, upcomingBoost, clearClubData,
       sendTestNotification
     }}>
@@ -905,6 +692,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
 export function useClub() {
   const context = useContext(ClubContext);
-  if (context === undefined) throw new Error('useClub must be used within a ClubProvider');
+  if (!context) throw new Error('useClub must be used within a ClubProvider');
   return context;
 }

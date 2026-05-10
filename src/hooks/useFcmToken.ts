@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
@@ -15,7 +16,6 @@ const firebaseConfig = {
   appId: "1:380629825062:web:e595813b55ac4626ddd8e7",
 }
 
-// Initialize Firebase app (only once, check if already exists)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
 
 export function useFcmToken() {
@@ -26,263 +26,117 @@ export function useFcmToken() {
   const [error, setError] = useState<string | null>(null)
   const [isSupported, setIsSupported] = useState(false)
 
-  // Check browser support on mount
   useEffect(() => {
     const checkSupport = () => {
       const supported = 'serviceWorker' in navigator && 'Notification' in window && 'PushManager' in window
       setIsSupported(supported)
-
       if (supported) {
         setPermission(Notification.permission)
       }
     }
-
     checkSupport()
   }, [])
 
-  // Save FCM token to Firestore
   const saveTokenToFirestore = useCallback(async (fcmToken: string) => {
-    if (!user || !firestore) {
-      console.warn('Cannot save token: User not authenticated or Firestore not available')
-      return
-    }
+    if (!user || !firestore) return
 
     try {
+      // Save to global user profile
       const userDocRef = doc(firestore, 'userProfiles', user.uid)
-      const userDoc = await getDoc(userDocRef)
-
-      // Check if token has changed
-      const currentStoredToken = userDoc.data()?.fcmToken
-      if (currentStoredToken === fcmToken) {
-        console.log('FCM token unchanged, skipping Firestore update')
-        return
-      }
-
-      // Update the token in Firestore
-      await setDoc(userDocRef, { fcmToken }, { merge: true })
-      console.log('FCM token saved to Firestore for user:', user.uid)
+      await setDoc(userDocRef, { fcmToken, lastTokenUpdate: Date.now() }, { merge: true })
+      console.log('FCM token saved to user profile')
     } catch (error) {
-      console.error('Failed to save FCM token to Firestore:', error)
-      // Don't throw error - token saving failure shouldn't block notification functionality
+      console.error('Failed to save FCM token:', error)
     }
   }, [user, firestore])
 
-  // Register service worker
   const registerServiceWorker = useCallback(async () => {
-    if (!isSupported) {
-      throw new Error('Push notifications are not supported in this browser')
-    }
-
+    if (!isSupported) return null
     try {
-      // Check if service worker is already registered
-      const existingRegistration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')
-
-      if (existingRegistration) {
-        console.log('Service Worker already registered:', existingRegistration)
-
-        // If it's waiting, skip waiting to activate it immediately
-        if (existingRegistration.waiting) {
-          existingRegistration.waiting.postMessage({ type: 'SKIP_WAITING' })
-        }
-
-        // Ensure it's ready
-        await navigator.serviceWorker.ready
-        console.log('Service Worker is ready and active')
-        return existingRegistration
-      }
-
-      // Register new service worker
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
-      console.log('Service Worker registered successfully:', registration)
-
-      // Ensure the service worker is ready
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/'
+      })
       await navigator.serviceWorker.ready
-      console.log('Service Worker is ready and active')
-
       return registration
     } catch (err) {
-      console.error('Service Worker registration failed:', err)
-      throw new Error('Failed to register service worker')
+      console.error('SW registration failed:', err)
+      return null
     }
   }, [isSupported])
 
-  // Request permission and get token
   const requestPermissionAndGetToken = useCallback(async () => {
-    if (!isSupported) {
-      throw new Error('Push notifications are not supported in this browser')
-    }
-
-    if (permission === 'granted') {
-      // If already granted, just get the token
-      return await getTokenInternal()
-    }
+    if (!isSupported) throw new Error('Not supported')
 
     setIsLoading(true)
     setError(null)
 
     try {
-      // Request notification permission
       const permissionResult = await Notification.requestPermission()
       setPermission(permissionResult)
 
       if (permissionResult !== 'granted') {
-        throw new Error('Notification permission denied')
+        throw new Error('Permission denied')
       }
 
-      // Register service worker
-      await registerServiceWorker()
+      const registration = await registerServiceWorker()
+      if (!registration) throw new Error('SW failed')
 
-      // Get FCM token
-      const fcmToken = await getTokenInternal()
-      return fcmToken
+      const messaging = getMessaging(app)
+      const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+
+      if (!vapidKey) {
+        throw new Error('VAPID key missing')
+      }
+
+      const currentToken = await getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration: registration,
+      })
+
+      if (currentToken) {
+        setToken(currentToken)
+        await saveTokenToFirestore(currentToken)
+        return currentToken
+      }
+      throw new Error('No token generated')
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to get FCM token'
-      setError(errorMessage)
-      console.error('Failed to request permission/get token:', err)
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      setError(msg)
+      console.error('FCM Error:', err)
       throw err
     } finally {
       setIsLoading(false)
     }
-  }, [isSupported, permission, registerServiceWorker, saveTokenToFirestore])
+  }, [isSupported, registerServiceWorker, saveTokenToFirestore])
 
-  // Internal function to get FCM token
-  const getTokenInternal = async () => {
-    const messaging = getMessaging(app)
-    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
-
-    // Log VAPID key for debugging (without exposing the full key)
-    console.log('VAPID Key present:', !!vapidKey, 'Length:', vapidKey?.length)
-
-    if (!vapidKey) {
-      throw new Error('NEXT_PUBLIC_FIREBASE_VAPID_KEY environment variable is missing')
-    }
-
-    try {
-      // Ensure service worker is registered before getting token
-      await registerServiceWorker()
-
-      // Wait for service worker to be ready and pass registration directly to getToken
-      const registration = await navigator.serviceWorker.ready
-      if (!registration) {
-        throw new Error('Service worker registration failed')
-      }
-      console.log('Service worker registration:', registration)
-
-      const currentToken = await getToken(messaging, {
-        vapidKey: vapidKey,
-        serviceWorkerRegistration: registration,
-      })
-
-      if (!currentToken) {
-        throw new Error('No registration token available')
-      }
-
-      setToken(currentToken)
-      console.log('FCM Token:', currentToken)
-
-      // Save token to Firestore after successful generation
-      await saveTokenToFirestore(currentToken)
-
-      return currentToken
-    } catch (error) {
-      console.error('Error getting FCM token:', error)
-      
-      // Provide more specific error messages
-      if (error instanceof Error) {
-        if (error.name === 'AbortError' || error.message.includes('push service error')) {
-          // This can happen due to network issues or browser restrictions
-          // Try once more after a short delay
-          console.log('Retrying token generation after AbortError...')
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          
-          try {
-            const registration = await navigator.serviceWorker.ready
-            const currentToken = await getToken(messaging, {
-              vapidKey: vapidKey,
-              serviceWorkerRegistration: registration,
-            })
-            
-            if (!currentToken) {
-              throw new Error('No registration token available after retry')
-            }
-
-            setToken(currentToken)
-            console.log('FCM Token (retry):', currentToken)
-            await saveTokenToFirestore(currentToken)
-            return currentToken
-          } catch (retryError) {
-            console.error('Retry failed:', retryError)
-            throw new Error('Push service error: Please ensure you are using HTTPS or localhost, and that push notifications are enabled in your browser')
-          }
-        }
-        if (error.message.includes('messaging/invalid-credentials')) {
-          throw new Error('Invalid Firebase credentials: Please check your VAPID key configuration')
-        }
-        if (error.message.includes('messaging/permission-denied')) {
-          throw new Error('Permission denied: Please enable notifications in your browser settings')
-        }
-      }
-      
-      throw error
-    }
-  }
-
-  // Delete token (for cleanup)
   const deleteFcmToken = useCallback(async () => {
     if (!token) return
-
     try {
-      // Ensure service worker is ready before deleting token
-      await navigator.serviceWorker.ready
-
-      // Note: Service worker controller might not be available on first load
-      // Firebase SDK will handle background message cleanup appropriately
-
       const messaging = getMessaging(app)
       await deleteToken(messaging)
       setToken(null)
-      console.log('FCM Token deleted successfully')
-
-      // Remove token from Firestore
       if (user && firestore) {
-        try {
-          const userDocRef = doc(firestore, 'userProfiles', user.uid)
-          await setDoc(userDocRef, { fcmToken: null }, { merge: true })
-          console.log('FCM token removed from Firestore for user:', user.uid)
-        } catch (error) {
-          console.error('Failed to remove FCM token from Firestore:', error)
-        }
+        await setDoc(doc(firestore, 'userProfiles', user.uid), { fcmToken: null }, { merge: true })
       }
     } catch (err) {
-      console.error('Failed to delete FCM token:', err)
-      throw err
+      console.error('Delete token failed:', err)
     }
-  }, [token, app, user, firestore])
+  }, [token, user, firestore])
 
-  // Listen for incoming messages (when app is in foreground)
   useEffect(() => {
     if (!isSupported || permission !== 'granted') return
-
     const messaging = getMessaging(app)
     const unsubscribe = onMessage(messaging, (payload) => {
-      console.log('Foreground message received:', payload)
-
-      // Show notification in foreground
+      console.log('Foreground message:', payload)
       if (payload.notification) {
-        const notification = new Notification(payload.notification.title || 'TheBreakfastClub Alert', {
+        new Notification(payload.notification.title || 'The Breakfast Club', {
           body: payload.notification.body,
           icon: '/icon.png',
           badge: '/icon.png',
-          data: payload.data,
+          tag: payload.data?.tag || 'match-update'
         })
-
-        notification.onclick = () => {
-          window.focus()
-          notification.close()
-        }
       }
     })
-
     return () => unsubscribe()
   }, [isSupported, permission])
 
