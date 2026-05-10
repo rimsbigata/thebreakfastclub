@@ -948,7 +948,7 @@ export default function HomePage() {
                     onDragLeave={() => setDragOverCourtId(null)}
                     onDrop={(e) => { e.preventDefault(); onDropInCourt(e, court.id); }}
                     className={cn(
-                      "border-2 transition-all duration-200 overflow-hidden flex flex-col min-h-[400px]",
+                      "border-2 transition-all duration-200 overflow-hidden flex flex-col",
                       isPlayerOnCourt ? "border-green-500/50 bg-green-500/5" : isOccupied ? "bg-card border-primary/20 shadow-md" : "bg-muted/5 border-dashed border-border",
                       dragOverCourtId === court.id && "ring-2 ring-orange-500 ring-offset-2"
                     )}
@@ -959,7 +959,7 @@ export default function HomePage() {
                         {court.status}
                       </Badge>
                     </div>
-                    <CardContent className="p-4 flex-1 flex flex-col space-y-4 min-h-0">
+                    <CardContent className={cn("p-4 flex-1 flex flex-col space-y-4 min-h-0", !isOccupied && currentDraft.length === 0 && "py-8")}>
                       {isOccupied && match ? (
                         <>
                           <div className="flex justify-between items-center mb-2">
@@ -1043,8 +1043,9 @@ export default function HomePage() {
                             <div
                               data-team-box="teamA"
                               className={cn(
-                                "p-3 rounded-xl border-2 border-dashed transition-all min-h-[100px]",
-                                dragOverTeam === 'teamA' ? "border-primary bg-primary/10" : "border-muted-foreground/10 bg-muted/5"
+                                "p-3 rounded-xl border-2 border-dashed transition-all",
+                                dragOverTeam === 'teamA' ? "border-primary bg-primary/10" : "border-muted-foreground/10 bg-muted/5",
+                                currentDraft.slice(0, 2).length > 0 ? "min-h-[80px]" : "min-h-[60px]"
                               )}
                               onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamA'); }}
                               onDragLeave={() => setDragOverTeam(null)}
@@ -1070,8 +1071,9 @@ export default function HomePage() {
                             <div
                               data-team-box="teamB"
                               className={cn(
-                                "p-3 rounded-xl border-2 border-dashed transition-all min-h-[100px]",
-                                dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/10 bg-muted/5"
+                                "p-3 rounded-xl border-2 border-dashed transition-all",
+                                dragOverTeam === 'teamB' ? "border-primary bg-primary/10" : "border-muted-foreground/10 bg-muted/5",
+                                currentDraft.slice(2).length > 0 ? "min-h-[80px]" : "min-h-[60px]"
                               )}
                               onDragOver={(e) => { e.preventDefault(); setDragOverTeam('teamB'); }}
                               onDragLeave={() => setDragOverTeam(null)}
@@ -1096,7 +1098,7 @@ export default function HomePage() {
                             </div>
                           </div>
                           {currentDraft.length === 0 && (
-                            <div className="h-24 flex flex-col items-center justify-center opacity-10">
+                            <div className="h-20 flex flex-col items-center justify-center opacity-10">
                               <Zap className="h-8 w-8 mb-1" />
                               <p className="text-[9px] font-black uppercase tracking-[0.2em]">Drop Players Here</p>
                             </div>
