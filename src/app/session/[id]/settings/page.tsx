@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power, Target } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power, Target, Coffee } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
@@ -26,6 +26,7 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
     endSession, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
     autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode, regenerateQueueSessionCode,
     defaultCourtCount, setDefaultCourtCount, deuceEnabled, setDeuceEnabled,
+    autoRestEnabled, setAutoRestEnabled,
     boostSchedules, addBoostSchedule, deleteBoostSchedule, upcomingBoost, clearClubData
   } = useClub();
   const { theme, toggleTheme } = useTheme();
@@ -179,7 +180,6 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
         description: `Session Code: ${sessionCode} - Session Link: ${sessionLink}`
       });
 
-      // Send email notification with the boost details to the admin who scheduled it
       try {
         const adminEmail = user?.email;
         if (!adminEmail) {
@@ -190,7 +190,6 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
             variant: "destructive",
           });
         } else {
-          // Don't block on email sending - do it in background
           sendBoostCodeEmail(sessionCode, newBoostDate, sessionLink, adminEmail)
             .then(emailResult => {
               if (emailResult.success) {
@@ -326,6 +325,19 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
               <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-lg border-2">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                    <Coffee className="h-5 w-5 fill-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-tight">Auto-Rest after Match</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Players move to Resting on finish</p>
+                  </div>
+                </div>
+                <Switch checked={autoRestEnabled} onCheckedChange={setAutoRestEnabled} />
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-lg border-2">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
                     <Target className="h-5 w-5 fill-primary" />
                   </div>
                   <div>
@@ -368,7 +380,6 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
             </CardContent>
           </Card>
 
-          {/* QR Code Generator */}
           {queueSessionCode && (
             <QRCodeGenerator sessionId={queueSessionCode} />
           )}

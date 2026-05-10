@@ -80,22 +80,14 @@ export default function HomePage() {
   const [sortOption, setSortOption] = useState<string>('default');
   const [benchTab, setBenchTab] = useState<'available' | 'resting'>('available');
   const [isCreating, setIsCreating] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
-  const [joinCode, setJoinCode] = useState('');
-  const [draggedMatchId, setDraggedMatchId] = useState<string | null>(null);
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [dragOverCourtId, setDragOverCourtId] = useState<string | null>(null);
-  const [dragOverTeam, setDragOverTeam] = useState<'teamA' | 'teamB' | null>(null);
   const [draftPlayerIds, setDraftPlayerIds] = useState<string[]>([]);
   const [courtDrafts, setCourtDrafts] = useState<Record<string, string[]>>({});
   const [isQueueOver, setIsQueueOver] = useState(false);
   const [isCourtPanelOver, setIsCourtPanelOver] = useState(false);
-  const [swapping, setSwapping] = useState<{ matchId: string; oldPlayerId: string } | null>(null);
-  const [winningTeam, setWinningTeam] = useState<{ courtId: string; team: 'teamA' | 'teamB' } | null>(null);
-  const [loserScore, setLoserScore] = useState('');
   const [isDoubleStarSession, setIsDoubleStarSession] = useState(false);
   const [sessionCodeInput, setSessionCodeInput] = useState('');
-  const [notificationBannerDismissed, setNotificationBannerDismissed] = useState(false);
 
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<'score' | 'zeroConfirm' | null>(null);
@@ -108,7 +100,6 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
-  // Sync drafts when courts list changes
   useEffect(() => {
     setCourtDrafts(prev => {
       const next = { ...prev };

@@ -24,6 +24,7 @@ interface ClubSettings {
   autoAdvanceEnabled: boolean;
   defaultCourtCount: number;
   deuceEnabled: boolean;
+  autoRestEnabled: boolean;
 }
 
 interface ClubContextType {
@@ -84,6 +85,8 @@ interface ClubContextType {
   setDefaultCourtCount: (count: number) => Promise<void>;
   deuceEnabled: boolean;
   setDeuceEnabled: (enabled: boolean) => Promise<void>;
+  autoRestEnabled: boolean;
+  setAutoRestEnabled: (enabled: boolean) => Promise<void>;
   queueSessionCode: string;
 
   // Boost Schedules
@@ -108,7 +111,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isRestoringSession, setIsRestoringSession] = useState(false);
 
-  // Initialize local storage service
   const localStorageService = useMemo(() => {
     return firestore ? getLocalStorageService(firestore) : null;
   }, [firestore]);
@@ -287,6 +289,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const autoAdvanceEnabled = sessionSettings?.autoAdvanceEnabled ?? true;
   const defaultCourtCount = sessionSettings?.defaultCourtCount ?? 0;
   const deuceEnabled = sessionSettings?.deuceEnabled ?? true;
+  const autoRestEnabled = sessionSettings?.autoRestEnabled ?? false;
   const queueSessionCode = activeSession?.code || '';
 
   const joinSession = async (code: string, participate: boolean = true, joinAsPlayer: boolean = false) => {
@@ -687,8 +690,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         ? (winner === 'teamA' && isTeamA) || (winner === 'teamB' && !isTeamA)
         : false;
 
+      // Auto-rest logic: if enabled, move to resting, otherwise available
+      const nextStatus = autoRestEnabled ? 'resting' : 'available';
+
       batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), {
-        status: 'available',
+        status: nextStatus,
         lastAvailableAt: Date.now(),
         wins: (p?.wins || 0) + (won ? 1 : 0),
         gamesPlayed: (p?.gamesPlayed || 0) + (status === 'completed' ? 1 : 0),
@@ -872,6 +878,11 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await setDoc(doc(firestore, 'clubSettings', 'config'), { deuceEnabled: enabled }, { merge: true });
   };
 
+  const setAutoRestEnabled = async (enabled: boolean) => {
+    if (!firestore || !user?.uid) return;
+    await setDoc(doc(firestore, 'clubSettings', 'config'), { autoRestEnabled: enabled }, { merge: true });
+  };
+
   const addBoostSchedule = async (date: string, venueName = '', scheduledTime = '') => {
     if (!firestore || !user?.uid) throw new Error('Unauthorized');
     const sessionId = Math.random().toString(36).substr(2, 9);
@@ -959,6 +970,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       clubLogo, setClubLogo, defaultWinningScore, setDefaultWinningScore,
       autoAdvanceEnabled, setAutoAdvanceEnabled, queueSessionCode,
       resetDailyBoard, defaultCourtCount, setDefaultCourtCount, deuceEnabled, setDeuceEnabled,
+      autoRestEnabled, setAutoRestEnabled,
       boostSchedules: boostSchedules || [], addBoostSchedule, deleteBoostSchedule, upcomingBoost, clearClubData
     }}>
       {children}
