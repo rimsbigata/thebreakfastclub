@@ -650,10 +650,22 @@ export default function HomePage() {
                       maxLength={6}
                     />
                     <div className="grid grid-cols-2 gap-2">
-                      <Button type="button" variant="outline" onClick={handleJoinSessionAsAdmin} className="h-12 font-black uppercase border-2 text-[10px]" disabled={isCreating || isJoining || !joinCode.trim()}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleJoinSessionAsAdmin}
+                        className="h-12 font-black uppercase border-2 text-[10px]"
+                        disabled={isCreating || isJoining || !joinCode.trim()}
+                      >
                         {isJoining ? "Joining..." : "Join as Admin"} <ShieldCheck className="ml-1 h-3 w-3" />
                       </Button>
-                      <Button type="button" variant="outline" onClick={handleJoinSessionAsPlayer} className="h-12 font-black uppercase border-2 text-[10px]" disabled={isCreating || isJoining || !joinCode.trim()}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleJoinSessionAsPlayer}
+                        className="h-12 font-black uppercase border-2 text-[10px]"
+                        disabled={isCreating || isJoining || !joinCode.trim()}
+                      >
                         {isJoining ? "Joining..." : "Join as Player"} <User className="ml-1 h-3 w-3" />
                       </Button>
                     </div>
@@ -769,7 +781,11 @@ export default function HomePage() {
                           return (
                             <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border shadow-sm flex flex-col gap-1 group relative overflow-hidden">
                               <span className="truncate pr-4">{player?.name}</span>
-                              {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                              {player && (
+                                <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>
+                                  {SKILL_LEVELS_SHORT[skillLevelOf(player)]}
+                                </Badge>
+                              )}
                             </div>
                           );
                         })}
@@ -792,7 +808,11 @@ export default function HomePage() {
                           return (
                             <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border shadow-sm flex flex-col gap-1 group relative overflow-hidden">
                               <span className="truncate pr-4">{player?.name}</span>
-                              {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                              {player && (
+                                <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(skillLevelOf(player)))}>
+                                  {SKILL_LEVELS_SHORT[skillLevelOf(player)]}
+                                </Badge>
+                              )}
                             </div>
                           );
                         })}
@@ -845,7 +865,9 @@ export default function HomePage() {
                             return (
                               <div key={id} className="flex flex-col min-w-0">
                                 <span className="text-[11px] font-black truncate leading-tight">{p?.name}</span>
-                                <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>{SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}</Badge>
+                                <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>
+                                  {SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}
+                                </Badge>
                               </div>
                             );
                           })}
@@ -859,7 +881,9 @@ export default function HomePage() {
                             return (
                               <div key={id} className="flex flex-col items-end min-w-0">
                                 <span className="text-[11px] font-black truncate leading-tight">{p?.name}</span>
-                                <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>{SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}</Badge>
+                                <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(skillLevelOf(p || { skillLevel: 3 })))}>
+                                  {SKILL_LEVELS_SHORT[skillLevelOf(p || { skillLevel: 3 })]}
+                                </Badge>
                               </div>
                             );
                           })}
@@ -942,17 +966,34 @@ export default function HomePage() {
                             <LiveTimer startTime={match.startTime || match.timestamp} />
                             {isStaff && (
                               <div className="flex gap-1.5">
-                                <Button size="sm" variant="outline" className="h-7 text-[9px] font-black px-2 border-2 border-primary/20 hover:bg-primary hover:text-white transition-colors" disabled={!match.startTime} onClick={() => setWinningTeam({ courtId: court.id, team: 'teamA' })}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[9px] font-black px-2 border-2 border-primary/20 hover:bg-primary hover:text-white transition-colors"
+                                  disabled={!match.startTime}
+                                  onClick={() => setWinningTeam({ courtId: court.id, team: 'teamA' })}
+                                >
                                   T1 WIN
                                 </Button>
-                                <Button size="sm" variant="outline" className="h-7 text-[9px] font-black px-2 border-2 border-primary/20 hover:bg-primary hover:text-white transition-colors" disabled={!match.startTime} onClick={() => setWinningTeam({ courtId: court.id, team: 'teamB' })}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[9px] font-black px-2 border-2 border-primary/20 hover:bg-primary hover:text-white transition-colors"
+                                  disabled={!match.startTime}
+                                  onClick={() => setWinningTeam({ courtId: court.id, team: 'teamB' })}
+                                >
                                   T2 WIN
                                 </Button>
                               </div>
                             )}
                           </div>
                           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 flex-1">
-                            <div className={cn("p-3 rounded-xl border-l-4 space-y-2 shadow-sm transition-colors", teamAScore > teamBScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/5")}>
+                            <div
+                              className={cn(
+                                "p-3 rounded-xl border-l-4 space-y-2 shadow-sm transition-colors",
+                                teamAScore > teamBScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/5"
+                              )}
+                            >
                               {match.teamA.map((id: string) => {
                                 const p = players.find(player => player.id === id);
                                 return (
@@ -966,7 +1007,12 @@ export default function HomePage() {
                             <div className="flex flex-col items-center justify-center opacity-20 select-none">
                               <span className="text-[10px] font-black uppercase">VS</span>
                             </div>
-                            <div className={cn("p-3 rounded-xl border-r-4 space-y-2 shadow-sm text-right transition-colors", teamBScore > teamAScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/5")}>
+                            <div
+                              className={cn(
+                                "p-3 rounded-xl border-r-4 space-y-2 shadow-sm text-right transition-colors",
+                                teamBScore > teamAScore ? "border-primary bg-primary/5" : "border-muted-foreground/10 bg-muted/5"
+                              )}
+                            >
                               {match.teamB.map((id: string) => {
                                 const p = players.find(player => player.id === id);
                                 return (
@@ -1011,7 +1057,11 @@ export default function HomePage() {
                                   return (
                                     <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border shadow-sm flex items-center justify-between gap-1 overflow-hidden">
                                       <span className="truncate flex-1">{player?.name}</span>
-                                      {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                      {player && (
+                                        <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>
+                                          {SKILL_LEVELS_SHORT[skillLevelOf(player)]}
+                                        </Badge>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -1034,7 +1084,11 @@ export default function HomePage() {
                                   return (
                                     <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border shadow-sm flex items-center justify-between gap-1 overflow-hidden">
                                       <span className="truncate flex-1 text-right">{player?.name}</span>
-                                      {player && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>{SKILL_LEVELS_SHORT[skillLevelOf(player)]}</Badge>}
+                                      {player && (
+                                        <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(skillLevelOf(player)))}>
+                                          {SKILL_LEVELS_SHORT[skillLevelOf(player)]}
+                                        </Badge>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -1059,7 +1113,10 @@ export default function HomePage() {
                             <Input
                               type="number"
                               min="0"
-                              className={cn("h-14 text-3xl font-black text-center border-2 no-spinner transition-all", teamAScore > teamBScore ? "border-primary bg-primary/10 shadow-sm" : "bg-card")}
+                              className={cn(
+                                "h-14 text-3xl font-black text-center border-2 no-spinner transition-all",
+                                teamAScore > teamBScore ? "border-primary bg-primary/10 shadow-sm" : "bg-card"
+                              )}
                               value={teamAScore === 0 ? "" : teamAScore}
                               placeholder="0"
                               onChange={(event) => handleScoreChange(match.id, parseInt(event.target.value, 10) || 0, teamBScore)}
@@ -1071,7 +1128,10 @@ export default function HomePage() {
                             <Input
                               type="number"
                               min="0"
-                              className={cn("h-14 text-3xl font-black text-center border-2 no-spinner transition-all", teamBScore > teamAScore ? "border-primary bg-primary/10 shadow-sm" : "bg-card")}
+                              className={cn(
+                                "h-14 text-3xl font-black text-center border-2 no-spinner transition-all",
+                                teamBScore > teamAScore ? "border-primary bg-primary/10 shadow-sm" : "bg-card"
+                              )}
                               value={teamBScore === 0 ? "" : teamBScore}
                               placeholder="0"
                               onChange={(event) => handleScoreChange(match.id, teamAScore, parseInt(event.target.value, 10) || 0)}
@@ -1089,10 +1149,18 @@ export default function HomePage() {
                           </Button>
                         ) : (
                           <div className="flex w-full gap-2">
-                            <Button onClick={() => handleFinishMatch(court.id, teamAScore, teamBScore)} className="flex-1 h-11 bg-primary font-black text-tiny uppercase tracking-widest shadow-md hover:bg-primary/90">
+                            <Button
+                              onClick={() => handleFinishMatch(court.id, teamAScore, teamBScore)}
+                              className="flex-1 h-11 bg-primary font-black text-tiny uppercase tracking-widest shadow-md hover:bg-primary/90"
+                            >
                               FINISH MATCH
                             </Button>
-                            <Button variant="outline" size="icon" onClick={() => endMatch(court.id, 'cancelled')} className="h-11 w-11 p-0 border-2 shrink-0 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => endMatch(court.id, 'cancelled')}
+                              className="h-11 w-11 p-0 border-2 shrink-0 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive"
+                            >
                               <Ban className="h-4 w-4" />
                             </Button>
                           </div>
@@ -1101,7 +1169,12 @@ export default function HomePage() {
                         <div className="flex w-full justify-between items-center px-1 h-11">
                           <p className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">{isOccupied ? "Match Ongoing" : "Waiting for Pairing"}</p>
                           {isAdmin && !isOccupied && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white shrink-0 transition-colors" onClick={() => deleteCourt(court.id)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:bg-destructive hover:text-white shrink-0 transition-colors"
+                              onClick={() => deleteCourt(court.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
@@ -1168,7 +1241,10 @@ export default function HomePage() {
               />
             </div>
           </div>
-          <Button className="w-full h-14 font-black uppercase tracking-widest text-lg shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform" onClick={handleWinSubmit}>RECORD VICTORY</Button>
+          <Button
+            className="w-full h-14 font-black uppercase tracking-widest text-lg shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform"
+            onClick={handleWinSubmit}
+          >RECORD VICTORY</Button>
         </DialogContent>
       </Dialog>
 
