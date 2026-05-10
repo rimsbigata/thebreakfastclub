@@ -55,6 +55,7 @@ interface ClubContextType {
   updatePlayer: (id: string, updates: Partial<Player>) => Promise<void>;
   deletePlayer: (id: string) => Promise<void>;
   addCourt: (name?: string) => Promise<string>;
+  updateCourt: (id: string, updates: Partial<Court>) => Promise<void>;
   deleteCourt: (id: string) => Promise<void>;
   updateFcmToken: (token: string) => Promise<void>;
   startMatch: (match: Omit<Match, 'id' | 'timestamp' | 'isCompleted' | 'status' | 'teamASnapshots' | 'teamBSnapshots'>) => Promise<void>;
@@ -544,6 +545,16 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     return courtId;
   };
 
+  const updateCourt = async (id: string, updates: Partial<Court>) => {
+    if (!firestore || !activeSession?.id || (role !== 'admin' && role !== 'queueMaster')) throw new Error('Unauthorized');
+    
+    if (localStorageService) {
+      await localStorageService.updateDocument(`sessions/${activeSession.id}/courts`, id, updates);
+    }
+    
+    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id), updates);
+  };
+
   const deleteCourt = async (id: string) => {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
     await deleteDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id));
@@ -938,7 +949,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, isRestoringSession, currentPlayer,
       joinSession, createSession, regenerateQueueSessionCode, endSession, loadSessionById, endSessionById, getAllSessions,
       addPlayer, updatePlayer, deletePlayer,
-      addCourt, deleteCourt, updateFcmToken, startMatch, startTimer, updateMatchScore, endMatch,
+      addCourt, updateCourt, deleteCourt, updateFcmToken, startMatch, startTimer, updateMatchScore, endMatch,
       swapPlayer, deleteMatch, assignMatchToCourt, createCourtAndAssignMatch,
       updateFee, togglePayment, addPaymentMethod, deletePaymentMethod,
       clubLogo, setClubLogo, defaultWinningScore, setDefaultWinningScore,

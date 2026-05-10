@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, Swords, Ban, Target, Loader2 } from 'lucide-react';
+import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, Swords, Ban, Target, Loader2, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -71,7 +71,7 @@ export default function HomePage() {
   const {
     courts, players, matches, deleteCourt, startMatch, startTimer,
     updateMatchScore, endMatch, swapPlayer, assignMatchToCourt,
-    createCourtAndAssignMatch, addCourt, deleteMatch, defaultWinningScore,
+    createCourtAndAssignMatch, addCourt, updateCourt, deleteMatch, defaultWinningScore,
     role, isSessionActive, createSession, joinSession, deuceEnabled, upcomingBoost
   } = useClub();
 
@@ -99,6 +99,9 @@ export default function HomePage() {
   const [scoringCourtId, setScoringCourtId] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<'score' | 'zeroConfirm' | null>(null);
   const [pendingScore, setPendingScore] = useState<{ courtId: string; teamAScore: number; teamBScore: number; winner: 'teamA' | 'teamB' } | null>(null);
+
+  const [editingCourtId, setEditingCourtId] = useState<string | null>(null);
+  const [tempCourtName, setTempCourtName] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -164,6 +167,20 @@ export default function HomePage() {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleRenameCourt = async (courtId: string) => {
+    if (!tempCourtName.trim()) {
+      setEditingCourtId(null);
+      return;
+    }
+    try {
+      await updateCourt(courtId, { name: tempCourtName.trim() });
+      setEditingCourtId(null);
+      toast({ title: "Court Renamed" });
+    } catch (e) {
+      toast({ title: "Update failed", variant: "destructive" });
     }
   };
 
@@ -403,6 +420,7 @@ export default function HomePage() {
                 const match = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
                 const isOccupied = court.status === 'occupied';
                 const currentDraft = courtDrafts[court.id] || [];
+                const isEditing = editingCourtId === court.id;
 
                 return (
                   <Card
@@ -413,7 +431,24 @@ export default function HomePage() {
                     className={cn("border-2 overflow-hidden flex flex-col h-fit transition-all", isOccupied ? "bg-card border-primary/20 shadow-md" : "bg-muted/5 border-dashed", dragOverCourtId === court.id && "ring-2 ring-orange-500")}
                   >
                     <div className={cn("p-2 px-3 flex justify-between items-center border-b", isOccupied ? "bg-primary/10" : "bg-muted/10")}>
-                      <span className="text-compact font-black uppercase truncate">{court.name}</span>
+                      {isEditing ? (
+                        <Input
+                          autoFocus
+                          value={tempCourtName}
+                          onChange={e => setTempCourtName(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleRenameCourt(court.id)}
+                          onBlur={() => handleRenameCourt(court.id)}
+                          className="h-7 text-[10px] font-black uppercase bg-background border-primary w-[120px] px-2"
+                        />
+                      ) : (
+                        <div 
+                          className="flex items-center gap-1.5 group/title cursor-pointer"
+                          onClick={() => { if (isStaff) { setEditingCourtId(court.id); setTempCourtName(court.name); } }}
+                        >
+                          <span className="text-compact font-black uppercase truncate max-w-[150px]">{court.name}</span>
+                          {isStaff && <Pencil className="h-3 w-3 opacity-0 group-hover/title:opacity-40 transition-opacity" />}
+                        </div>
+                      )}
                       <Badge className="text-[8px] font-black uppercase px-2 h-4">{court.status}</Badge>
                     </div>
                     <CardContent className="p-4 flex-1">
@@ -438,7 +473,12 @@ export default function HomePage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="h-24 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+                          <div className="h-24 flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-2">
+                              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                              <p className="text-[9px] font-black uppercase opacity-40">Syncing match...</p>
+                            </div>
+                          </div>
                         )
                       ) : (
                         <div className="space-y-4">
@@ -449,7 +489,12 @@ export default function HomePage() {
                                 <div className="space-y-2">
                                   {currentDraft.slice(0, 2).map(id => {
                                     const p = players.find(x => x.id === id);
-                                    return <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex items-center justify-between">{p?.name} {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                                    return (
+                                      <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex items-center justify-between">
+                                        <span className="truncate flex-1">{p?.name}</span>
+                                        {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                      </div>
+                                    );
                                   })}
                                 </div>
                               </div>
@@ -459,7 +504,12 @@ export default function HomePage() {
                                   <div className="space-y-2">
                                     {currentDraft.slice(2).map(id => {
                                       const p = players.find(x => x.id === id);
-                                      return <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex items-center justify-between">{p?.name} {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                                      return (
+                                        <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex items-center justify-between">
+                                          <span className="truncate flex-1">{p?.name}</span>
+                                          {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                        </div>
+                                      );
                                     })}
                                   </div>
                                 </div>
