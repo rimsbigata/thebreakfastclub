@@ -28,50 +28,6 @@ export async function sendNotification(params: SendNotificationParams): Promise<
 }
 
 /**
- * Send 'Match Queued' notification with partner info
- */
-export async function sendMatchQueuedNotification(
-  playerIds: string[],
-  teamANames: string,
-  teamBNames: string,
-  matchId: string
-): Promise<void> {
-  await sendNotification({
-    playerIds,
-    title: '🏸 Match Queued!',
-    body: `${teamANames} vs ${teamBNames}. Waiting for court assignment.`,
-    data: {
-      type: 'match_queued',
-      matchId,
-      tag: `match-${matchId}`
-    },
-  });
-}
-
-/**
- * Send 'Court Assigned' notification
- */
-export async function sendCourtAssignedNotification(
-  playerIds: string[],
-  teamANames: string,
-  teamBNames: string,
-  courtName: string,
-  matchId: string
-): Promise<void> {
-  await sendNotification({
-    playerIds,
-    title: `🏸 Court Ready: ${courtName}`,
-    body: `${teamANames} vs ${teamBNames}. Head to the court now!`,
-    data: {
-      type: 'court_assigned',
-      courtName,
-      matchId,
-      tag: `match-${matchId}`
-    },
-  });
-}
-
-/**
  * Send 'Your Turn!' notification
  */
 export async function sendYourTurnNotification(

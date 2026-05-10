@@ -16,8 +16,7 @@ import {
 } from '@/lib/types';
 import { useFirebase, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore';
-import { sendYourTurnNotification, sendNotification, sendMatchQueuedNotification, sendCourtAssignedNotification } from '@/lib/notificationUtils';
-import { getLocalStorageService } from '@/lib/localStorageService';
+import { sendNotification } from '@/lib/notificationUtils';
 
 interface ClubSettings {
   clubLogo: string | null;
@@ -256,14 +255,10 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const updateFcmToken = async (token: string) => {
     if (!firestore || !user?.uid) return;
     try {
-      const batch = writeBatch(firestore);
-      // Update global profile
-      batch.update(doc(firestore, 'userProfiles', user.uid), { fcmToken: token });
-      // Update session record if active
+      await updateDoc(doc(firestore, 'userProfiles', user.uid), { fcmToken: token });
       if (activeSession?.id) {
-        batch.update(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), { fcmToken: token });
+        await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), { fcmToken: token });
       }
-      await batch.commit();
     } catch (error) {
       console.error('Update FCM failed:', error);
     }
@@ -304,15 +299,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'playing' });
     }
     await batch.commit();
-
-    const teamANames = matchData.teamA.map((id: string) => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
-    const teamBNames = matchData.teamB.map((id: string) => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
-    if (matchData.courtId) {
-      const court = courts.find(c => c.id === matchData.courtId);
-      await sendCourtAssignedNotification([...matchData.teamA, ...matchData.teamB], teamANames, teamBNames, court?.name || 'Court', matchId);
-    } else {
-      await sendMatchQueuedNotification([...matchData.teamA, ...matchData.teamB], teamANames, teamBNames, matchId);
-    }
   };
 
   const endMatch = async (courtId: string, status: MatchStatus, winner?: 'teamA' | 'teamB', teamAScore?: number, teamBScore?: number) => {
@@ -342,7 +328,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     for (const pid of [...match.teamA, ...match.teamB]) {
       const p = players.find(player => player.id === pid);
       const isTeamA = match.teamA.includes(pid);
-      const partnerId = isTeamA ? match.teamA.find(id => id !== pid) : match.teamB.find(id => id !== pid);
       const won = status === 'completed' && winner
         ? (winner === 'teamA' && isTeamA) || (winner === 'teamB' && !isTeamA)
         : false;
@@ -352,7 +337,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         lastAvailableAt: Date.now(),
         wins: (p?.wins || 0) + (won ? 1 : 0),
         gamesPlayed: (p?.gamesPlayed || 0) + (status === 'completed' ? 1 : 0),
-        partnerHistory: partnerId ? [partnerId, ...(p?.partnerHistory || [])].slice(0, 5) : (p?.partnerHistory || []),
         improvementScore: Math.max(0, (p?.improvementScore || 0) + (won ? 5 : status === 'completed' ? -2 : 0)),
         totalPlayTimeMinutes: (p?.totalPlayTimeMinutes || 0) + playDuration,
       });
@@ -370,8 +354,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const assignMatchToCourt = async (matchId: string, courtId: string) => {
     if (!firestore || !activeSession?.id || role === 'player') throw new Error('Unauthorized');
     const match = matches.find(m => m.id === matchId);
-    const court = courts.find(c => c.id === courtId);
-    if (!match || !court) return;
+    if (!match) return;
 
     const batch = writeBatch(firestore);
     batch.update(doc(firestore, 'sessions', activeSession.id, 'matches', matchId), { courtId });
@@ -380,10 +363,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       currentMatchId: matchId 
     });
     await batch.commit();
-
-    const teamANames = match.teamA.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
-    const teamBNames = match.teamB.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(' & ');
-    await sendCourtAssignedNotification([...match.teamA, ...match.teamB], teamANames, teamBNames, court.name, matchId);
   };
 
   const createCourtAndAssignMatch = async (matchId: string) => {
@@ -540,8 +519,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
-    const replacement = players.find(p => p.id === newId);
-    const snap = { id: newId, name: replacement?.name || 'Unknown', skillLevel: replacement?.skillLevel || 3 };
     const isA = match.teamA.includes(oldId);
     const teamA = isA ? match.teamA.map(i => i === oldId ? newId : i) : match.teamA;
     const teamB = !isA ? match.teamB.map(i => i === oldId ? newId : i) : match.teamB;
@@ -550,10 +527,6 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     batch.update(doc(firestore, 'sessions', activeSession.id, 'players', oldId), { status: 'available', lastAvailableAt: Date.now() });
     batch.update(doc(firestore, 'sessions', activeSession.id, 'players', newId), { status: 'playing' });
     await batch.commit();
-    if (match.courtId) {
-      const c = courts.find(x => x.id === match.courtId);
-      await sendYourTurnNotification(newId, match.courtId, c?.name);
-    }
   };
 
   const deleteMatch = async (id: string) => {

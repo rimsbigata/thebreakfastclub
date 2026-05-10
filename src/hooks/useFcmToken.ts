@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging'
 import { initializeApp, getApps, getApp } from 'firebase/app'
-import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { doc, setDoc } from 'firebase/firestore'
 import { useFirebase } from '@/firebase'
 
 const firebaseConfig = {
@@ -37,33 +37,6 @@ export function useFcmToken() {
     checkSupport()
   }, [])
 
-  const saveTokenToFirestore = useCallback(async (fcmToken: string) => {
-    if (!user || !firestore) return
-
-    try {
-      // Save to global user profile
-      const userDocRef = doc(firestore, 'userProfiles', user.uid)
-      await setDoc(userDocRef, { fcmToken, lastTokenUpdate: Date.now() }, { merge: true })
-      console.log('FCM token saved to user profile')
-    } catch (error) {
-      console.error('Failed to save FCM token:', error)
-    }
-  }, [user, firestore])
-
-  const registerServiceWorker = useCallback(async () => {
-    if (!isSupported) return null
-    try {
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-        scope: '/'
-      })
-      await navigator.serviceWorker.ready
-      return registration
-    } catch (err) {
-      console.error('SW registration failed:', err)
-      return null
-    }
-  }, [isSupported])
-
   const requestPermissionAndGetToken = useCallback(async () => {
     if (!isSupported) throw new Error('Not supported')
 
@@ -78,9 +51,6 @@ export function useFcmToken() {
         throw new Error('Permission denied')
       }
 
-      const registration = await registerServiceWorker()
-      if (!registration) throw new Error('SW failed')
-
       const messaging = getMessaging(app)
       const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
 
@@ -88,14 +58,13 @@ export function useFcmToken() {
         throw new Error('VAPID key missing')
       }
 
-      const currentToken = await getToken(messaging, {
-        vapidKey,
-        serviceWorkerRegistration: registration,
-      })
+      const currentToken = await getToken(messaging, { vapidKey })
 
       if (currentToken) {
         setToken(currentToken)
-        await saveTokenToFirestore(currentToken)
+        if (user && firestore) {
+          await setDoc(doc(firestore, 'userProfiles', user.uid), { fcmToken: currentToken }, { merge: true })
+        }
         return currentToken
       }
       throw new Error('No token generated')
@@ -107,7 +76,7 @@ export function useFcmToken() {
     } finally {
       setIsLoading(false)
     }
-  }, [isSupported, registerServiceWorker, saveTokenToFirestore])
+  }, [isSupported, user, firestore])
 
   const deleteFcmToken = useCallback(async () => {
     if (!token) return
@@ -127,13 +96,10 @@ export function useFcmToken() {
     if (!isSupported || permission !== 'granted') return
     const messaging = getMessaging(app)
     const unsubscribe = onMessage(messaging, (payload) => {
-      console.log('Foreground message:', payload)
       if (payload.notification) {
         new Notification(payload.notification.title || 'The Breakfast Club', {
           body: payload.notification.body,
           icon: '/icon.png',
-          badge: '/icon.png',
-          tag: payload.data?.tag || 'match-update'
         })
       }
     })
