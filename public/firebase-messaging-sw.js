@@ -38,12 +38,14 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Try to find an existing window with the URL
       for (var i = 0; i < windowClients.length; i++) {
         var client = windowClients[i];
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
+      // If no existing window, open a new one
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }

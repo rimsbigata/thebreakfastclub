@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, use } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { PaymentMethod } from '@/lib/types';
 import { useTheme } from '@/context/ThemeContext';
@@ -17,12 +17,12 @@ import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 import { sendBoostCodeEmail } from '@/app/actions/email';
-import { sendMatchNotification } from '@/app/actions/notifications';
 import { useUser } from '@/firebase';
 import { QRCodeGenerator } from '@/components/qr/QRCodeGenerator';
 import { processAndUploadPaymentQR, processAndUploadClubLogo } from '@/lib/imageUpload';
 
-export default function SettingsPage({ params }: { params: { id: string } }) {
+export default function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
   const {
     paymentMethods, addPaymentMethod, deletePaymentMethod, resetDailyBoard,
     endSession, setClubLogo, clubLogo, defaultWinningScore, setDefaultWinningScore,
@@ -254,13 +254,31 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
     setIsTestingPlayerNotification(true);
     try {
       const sessionId = resolvedParams.id;
-      const result = await sendMatchNotification(selectedPlayerId, sessionId, 'Test Notification', 'This is a test notification from the settings page.');
-      if (result.success) {
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          playerIds: [selectedPlayerId],
+          title: 'Test Notification',
+          body: 'This is a test notification from the settings page.',
+          data: {
+            type: 'match_notification',
+            sessionId: sessionId,
+          },
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.result) {
         toast({ title: "Test Sent", description: "Notification sent to selected player." });
       } else {
         toast({ title: "Test Failed", description: result.error || "Could not send notification.", variant: "destructive" });
       }
     } catch (err) {
+      console.error('Notification error:', err);
       toast({ title: "Test Failed", description: "Could not send notification. Check your settings.", variant: "destructive" });
     } finally {
       setIsTestingPlayerNotification(false);

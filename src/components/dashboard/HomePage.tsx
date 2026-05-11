@@ -67,7 +67,8 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
 export default function HomePage() {
   const router = useRouter();
   const { user } = useUser();
-  const { token, permission } = useFcmToken();
+  const { token, permission, requestPermissionAndGetToken } = useFcmToken();
+  const { updateFcmToken } = useClub();
   const {
     courts, players, matches, deleteCourt, startMatch, startTimer,
     updateMatchScore, endMatch, swapPlayer, assignMatchToCourt,
@@ -99,6 +100,28 @@ export default function HomePage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Auto-prompt for notification permission when dashboard loads
+  useEffect(() => {
+    if (!mounted || !isSessionActive) return;
+    
+    // Only prompt if permission is 'default' (not yet asked)
+    // Browsers won't allow prompting if already 'denied'
+    if (permission === 'default') {
+      const timer = setTimeout(async () => {
+        try {
+          const fcmToken = await requestPermissionAndGetToken();
+          if (fcmToken) {
+            await updateFcmToken(fcmToken);
+          }
+        } catch (err) {
+          console.error('Auto-prompt notification permission failed:', err);
+        }
+      }, 2000); // Delay by 2 seconds to not interrupt initial load
+      
+      return () => clearTimeout(timer);
+    }
+  }, [mounted, isSessionActive, permission, requestPermissionAndGetToken, updateFcmToken]);
 
   useEffect(() => {
     setCourtDrafts(prev => {
@@ -325,7 +348,8 @@ export default function HomePage() {
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12">
         {isStaff && (
           <div className="md:col-span-3 border-r flex flex-col bg-secondary/5 min-h-0">
-            <div className="p-3 bg-card border-b flex flex-col gap-3 sticky top-0 z-10 h-28">
+            <div className="p-3 bg-card border-b flex flex-col gap-3 sticky top-0 z-10">
+              <NotificationPermissionButton />
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
                   <User className="h-4 w-4 text-primary" /> Bench

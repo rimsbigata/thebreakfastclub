@@ -1,6 +1,6 @@
 {
-  "name": "The Breakfast Club Badminton",
-  "short_name": "TBC Badminton",
+  "name": "The Breakfast Club",
+  "short_name": "TBC",
   "description": "Queue management and court assignment system for badminton sessions",
   "start_url": "/",
   "display": "standalone",
