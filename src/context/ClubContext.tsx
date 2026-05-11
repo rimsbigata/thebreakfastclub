@@ -255,9 +255,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const updateFcmToken = async (token: string) => {
     if (!firestore || !user?.uid) return;
     try {
-      await updateDoc(doc(firestore, 'userProfiles', user.uid), { fcmToken: token });
+      await setDoc(doc(firestore, 'userProfiles', user.uid), { fcmToken: token }, { merge: true });
       if (activeSession?.id) {
-        await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), { fcmToken: token });
+        await setDoc(doc(firestore, 'sessions', activeSession.id, 'players', user.uid), { fcmToken: token }, { merge: true });
       }
     } catch (error) {
       console.error('Update FCM failed:', error);

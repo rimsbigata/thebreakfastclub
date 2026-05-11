@@ -98,18 +98,24 @@ export default function FeesPage() {
   };
 
   const sortedPlayers = useMemo(() => {
-    // For players, only show their own entry
+    // For players, only show their own entry if they have joined with a valid name
     if (isPlayer && currentPlayer) {
       const player = players.find(p => p.id === currentPlayer.id);
-      return player ? [player] : [];
+      // Only show if player exists and has a valid name (not "Unknown" or empty, case-insensitive)
+      if (player && player.name && player.name.toLowerCase() !== 'unknown') {
+        return [player];
+      }
+      return [];
     }
 
-    // For staff, show all players
-    return [...players].sort((a, b) => {
-      const aPaid = !!currentFee?.payments?.[a.id];
-      const bPaid = !!currentFee?.payments?.[b.id];
-      return aPaid === bPaid ? 0 : aPaid ? 1 : -1;
-    });
+    // For staff, show all players except those with "Unknown" names
+    return [...players]
+      .filter(p => p.name && p.name.toLowerCase() !== 'unknown')
+      .sort((a, b) => {
+        const aPaid = !!currentFee?.payments?.[a.id];
+        const bPaid = !!currentFee?.payments?.[b.id];
+        return aPaid === bPaid ? 0 : aPaid ? 1 : -1;
+      });
   }, [players, currentFee, isPlayer, currentPlayer]);
 
   const myPaymentStatus = useMemo(() => {
@@ -187,19 +193,21 @@ export default function FeesPage() {
                     <div key={court.id} className="space-y-3 p-4 bg-background rounded-lg border-2 relative">
                       {courts.length > 1 && (
                         <button
+                          key="remove-btn"
                           onClick={() => removeCourt(court.id)}
                           className="absolute top-2 right-2 text-red-500 hover:text-red-600 font-black text-xs"
                         >
                           ✕
                         </button>
                       )}
-                      <div className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">{court.name}</div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Fee / Hour</Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
+                      <div key="court-name" className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">{court.name}</div>
+                      <div key="fee-inputs" className="grid grid-cols-2 gap-4">
+                        <div key="fee-hour" className="space-y-1.5">
+                          <Label key="fee-label" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Fee / Hour</Label>
+                          <div key="fee-input-wrapper" className="relative">
+                            <span key="peso-sign" className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-muted-foreground/50">₱</span>
                             <Input
+                              key="fee-input"
                               type="number"
                               className="h-12 font-black pl-8"
                               value={court.feePerHour}
@@ -207,9 +215,10 @@ export default function FeesPage() {
                             />
                           </div>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Hours</Label>
+                        <div key="hours-input" className="space-y-1.5">
+                          <Label key="hours-label" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Hours</Label>
                           <Input
+                            key="hours-input-field"
                             type="number"
                             className="h-12 font-black"
                             value={court.hoursRented}
@@ -217,9 +226,9 @@ export default function FeesPage() {
                           />
                         </div>
                       </div>
-                      <div className="flex justify-between items-center p-2 bg-secondary/50 rounded text-xs">
-                        <span className="font-black uppercase tracking-widest text-muted-foreground">Court Subtotal</span>
-                        <span className="font-black">₱{(court.feePerHour * court.hoursRented).toFixed(2)}</span>
+                      <div key="court-subtotal" className="flex justify-between items-center p-2 bg-secondary/50 rounded text-xs">
+                        <span key="subtotal-label" className="font-black uppercase tracking-widest text-muted-foreground">Court Subtotal</span>
+                        <span key="subtotal-value" className="font-black">₱{(court.feePerHour * court.hoursRented).toFixed(2)}</span>
                       </div>
                     </div>
                   ))}
@@ -313,8 +322,8 @@ export default function FeesPage() {
                     {paymentMethods.length > 0 ? (
                       paymentMethods.map(method => (
                         <Card key={method.id} className="overflow-hidden border-2">
-                          <div className="bg-primary text-primary-foreground p-2 text-center text-[10px] font-black uppercase tracking-widest">{method.name}</div>
-                          <div className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill className="object-contain p-4" /></div>
+                          <div key="method-name" className="bg-primary text-primary-foreground p-2 text-center text-[10px] font-black uppercase tracking-widest">{method.name}</div>
+                          <div key="method-image" className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill className="object-contain p-4" /></div>
                         </Card>
                       ))
                     ) : (
@@ -352,8 +361,8 @@ export default function FeesPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
                       {paymentMethods.map(method => (
                         <Card key={method.id} className="overflow-hidden border-2">
-                          <div className="bg-primary text-primary-foreground p-1 text-center text-[10px] font-black uppercase">{method.name}</div>
-                          <div className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill className="object-contain p-4" /></div>
+                          <div key="method-name" className="bg-primary text-primary-foreground p-1 text-center text-[10px] font-black uppercase">{method.name}</div>
+                          <div key="method-image" className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill className="object-contain p-4" /></div>
                         </Card>
                       ))}
                     </div>
@@ -363,39 +372,39 @@ export default function FeesPage() {
             </div>
 
             <ScrollArea className="h-[600px] rounded-2xl border-2 bg-card p-4">
-              <div className="space-y-2">
-                {sortedPlayers.map(player => {
+              <div key="players-list" className="space-y-2">
+                  {sortedPlayers.map((player, index) => {
                   const isPaid = !!currentFee?.payments?.[player.id];
                   const isMe = player.id === currentPlayer?.id;
 
                   return (
-                    <div key={player.id} className={cn(
+                    <div key={`player-${player.id}-${index}`} className={cn(
                       "flex items-center justify-between p-4 border-2 rounded-xl transition-all",
                       isPaid ? "bg-green-500/5 border-green-500/20 opacity-60" : "bg-card border-border hover:border-primary/30",
                       isMe && "ring-2 ring-primary ring-offset-2"
                     )}>
-                      <div className="flex items-center gap-3">
-                        <div className={cn("h-3 w-3 rounded-full", isPaid ? "bg-green-500" : "bg-red-500")} />
-                        <div className="flex flex-col">
-                          <span className={cn("font-black text-sm", isPaid && "line-through text-muted-foreground")}>
-                            {player.name} {isMe && <span className="text-[10px] text-primary ml-1">(YOU)</span>}
+                      <div key={`player-info-${player.id}`} className="flex items-center gap-3">
+                        <div key={`status-dot-${player.id}`} className={cn("h-3 w-3 rounded-full", isPaid ? "bg-green-500" : "bg-red-500")} />
+                        <div key={`name-container-${player.id}`} className="flex flex-col">
+                          <span key={`player-name-${player.id}`} className={cn("font-black text-sm", isPaid && "line-through text-muted-foreground")}>
+                            {player.name} {isMe && <span key={`you-label-${player.id}`} className="text-[10px] text-primary ml-1">(YOU)</span>}
                           </span>
-                          {isPaid && <p className="text-[8px] font-black uppercase text-green-600 mt-0.5">Payment Verified</p>}
+                          {isPaid && <p key={`payment-verified-${player.id}`} className="text-[8px] font-black uppercase text-green-600 mt-0.5">Payment Verified</p>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className={cn("text-[10px] font-black uppercase tracking-tighter", isPaid ? "text-green-600" : "text-red-500")}>
+                      <div key={`payment-status-${player.id}`} className="flex items-center gap-4">
+                        <span key={`status-text-${player.id}`} className={cn("text-[10px] font-black uppercase tracking-tighter", isPaid ? "text-green-600" : "text-red-500")}>
                           {isPaid ? 'Settled' : 'Pending'}
                         </span>
                         {isAdmin && (
-                          <Checkbox checked={isPaid} onCheckedChange={() => togglePayment(today, player.id)} className="h-5 w-5 border-2" />
+                          <Checkbox key={`checkbox-${player.id}`} checked={isPaid} onCheckedChange={() => togglePayment(today, player.id)} className="h-5 w-5 border-2" />
                         )}
                       </div>
                     </div>
                   );
                 })}
                 {players.length === 0 && (
-                  <div className="py-20 text-center text-muted-foreground font-black uppercase text-xs opacity-20">No Players Found</div>
+                  <div key="no-players" className="py-20 text-center text-muted-foreground font-black uppercase text-xs opacity-20">No Players Found</div>
                 )}
               </div>
             </ScrollArea>

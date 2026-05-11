@@ -68,7 +68,7 @@ function ImprovementSparkline({ score }: { score: number }) {
 }
 
 export default function PlayersPage() {
-  const { players, addPlayer, updatePlayer, deletePlayer, role } = useClub();
+  const { players, addPlayer, updatePlayer, deletePlayer, role, currentPlayer } = useClub();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const isAdmin = role === 'admin';
@@ -92,7 +92,20 @@ export default function PlayersPage() {
   const [tempRoleHours, setTempRoleHours] = useState('2');
 
   const filteredPlayers = useMemo(() => {
-    let result = players.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    // For players, only show their own entry if they have joined with a valid name
+    if (isPlayer && currentPlayer) {
+      const player = players.find(p => p.id === currentPlayer.id);
+      // Only show if player exists and has a valid name (not "Unknown" or empty, case-insensitive)
+      if (player && player.name && player.name.toLowerCase() !== 'unknown') {
+        return [player];
+      }
+      return [];
+    }
+
+    // For staff, show all players except those with "Unknown" names
+    let result = players.filter(p => p.name && p.name.toLowerCase() !== 'unknown');
+    
+    result = result.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     if (statusFilter !== 'all') {
       result = result.filter(p => p.status === statusFilter);
@@ -122,7 +135,7 @@ export default function PlayersPage() {
     });
 
     return result;
-  }, [players, searchQuery, statusFilter, skillFilter, sortBy]);
+  }, [players, searchQuery, statusFilter, skillFilter, sortBy, isPlayer, currentPlayer]);
 
   const skillDistribution = useMemo(() => {
     return Object.keys(SKILL_LEVELS_SHORT).map(level => ({
@@ -367,11 +380,11 @@ export default function PlayersPage() {
                   <div className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2 min-w-0">
                       {isStaff && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={e => { e.stopPropagation(); togglePlayerSelection(player.id); }}>
+                        <Button key="select-btn" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={e => { e.stopPropagation(); togglePlayerSelection(player.id); }}>
                           {selectedPlayers.has(player.id) ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
                         </Button>
                       )}
-                      <div className="flex-1 min-w-0">
+                      <div key="player-info" className="flex-1 min-w-0">
                         <p className="font-black text-sm truncate leading-tight group-hover:text-primary transition-colors">
                           {player.name}
                         </p>
@@ -388,7 +401,7 @@ export default function PlayersPage() {
                         </div>
                       </div>
                       {isStaff && (
-                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+                        <div key="action-btns" className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStatusToggle(player)} title="Toggle status">
                             <RefreshCw className="h-3.5 w-3.5" />
                           </Button>
@@ -414,7 +427,7 @@ export default function PlayersPage() {
                         </div>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-dashed min-w-0">
+                    <div key="stats-grid" className="grid grid-cols-2 gap-1.5 pt-2 border-t border-dashed min-w-0">
                       <div className="min-w-0 overflow-hidden">
                         <p className="text-[8px] font-black uppercase text-muted-foreground truncate mb-1">Skill</p>
                         <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-1.5 h-4 truncate w-full", getSkillColor(player.skillLevel))}>
@@ -434,7 +447,7 @@ export default function PlayersPage() {
                         <p className="text-compact font-black truncate">{player.totalPlayTimeMinutes > 0 ? `${Math.floor(player.totalPlayTimeMinutes / 60)}h` : '-'}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 pt-1.5">
+                    <div key="improvement" className="flex items-center gap-1.5 pt-1.5">
                       <div className="flex items-center gap-1">
                         <ImprovementSparkline score={player.improvementScore} />
                         <span className="text-[8px] font-black uppercase">{player.improvementScore > 0 ? `+${player.improvementScore}` : player.improvementScore}</span>

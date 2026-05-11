@@ -627,9 +627,9 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                         <SelectValue placeholder="Select a player" />
                       </SelectTrigger>
                       <SelectContent>
-                        {players.map((player) => (
+                        {players.filter(p => p.name && p.name.toLowerCase() !== 'unknown').map((player) => (
                           <SelectItem key={player.id} value={player.id} className="text-[10px] font-bold uppercase">
-                            {player.name}
+                            <span key={`player-name-${player.id}`}>{player.name}</span>
                           </SelectItem>
                         ))}
                       </SelectContent>

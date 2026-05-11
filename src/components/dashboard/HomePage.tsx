@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { SKILL_LEVELS_SHORT, getSkillColor, Player } from '@/lib/types';
 import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { Switch } from '@/components/ui/switch';
-import { NotificationPermissionButton } from '@/components/NotificationPermissionButton';
+import { NotificationPermissionModal } from '@/components/NotificationPermissionModal';
 import { useFcmToken } from '@/hooks/useFcmToken';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
@@ -96,32 +96,37 @@ export default function HomePage() {
 
   const [editingCourtId, setEditingCourtId] = useState<string | null>(null);
   const [tempCourtName, setTempCourtName] = useState('');
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+
+  const handleNotificationModalClose = (open: boolean) => {
+    setShowNotificationModal(open);
+    if (!open) {
+      // Mark modal as seen when closed
+      localStorage.setItem('notificationModalSeen', 'true');
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Auto-prompt for notification permission when dashboard loads
+  // Auto-show notification modal when dashboard loads (only once)
   useEffect(() => {
     if (!mounted || !isSessionActive) return;
     
-    // Only prompt if permission is 'default' (not yet asked)
-    // Browsers won't allow prompting if already 'denied'
-    if (permission === 'default') {
-      const timer = setTimeout(async () => {
-        try {
-          const fcmToken = await requestPermissionAndGetToken();
-          if (fcmToken) {
-            await updateFcmToken(fcmToken);
-          }
-        } catch (err) {
-          console.error('Auto-prompt notification permission failed:', err);
-        }
+    // Check if user has already seen the modal
+    const hasSeenModal = localStorage.getItem('notificationModalSeen');
+    
+    // Only show modal if permission is 'default' (not yet asked) and hasn't been seen
+    if (permission === 'default' && !hasSeenModal) {
+      console.log('Showing notification modal - permission:', permission, 'hasSeenModal:', hasSeenModal);
+      const timer = setTimeout(() => {
+        setShowNotificationModal(true);
       }, 2000); // Delay by 2 seconds to not interrupt initial load
       
       return () => clearTimeout(timer);
     }
-  }, [mounted, isSessionActive, permission, requestPermissionAndGetToken, updateFcmToken]);
+  }, [mounted, isSessionActive, permission]);
 
   useEffect(() => {
     setCourtDrafts(prev => {
@@ -349,7 +354,6 @@ export default function HomePage() {
         {isStaff && (
           <div className="md:col-span-3 border-r flex flex-col bg-secondary/5 min-h-0">
             <div className="p-3 bg-card border-b flex flex-col gap-3 sticky top-0 z-10">
-              <NotificationPermissionButton />
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
                   <User className="h-4 w-4 text-primary" /> Bench
@@ -688,6 +692,8 @@ export default function HomePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <NotificationPermissionModal open={showNotificationModal} onOpenChange={handleNotificationModalClose} />
     </div>
   );
 }
