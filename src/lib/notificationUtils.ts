@@ -11,18 +11,28 @@ interface SendNotificationParams {
  */
 export async function sendNotification(params: SendNotificationParams): Promise<boolean> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     const response = await fetch('/api/notifications', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(params),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     const result = await response.json();
-    return response.ok && result.result?.successCount > 0;
+    console.log('Notification API Result:', result);
+    return response.ok && (result.result?.successCount > 0 || result.successCount > 0);
   } catch (error) {
     console.error('Error sending notification:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('Notification request timed out');
+    }
     return false;
   }
 }

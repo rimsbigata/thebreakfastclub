@@ -53,7 +53,7 @@ export async function notifyPlayerOfAssignment(playerId: string, courtName: stri
     const preferences = playerData?.preferences
 
     if (!fcmToken) {
-      console.warn(`Player ${playerId} has no FCM token registered`)
+      console.warn(`Player ${playerId} has no FCM token`)
       return { success: false, error: 'No FCM token registered' }
     }
 
@@ -71,7 +71,7 @@ export async function notifyPlayerOfAssignment(playerId: string, courtName: stri
       }
     }
 
-    // Send the notification
+    // Send the notification to the single token
     const message = {
       token: fcmToken,
       notification: {
@@ -191,7 +191,7 @@ export async function sendMatchNotification(
       return { success: false, error: 'No FCM token registered' }
     }
 
-    // Send the FCM message with dynamic URL
+    // Send the FCM message with dynamic URL to the single token
     const message = {
       token: fcmToken,
       notification: {
@@ -241,7 +241,7 @@ export async function sendMatchNotification(
     if (error instanceof Error) {
       if (error.message.includes('registration-token-not-registered')) {
         console.warn(`FCM token for player ${playerId} is invalid or expired`)
-        // Optionally update the player document to remove the invalid token using setDoc with merge
+        // Update the player document to remove the invalid token
         try {
           const firestore = getAdminFirestore()
           await firestore

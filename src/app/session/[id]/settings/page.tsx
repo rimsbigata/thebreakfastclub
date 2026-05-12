@@ -20,6 +20,7 @@ import { sendBoostCodeEmail } from '@/app/actions/email';
 import { useUser } from '@/firebase';
 import { QRCodeGenerator } from '@/components/qr/QRCodeGenerator';
 import { processAndUploadPaymentQR, processAndUploadClubLogo } from '@/lib/imageUpload';
+import { useFcmToken } from '@/hooks/useFcmToken';
 
 export default function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -36,6 +37,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
   const { toast } = useToast();
   const router = useRouter();
   const { user } = useUser();
+  const { token: fcmToken, isSupported: fcmSupported, requestPermissionAndGetToken, deleteFcmToken } = useFcmToken();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +48,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
   const [isTestingNotifications, setIsTestingNotifications] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [isTestingPlayerNotification, setIsTestingPlayerNotification] = useState(false);
+  const [isResettingToken, setIsResettingToken] = useState(false);
   const [newBoostDate, setNewBoostDate] = useState('');
   const [newBoostVenue, setNewBoostVenue] = useState('');
   const [newBoostTime, setNewBoostTime] = useState('');
@@ -237,10 +240,34 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
   const handleTestNotifications = async () => {
     setIsTestingNotifications(true);
     try {
+      // Log current FCM token for debugging
+      console.log('FCM Debug - Current Token:', fcmToken);
+      console.log('FCM Debug - FCM Supported:', fcmSupported);
+      console.log('FCM Debug - User ID:', user?.uid);
+      
+      // Wait for service worker to be ready with timeout
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Service worker ready timeout')), 5000))
+          ]) as ServiceWorkerRegistration;
+          console.log('FCM Debug - Service Worker Ready:', registration.scope);
+        } catch (swError) {
+          console.warn('FCM Debug - Service Worker not ready, continuing anyway:', swError);
+        }
+      }
+      
       await sendTestNotification();
       toast({ title: "Test Sent", description: "If permissions are granted, you should see a notification shortly." });
     } catch (err) {
-      toast({ title: "Test Failed", description: "Could not send notification. Check your settings.", variant: "destructive" });
+      console.error('FCM Test Error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      toast({ 
+        title: "Test Failed", 
+        description: `Could not send notification. Error: ${errorMessage}`, 
+        variant: "destructive" 
+      });
     } finally {
       setIsTestingNotifications(false);
     }
@@ -253,6 +280,24 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     }
     setIsTestingPlayerNotification(true);
     try {
+      // Log current FCM token for debugging
+      console.log('FCM Debug - Current Token:', fcmToken);
+      console.log('FCM Debug - FCM Supported:', fcmSupported);
+      console.log('FCM Debug - Selected Player ID:', selectedPlayerId);
+      
+      // Wait for service worker to be ready with timeout
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Service worker ready timeout')), 5000))
+          ]) as ServiceWorkerRegistration;
+          console.log('FCM Debug - Service Worker Ready:', registration.scope);
+        } catch (swError) {
+          console.warn('FCM Debug - Service Worker not ready, continuing anyway:', swError);
+        }
+      }
+      
       const sessionId = resolvedParams.id;
       const response = await fetch('/api/notifications', {
         method: 'POST',
@@ -271,17 +316,70 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
       });
 
       const result = await response.json();
+      console.log('FCM Debug - API Response:', result);
       
       if (response.ok && result.result) {
-        toast({ title: "Test Sent", description: "Notification sent to selected player." });
+        // Check if all notifications failed with Device unregistered
+        if (result.failureCount === result.failureCount && result.responses?.some((r: any) => r.error === 'Device unregistered.')) {
+          toast({ 
+            title: "Device Connection Expired", 
+            description: "Your device connection has expired. Please click 'Reset Notification Token' to fix.",
+            variant: "destructive"
+          });
+        } else {
+          toast({ title: "Test Sent", description: "Notification sent to selected player." });
+        }
       } else {
-        toast({ title: "Test Failed", description: result.error || "Could not send notification.", variant: "destructive" });
+        const errorCode = result.errorCode || 'UNKNOWN';
+        const errorMessage = result.error || "Could not send notification.";
+        toast({ 
+          title: "Test Failed", 
+          description: `Error: ${errorCode} - ${errorMessage}`, 
+          variant: "destructive" 
+        });
       }
     } catch (err) {
       console.error('Notification error:', err);
-      toast({ title: "Test Failed", description: "Could not send notification. Check your settings.", variant: "destructive" });
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      toast({ 
+        title: "Test Failed", 
+        description: `Could not send notification. Error: ${errorMessage}`, 
+        variant: "destructive" 
+      });
     } finally {
       setIsTestingPlayerNotification(false);
+    }
+  };
+
+  const handleResetToken = async () => {
+    if (!fcmSupported) {
+      toast({ title: "Not Supported", description: "Your browser does not support push notifications.", variant: "destructive" });
+      return;
+    }
+
+    setIsResettingToken(true);
+    try {
+      console.log('FCM Reset - Starting token reset...');
+      
+      // Delete existing token
+      await deleteFcmToken();
+      console.log('FCM Reset - Old token deleted');
+      
+      // Request permission and get new token
+      const newToken = await requestPermissionAndGetToken();
+      console.log('FCM Reset - New token obtained:', newToken);
+      
+      toast({ title: "Token Reset", description: "Your notification token has been successfully reset." });
+    } catch (err) {
+      console.error('FCM Reset Error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      toast({ 
+        title: "Reset Failed", 
+        description: `Could not reset token. Error: ${errorMessage}`, 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsResettingToken(false);
     }
   };
 
@@ -646,6 +744,20 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                   </div>
                 </div>
               )}
+              <div className="p-4 bg-primary/5 rounded-xl border-2 border-primary/20">
+                <p className="text-[10px] font-bold uppercase text-muted-foreground mb-4">
+                  Reset your notification token if you're experiencing connection issues.
+                </p>
+                <Button 
+                  onClick={handleResetToken} 
+                  disabled={isResettingToken}
+                  variant="outline" 
+                  className="w-full h-10 font-black uppercase text-[10px] border-2 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  {isResettingToken ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <RefreshCcw className="h-3 w-3 mr-2" />}
+                  Reset Notification Token
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

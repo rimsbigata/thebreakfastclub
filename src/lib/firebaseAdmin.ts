@@ -31,6 +31,11 @@ function createAdminApp() {
     throw new Error('Invalid JSON in FIREBASE_ADMIN_CREDENTIALS.');
   }
 
+  // Fix private key line breaks for Vercel
+  if (parsed.private_key) {
+    parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+  }
+
   return initializeApp({ credential: cert(parsed) });
 }
 
