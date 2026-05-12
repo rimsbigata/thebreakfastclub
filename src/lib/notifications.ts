@@ -1,4 +1,4 @@
-import { getFirebaseAdminFirestore, getFirebaseAdminMessaging } from './firebaseAdmin';
+import { getFirebaseAdminFirestore, getFirebaseAdminMessaging } from '@/lib/firebaseAdmin';
 
 interface SendNotificationParams {
   playerIds: string[];

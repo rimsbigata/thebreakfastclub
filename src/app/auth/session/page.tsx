@@ -17,6 +17,7 @@ import { QueueSession } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function SessionGatePage() {
   const { userProfile, activeSession, joinSession, createSession, role, isRestoringSession, loadSessionById, endSessionById, getAllSessions } = useClub();
@@ -36,6 +37,7 @@ export default function SessionGatePage() {
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isDoubleStar, setIsDoubleStar] = useState(false);
 
   useEffect(() => {
     if (isRestoringSession) return;
@@ -63,13 +65,14 @@ export default function SessionGatePage() {
   const handleCreate = async () => {
     setLoading(true);
     try {
-      const sessionId = await createSession(false, undefined, venueName, scheduledDate, scheduledTime);
+      const sessionId = await createSession(isDoubleStar, undefined, venueName, scheduledDate, scheduledTime);
       toast({ title: "Session Created!" });
       router.push(`/session/${sessionId}`);
       // Reset form
       setVenueName('');
       setScheduledDate('');
       setScheduledTime('');
+      setIsDoubleStar(false);
       setShowCreateForm(false);
     } catch (error: any) {
       toast({ title: "Failed to create", description: error.message, variant: "destructive" });
@@ -141,48 +144,127 @@ export default function SessionGatePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ScrollArea className="h-[400px] pr-4">
-              <div className="space-y-3">
-                {allSessions.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p className="text-sm font-black uppercase">No sessions found</p>
+            <Tabs defaultValue="all" className="w-full">
+              <TabsList className="bg-secondary/50 border-2 w-full">
+                <TabsTrigger value="all" className="font-black uppercase text-[10px]">
+                  All Sessions
+                </TabsTrigger>
+                <TabsTrigger value="active" className="font-black uppercase text-[10px]">
+                  Active Sessions
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="all" className="mt-4">
+                <ScrollArea className="h-[400px] pr-4">
+                  <div className="space-y-3">
+                    {allSessions.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p className="text-sm font-black uppercase">No sessions found</p>
+                      </div>
+                    ) : (
+                      allSessions.map(session => (
+                        <Card key={session.id} className="border-2">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-lg font-black uppercase tracking-widest">{session.code}</span>
+                                  <span className={cn(
+                                    "text-[8px] font-black uppercase px-2 py-0.5 rounded",
+                                    session.status === 'active' ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"
+                                  )}>
+                                    {session.status}
+                                  </span>
+                                </div>
+                                {session.venueName && (
+                                  <p className="text-[9px] text-muted-foreground font-bold uppercase">{session.venueName}</p>
+                                )}
+                                <div className="flex items-center gap-2">
+                                  <p className="text-[9px] text-muted-foreground font-bold uppercase">
+                                    Created: {new Date(session.createdAt).toLocaleString()}
+                                  </p>
+                                  {session.scheduledDate && (
+                                    <p className="text-[9px] text-muted-foreground font-bold uppercase">{session.scheduledDate}</p>
+                                  )}
+                                  {session.scheduledTime && (
+                                    <p className="text-[9px] text-muted-foreground font-bold uppercase">{session.scheduledTime}</p>
+                                  )}
+                                </div>
+                                {session.isDoubleStar && (
+                                  <p className="text-[9px] text-primary font-black uppercase mt-1">⭐⭐ Double Star</p>
+                                )}
+                              </div>
+                              <div className="flex gap-2">
+                                {session.status === 'active' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="font-black uppercase text-[10px] h-8"
+                                      onClick={() => handleOpenSession(session.id)}
+                                      disabled={loading}
+                                    >
+                                      Open
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="font-black uppercase text-[10px] h-8"
+                                      onClick={() => handleEndSession(session.id)}
+                                      disabled={endingSessionId === session.id}
+                                    >
+                                      {endingSessionId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Power className="h-3 w-3" />}
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
                   </div>
-                ) : (
-                  allSessions.map(session => (
-                    <Card key={session.id} className="border-2">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg font-black uppercase tracking-widest">{session.code}</span>
-                              <span className={cn(
-                                "text-[8px] font-black uppercase px-2 py-0.5 rounded",
-                                session.status === 'active' ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"
-                              )}>
-                                {session.status}
-                              </span>
-                            </div>
-                            {session.venueName && (
-                              <p className="text-[9px] text-muted-foreground font-bold uppercase">{session.venueName}</p>
-                            )}
-                            <div className="flex items-center gap-2">
-                              <p className="text-[9px] text-muted-foreground font-bold uppercase">
-                                Created: {new Date(session.createdAt).toLocaleString()}
-                              </p>
-                              {session.scheduledDate && (
-                                <p className="text-[9px] text-muted-foreground font-bold uppercase">{session.scheduledDate}</p>
-                              )}
-                              {session.scheduledTime && (
-                                <p className="text-[9px] text-muted-foreground font-bold uppercase">{session.scheduledTime}</p>
-                              )}
-                            </div>
-                            {session.isDoubleStar && (
-                              <p className="text-[9px] text-primary font-black uppercase mt-1">⭐⭐ Double Star</p>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            {session.status === 'active' && (
-                              <>
+                </ScrollArea>
+              </TabsContent>
+              
+              <TabsContent value="active" className="mt-4">
+                <ScrollArea className="h-[400px] pr-4">
+                  <div className="space-y-3">
+                    {allSessions.filter(s => s.status === 'active').length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p className="text-sm font-black uppercase">No active sessions found</p>
+                      </div>
+                    ) : (
+                      allSessions.filter(s => s.status === 'active').map(session => (
+                        <Card key={session.id} className="border-2">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-lg font-black uppercase tracking-widest">{session.code}</span>
+                                  <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded bg-green-500/10 text-green-600">
+                                    Active
+                                  </span>
+                                </div>
+                                {session.venueName && (
+                                  <p className="text-[9px] text-muted-foreground font-bold uppercase">{session.venueName}</p>
+                                )}
+                                <div className="flex items-center gap-2">
+                                  <p className="text-[9px] text-muted-foreground font-bold uppercase">
+                                    Created: {new Date(session.createdAt).toLocaleString()}
+                                  </p>
+                                  {session.scheduledDate && (
+                                    <p className="text-[9px] text-muted-foreground font-bold uppercase">{session.scheduledDate}</p>
+                                  )}
+                                  {session.scheduledTime && (
+                                    <p className="text-[9px] text-muted-foreground font-bold uppercase">{session.scheduledTime}</p>
+                                  )}
+                                </div>
+                                {session.isDoubleStar && (
+                                  <p className="text-[9px] text-primary font-black uppercase mt-1">⭐⭐ Double Star</p>
+                                )}
+                              </div>
+                              <div className="flex gap-2">
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -201,16 +283,16 @@ export default function SessionGatePage() {
                                 >
                                   {endingSessionId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Power className="h-3 w-3" />}
                                 </Button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
           </CardContent>
           <CardFooter>
             <Button variant="outline" className="w-full font-black uppercase" onClick={() => setShowAdminView(false)}>
@@ -309,6 +391,13 @@ export default function SessionGatePage() {
                             className="h-10 text-sm font-black"
                           />
                         </div>
+                      </div>
+                      <div className="flex items-center justify-between p-2 border-2 rounded-lg bg-primary/5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">⭐⭐</span>
+                          <span className="text-xs font-black uppercase">Double Star Mode</span>
+                        </div>
+                        <Switch checked={isDoubleStar} onCheckedChange={setIsDoubleStar} />
                       </div>
                     </div>
                     <div className="flex gap-2">

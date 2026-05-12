@@ -16,16 +16,31 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Handle service worker activation - claim all clients immediately
+self.addEventListener('activate', (event) => {
+  console.log('[firebase-messaging-sw.js] Service worker activating');
+  event.waitUntil(clients.claim());
+});
+
+// Handle service worker installation - skip waiting
+self.addEventListener('install', (event) => {
+  console.log('[firebase-messaging-sw.js] Service worker installing');
+  self.skipWaiting();
+});
+
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  const notificationTitle = payload.notification.title || 'The Breakfast Club';
+  // Extract title and body from payload, checking both notification and data fields
+  const notificationTitle = payload.notification?.title || payload.data?.title || 'The Breakfast Club';
+  const notificationBody = payload.notification?.body || payload.data?.body || '';
+  
   const notificationOptions = {
-    body: payload.notification.body,
+    body: notificationBody,
     icon: '/icon.png',
     badge: '/icon.png',
-    data: payload.data
+    data: payload.data || {}
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);

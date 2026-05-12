@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging'
 import { initializeApp, getApps, getApp } from 'firebase/app'
-import { doc, setDoc } from 'firebase/firestore'
+import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { useFirebase } from '@/firebase'
 
 const firebaseConfig = {
@@ -37,6 +37,26 @@ export function useFcmToken() {
     checkSupport()
   }, [])
 
+  useEffect(() => {
+    // Load existing token from Firestore on mount
+    const loadExistingToken = async () => {
+      if (user && firestore) {
+        try {
+          const userDoc = await getDoc(doc(firestore, 'userProfiles', user.uid))
+          if (userDoc.exists()) {
+            const data = userDoc.data()
+            if (data?.fcmToken) {
+              setToken(data.fcmToken)
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load existing token:', err)
+        }
+      }
+    }
+    loadExistingToken()
+  }, [user, firestore])
+
   const requestPermissionAndGetToken = useCallback(async () => {
     if (!isSupported) throw new Error('Not supported')
 
@@ -61,7 +81,10 @@ export function useFcmToken() {
       const currentToken = await getToken(messaging, { vapidKey })
 
       if (currentToken) {
+        // Immediately update local state
         setToken(currentToken)
+        
+        // Immediately overwrite old token in Firestore
         if (user && firestore) {
           await setDoc(doc(firestore, 'userProfiles', user.uid), { fcmToken: currentToken }, { merge: true })
         }

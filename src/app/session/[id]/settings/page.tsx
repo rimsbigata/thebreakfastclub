@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import tbcLogo from '@/assets/images/tbc_logo_loading.png';
 import { sendBoostCodeEmail } from '@/app/actions/email';
-import { useUser } from '@/firebase';
+import { useFirebase, useUser } from '@/firebase';
 import { QRCodeGenerator } from '@/components/qr/QRCodeGenerator';
 import { processAndUploadPaymentQR, processAndUploadClubLogo } from '@/lib/imageUpload';
 import { useFcmToken } from '@/hooks/useFcmToken';
@@ -31,15 +31,18 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     defaultCourtCount, setDefaultCourtCount, deuceEnabled, setDeuceEnabled,
     autoRestEnabled, setAutoRestEnabled,
     boostSchedules, addBoostSchedule, deleteBoostSchedule, upcomingBoost, clearClubData,
-    sendTestNotification, players
+    sendTestNotification, players, role
   } = useClub();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const router = useRouter();
+  const { auth } = useFirebase();
   const { user } = useUser();
   const { token: fcmToken, isSupported: fcmSupported, requestPermissionAndGetToken, deleteFcmToken } = useFcmToken();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const isAdmin = role === 'admin';
 
   const [newMethodName, setNewMethodName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -49,6 +52,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [isTestingPlayerNotification, setIsTestingPlayerNotification] = useState(false);
   const [isResettingToken, setIsResettingToken] = useState(false);
+  const [isResettingAllTokens, setIsResettingAllTokens] = useState(false);
   const [newBoostDate, setNewBoostDate] = useState('');
   const [newBoostVenue, setNewBoostVenue] = useState('');
   const [newBoostTime, setNewBoostTime] = useState('');
@@ -365,6 +369,28 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
       await deleteFcmToken();
       console.log('FCM Reset - Old token deleted');
       
+      // Force service worker activation
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+          console.log('FCM Reset - Service worker registered:', registration.scope);
+          
+          // Force check for changes
+          await registration.update();
+          console.log('FCM Reset - Service worker updated');
+          
+          // Wait for service worker to be ready with 15s timeout for mobile
+          await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((resolve) => setTimeout(resolve, 15000))
+          ]) as Promise<ServiceWorkerRegistration>;
+          console.log('FCM Reset - Service worker ready');
+        } catch (swError) {
+          console.error('FCM Reset - Service worker error:', swError);
+          throw new Error(`Service worker registration failed: ${swError instanceof Error ? swError.message : 'Unknown error'}`);
+        }
+      }
+      
       // Request permission and get new token
       const newToken = await requestPermissionAndGetToken();
       console.log('FCM Reset - New token obtained:', newToken);
@@ -380,6 +406,45 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
       });
     } finally {
       setIsResettingToken(false);
+    }
+  };
+
+  const handleResetAllTokens = async () => {
+    if (!isAdmin) {
+      toast({ title: "Unauthorized", description: "Only admins can reset all notification tokens.", variant: "destructive" });
+      return;
+    }
+
+    if (!confirm('Are you sure you want to reset notification tokens for ALL users? This will require all users to re-enable notifications.')) {
+      return;
+    }
+
+    setIsResettingAllTokens(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/reset-all-tokens', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to reset tokens');
+      }
+      
+      toast({ title: "Tokens Reset", description: "All notification tokens have been cleared successfully." });
+    } catch (err) {
+      console.error('Reset all tokens error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      toast({ 
+        title: "Reset Failed", 
+        description: `Could not reset all tokens. Error: ${errorMessage}`, 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsResettingAllTokens(false);
     }
   };
 
@@ -638,6 +703,11 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                 </Button>
               </div>
               <div className="pt-2 border-t border-dashed">
+                <Button onClick={handleResetAllTokens} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10" disabled={isResettingAllTokens}>
+                  {isResettingAllTokens ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <RefreshCcw className="h-3 w-3 mr-2" />} Reset All Notification Tokens
+                </Button>
+              </div>
+              <div className="pt-2 border-t border-dashed">
                 <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10" disabled={isClearingClubData}>
                   {isClearingClubData ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <Trash2 className="h-3 w-3 mr-2" />} Clear Club Data
                 </Button>
@@ -700,13 +770,24 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
               <CardDescription className="text-[10px] font-bold uppercase">Verify browser alerts are working.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-secondary/10 rounded-xl border-2 border-dashed">
-                <p className="text-[10px] font-bold uppercase text-muted-foreground mb-4">
-                  Send a test alert to your browser to confirm setup.
+              <div className="p-4 bg-primary/5 rounded-xl border-2 border-primary/20">
+                <p className="text-[10px] font-black uppercase text-muted-foreground mb-4">
+                  Your current FCM token
+                </p>
+                <div className="bg-background p-3 rounded-lg border-2 border-dashed">
+                  <p className="text-[10px] font-mono break-all">
+                    {fcmToken || 'No token registered'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-primary/5 rounded-xl border-2 border-primary/20">
+                <p className="text-[10px] font-black uppercase text-muted-foreground mb-4">
+                  Send a test notification to verify your setup
                 </p>
                 <Button 
                   onClick={handleTestNotifications} 
-                  disabled={isTestingNotifications}
+                  disabled={isTestingNotifications || !fcmToken}
                   variant="outline" 
                   className="w-full h-10 font-black uppercase text-[10px] border-2"
                 >
@@ -714,14 +795,15 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                   Send Test to Yourself
                 </Button>
               </div>
+
               {players && players.length > 0 && (
-                <div className="p-4 bg-secondary/10 rounded-xl border-2 border-dashed">
-                  <p className="text-[10px] font-bold uppercase text-muted-foreground mb-4">
-                    Send a test notification to a specific player (works in production).
+                <div className="p-4 bg-primary/5 rounded-xl border-2 border-primary/20">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground mb-4">
+                    Send test to a specific player
                   </p>
                   <div className="space-y-3">
                     <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
-                      <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2">
+                      <SelectTrigger className="w-full h-10 border-2">
                         <SelectValue placeholder="Select a player" />
                       </SelectTrigger>
                       <SelectContent>
