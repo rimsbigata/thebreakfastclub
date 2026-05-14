@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { useUser, useFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -11,15 +11,17 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserCircle, ShieldCheck, Trophy, Banknote, Calendar, Loader2, Save, History, Award } from 'lucide-react';
+import { UserCircle, ShieldCheck, Trophy, Banknote, Calendar, Loader2, Save, History, Award, KeyRound } from 'lucide-react';
 import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
-  const { userProfile, activeSession, currentPlayer, fees, role } = useClub();
+  const { userProfile, activeSession, currentPlayer, players, fees, role } = useClub();
   const { user } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [name, setName] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
@@ -52,10 +54,12 @@ export default function ProfilePage() {
     }
   };
 
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
   const sessionFee = useMemo(() => {
     if (!activeSession || !fees) return null;
-    return fees.find(f => f.id === new Date().toISOString().split('T')[0]) || null;
-  }, [activeSession, fees]);
+    return fees.find(f => f.id === todayStr) || null;
+  }, [activeSession, fees, todayStr]);
 
   const paymentStatus = useMemo(() => {
     if (!currentPlayer || !sessionFee) return 'none';
@@ -65,11 +69,11 @@ export default function ProfilePage() {
   const perPlayerFee = useMemo(() => {
     if (!sessionFee) return "0.00";
     const shuttleTotal = (sessionFee.shuttleUnits || 0) * (sessionFee.shuttlePricePerPiece || 0);
-    const courtTotal = (sessionFee.courts || []).reduce((total, court) => total + (court.feePerHour * court.hoursRented), 0);
+    const courtTotal = (sessionFee.courts || []).reduce((total: number, court: any) => total + (court.feePerHour * court.hoursRented), 0);
     const total = shuttleTotal + courtTotal + (sessionFee.entranceFee || 0);
-    // Rough estimate logic usually used in fees page
-    return (total / (currentPlayer ? 1 : 1)).toFixed(2); 
-  }, [sessionFee, currentPlayer]);
+    const divisor = players.length || 1;
+    return (total / divisor).toFixed(2); 
+  }, [sessionFee, players.length]);
 
   if (!user) return null;
 
@@ -255,8 +259,4 @@ export default function ProfilePage() {
       </div>
     </div>
   );
-}
-
-function useMemo(arg0: () => any, arg1: (QueueSession | Fee[] | null)[]) {
-  return React.useMemo(arg0, arg1);
 }

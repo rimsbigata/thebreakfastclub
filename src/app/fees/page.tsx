@@ -94,7 +94,7 @@ export default function GlobalFeesPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-black text-green-600">${sessionTotalFee.toFixed(2)}</p>
+                <p className="text-3xl font-black text-green-600">₱{sessionTotalFee.toFixed(2)}</p>
                 <p className="text-[10px] font-black uppercase text-muted-foreground mt-1">
                   Shuttle + Court + Entrance
                 </p>
@@ -162,7 +162,7 @@ export default function GlobalFeesPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-black text-green-600">${sessionTotalFee.toFixed(2)}</p>
+                <p className="text-3xl font-black text-green-600">₱{sessionTotalFee.toFixed(2)}</p>
                 <p className="text-[10px] font-black uppercase text-muted-foreground mt-1">
                   Shuttle + Court + Entrance
                 </p>
@@ -176,7 +176,7 @@ export default function GlobalFeesPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-black text-primary">${paymentStats.totalAmount.toFixed(2)}</p>
+                <p className="text-3xl font-black text-primary">₱{paymentStats.totalAmount.toFixed(2)}</p>
                 <p className="text-[10px] font-black uppercase text-muted-foreground mt-1">
                   {paymentStats.paidPlayers} / {paymentStats.totalPlayers} paid
                 </p>
@@ -190,7 +190,7 @@ export default function GlobalFeesPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-black text-orange-600">${paymentStats.pendingAmount.toFixed(2)}</p>
+                <p className="text-3xl font-black text-orange-600">₱{paymentStats.pendingAmount.toFixed(2)}</p>
                 <p className="text-[10px] font-black uppercase text-muted-foreground mt-1">
                   {paymentStats.unpaidPlayers} unpaid
                 </p>
@@ -214,7 +214,7 @@ export default function GlobalFeesPage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-lg font-black text-green-600">${sessionTotalFee.toFixed(2)}</p>
+                    <p className="text-lg font-black text-green-600">₱{sessionTotalFee.toFixed(2)}</p>
                   </div>
                 ))}
                 {paymentStatus.length === 0 && (
