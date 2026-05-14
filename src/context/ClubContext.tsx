@@ -490,7 +490,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const updatePlayer = async (id: string, updates: Partial<Player>) => {
     if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', id), updates);
+    const cleanUpdates = Object.fromEntries(Object.entries(updates).filter(([_, v]) => v !== undefined));
+    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'players', id), cleanUpdates);
   };
 
   const deletePlayer = async (id: string) => {
@@ -509,7 +510,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const updateCourt = async (id: string, updates: Partial<Court>) => {
     if (!activeSession?.id || role === 'player') throw new Error('Unauthorized');
-    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id), updates);
+    const cleanUpdates = Object.fromEntries(Object.entries(updates).filter(([_, v]) => v !== undefined));
+    await updateDoc(doc(firestore, 'sessions', activeSession.id, 'courts', id), cleanUpdates);
   };
 
   const deleteCourt = async (id: string) => {

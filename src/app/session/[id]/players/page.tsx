@@ -173,7 +173,11 @@ export default function PlayersPage() {
   const handleEditPlayerAction = async () => {
     if (!editingPlayer || !editName.trim()) return;
     try {
-      await updatePlayer(editingPlayer.id, { name: editName.trim(), skillLevel: parseInt(editSkill), notes: editNotes.trim() || undefined });
+      await updatePlayer(editingPlayer.id, { 
+        name: editName.trim(), 
+        skillLevel: parseInt(editSkill), 
+        notes: editNotes.trim() 
+      });
       setEditingPlayer(null);
       toast({ title: "Profile Updated" });
     } catch (error) {
@@ -547,7 +551,7 @@ export default function PlayersPage() {
                     variant={roleDialogPlayer.role === 'admin' ? 'default' : 'outline'}
                     className="w-full justify-start gap-2 font-black uppercase text-compact h-11"
                     onClick={() => {
-                      updatePlayer(roleDialogPlayer.id, { role: 'admin', roleExpiresAt: undefined })
+                      updatePlayer(roleDialogPlayer.id, { role: 'admin', roleExpiresAt: '' })
                         .then(() => {
                           toast({ title: `${roleDialogPlayer.name} is now Admin` });
                           setRoleDialogPlayer(null);
@@ -605,7 +609,7 @@ export default function PlayersPage() {
                       variant="outline"
                       className="w-full justify-start gap-2 font-black uppercase text-compact h-11 text-destructive hover:bg-destructive/10"
                       onClick={() => {
-                        updatePlayer(roleDialogPlayer.id, { role: 'player', roleExpiresAt: undefined })
+                        updatePlayer(roleDialogPlayer.id, { role: 'player', roleExpiresAt: '' })
                           .then(() => {
                             toast({ title: `${roleDialogPlayer.name} role removed` });
                             setRoleDialogPlayer(null);
