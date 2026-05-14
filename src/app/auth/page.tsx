@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -11,10 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useFirebase } from '@/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, UserPlus, ShieldCheck, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { LogIn, UserPlus, ShieldCheck, Sparkles, ChevronDown, ChevronUp, UserCircle, Loader2 } from 'lucide-react';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
@@ -63,6 +62,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
 
   // Get redirect URL from query params or sessionStorage (client-side only)
   const redirectUrl = searchParams.get('redirect') || (typeof window !== 'undefined' ? sessionStorage.getItem('redirectAfterAuth') : null);
@@ -156,8 +156,27 @@ export default function AuthPage() {
     }
   };
 
+  const handleGuestSignIn = async () => {
+    if (!auth) return;
+    setGuestLoading(true);
+    try {
+      await signInAnonymously(auth);
+      toast({ title: "Continuing as Guest", description: "Your data will only stay in the session you join." });
+      if (redirectUrl) {
+        sessionStorage.removeItem('redirectAfterAuth');
+        router.push(redirectUrl);
+      } else {
+        router.push('/auth/session');
+      }
+    } catch (error: any) {
+      toast({ title: "Guest sign in failed", description: error.message, variant: "destructive" });
+    } finally {
+      setGuestLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 py-12 space-y-6">
       <Card className="w-full max-w-md border-2 shadow-xl">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg">
@@ -281,6 +300,37 @@ export default function AuthPage() {
               </form>
             </TabsContent>
           </Tabs>
+        </CardContent>
+      </Card>
+
+      <div className="w-full max-w-md flex items-center gap-4 px-2">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-[10px] font-black uppercase text-muted-foreground opacity-40 tracking-widest">OR</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
+      <Card className="w-full max-w-md border-2 border-dashed bg-secondary/10">
+        <CardContent className="p-6">
+          <div className="space-y-4 text-center">
+            <div className="space-y-1">
+              <h3 className="text-sm font-black uppercase flex items-center justify-center gap-2">
+                <UserCircle className="h-4 w-4 text-primary" /> Guest Access
+              </h3>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed">
+                Joining for just one session? Sign in as a guest.<br />
+                Stats will not carry over to future visits.
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              className="w-full h-12 font-black uppercase border-2 hover:bg-background"
+              onClick={handleGuestSignIn}
+              disabled={guestLoading}
+            >
+              {guestLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {guestLoading ? "Connecting..." : "Continue as Guest"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

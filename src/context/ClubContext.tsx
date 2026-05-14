@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
@@ -43,7 +42,7 @@ interface ClubContextType {
   currentPlayer: Player | null;
 
   // Auth & Session
-  joinSession: (code: string, participate?: boolean, joinAsPlayer?: boolean) => Promise<string>;
+  joinSession: (code: string, participate?: boolean, joinAsPlayer?: boolean, guestName?: string, guestSkill?: number) => Promise<string>;
   createSession: (isDoubleStar?: boolean, sessionCode?: string, venueName?: string, scheduledDate?: string, scheduledTime?: string) => Promise<string>;
   regenerateQueueSessionCode: () => Promise<string>;
   endSession: () => Promise<void>;
@@ -113,9 +112,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [isRestoringSession, setIsRestoringSession] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
+    if (!firestore || !user?.uid || user.isAnonymous) return null;
     return doc(firestore, 'userProfiles', user.uid);
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, user?.isAnonymous]);
   const { data: profileData, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const adminRoleRef = useMemoFirebase(() => {
@@ -131,6 +130,13 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
       }
+    } else if (user.isAnonymous) {
+      // Create a synthesized profile for guests
+      setUserProfile({
+        id: user.uid,
+        name: 'Guest',
+        role: 'player',
+      });
     } else if (profileData) {
       setUserProfile(profileData);
     }
@@ -370,7 +376,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     await assignMatchToCourt(matchId, courtId);
   };
 
-  const joinSession = async (code: string, participate: boolean = true, joinAsPlayer: boolean = false) => {
+  const joinSession = async (code: string, participate: boolean = true, joinAsPlayer: boolean = false, guestName?: string, guestSkill?: number) => {
     if (!firestore || !user?.uid) throw new Error('Not signed in');
     const sessionCode = code.trim().toUpperCase();
     const q = query(collection(firestore, 'sessions'), where('code', '==', sessionCode), where('status', '==', 'active'));
@@ -378,17 +384,31 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (snapshot.empty) throw new Error('Invalid code');
     const sessionDoc = snapshot.docs[0];
     const session = { ...sessionDoc.data(), id: sessionDoc.id } as QueueSession;
+    
     if (participate) {
+      const finalName = guestName || userProfile?.name || 'Guest';
+      const finalSkill = guestSkill || userProfile?.skillLevel || 3;
+      
       await setDoc(doc(firestore, 'sessions', session.id, 'players', user.uid), {
         userId: user.uid,
         status: 'available',
         joinedAt: new Date().toISOString(),
         lastAvailableAt: Date.now(),
-        name: userProfile?.name || 'Unknown',
-        skillLevel: userProfile?.skillLevel || 3
+        name: finalName,
+        skillLevel: finalSkill
       });
+      
+      // Update synthesized profile for local context if guest
+      if (user.isAnonymous) {
+        setUserProfile(prev => ({
+          ...prev!,
+          name: finalName,
+          skillLevel: finalSkill
+        }));
+      }
     }
     setActiveSession(session);
+    window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, session.id);
     return session.id;
   };
 
@@ -416,6 +436,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       });
     }
     setActiveSession(session);
+    window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
     return sessionId;
   };
 
@@ -431,6 +452,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (!firestore || !activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
     await updateDoc(doc(firestore, 'sessions', activeSession.id), { status: 'inactive' });
     setActiveSession(null);
+    window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
   };
 
   const loadSessionById = async (sessionId: string) => {
@@ -439,11 +461,16 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const session = { ...snap.data(), id: snap.id } as QueueSession;
     if (session.status !== 'active') throw new Error('Inactive');
     setActiveSession(session);
+    window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
   };
 
   const endSessionById = async (sessionId: string) => {
     if (role !== 'admin') throw new Error('Unauthorized');
     await updateDoc(doc(firestore, 'sessions', sessionId), { status: 'inactive' });
+    if (activeSession?.id === sessionId) {
+      setActiveSession(null);
+      window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+    }
   };
 
   const getAllSessions = async () => {
@@ -633,6 +660,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) throw new Error('Failed');
     setActiveSession(null);
+    window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
   };
 
   const sendTestNotification = async () => {

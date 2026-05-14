@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from '@/components/ui/label';
 import { useClub } from '@/context/ClubContext';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, PlayCircle, LogOut, Shield, User, List, Power, Loader2 } from 'lucide-react';
+import { KeyRound, PlayCircle, LogOut, Shield, User, List, Power, Loader2, Sparkles, UserCircle } from 'lucide-react';
 import { useFirebase, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { Switch } from '@/components/ui/switch';
@@ -18,6 +17,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { getSkillColor, SKILL_LEVELS_SHORT, SKILL_LEVELS } from '@/lib/types';
 
 export default function SessionGatePage() {
   const { userProfile, activeSession, joinSession, createSession, role, isRestoringSession, loadSessionById, endSessionById, getAllSessions } = useClub();
@@ -39,6 +42,11 @@ export default function SessionGatePage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isDoubleStar, setIsDoubleStar] = useState(false);
 
+  // Guest Specific State
+  const [isGuestNameDialogOpen, setIsGuestNameDialogOpen] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestSkill, setGuestSkill] = useState('3');
+
   useEffect(() => {
     if (isRestoringSession) return;
 
@@ -48,17 +56,34 @@ export default function SessionGatePage() {
     }
   }, [activeSession, router, isRestoringSession]);
 
-  const handleJoin = async (e: React.FormEvent) => {
+  const handleJoinAttempt = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!code) return;
+
+    if (user?.isAnonymous && (!userProfile?.name || userProfile.name === 'Guest')) {
+      setIsGuestNameDialogOpen(true);
+    } else {
+      executeJoin();
+    }
+  };
+
+  const executeJoin = async () => {
     setLoading(true);
     try {
-      const sessionId = await joinSession(code, true, role === 'admin' ? joinAsPlayer : false);
+      const sessionId = await joinSession(
+        code, 
+        true, 
+        role === 'admin' ? joinAsPlayer : false,
+        user?.isAnonymous ? guestName : undefined,
+        user?.isAnonymous ? Number(guestSkill) : undefined
+      );
       toast({ title: "Joined Session!" });
       router.push(`/session/${sessionId}`);
     } catch (error: any) {
       toast({ title: "Failed to join", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
+      setIsGuestNameDialogOpen(false);
     }
   };
 
@@ -316,7 +341,7 @@ export default function SessionGatePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <form onSubmit={handleJoin} className="space-y-4">
+          <form onSubmit={handleJoinAttempt} className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase opacity-60">Session Code</Label>
               <Input
@@ -342,6 +367,7 @@ export default function SessionGatePage() {
             )}
 
             <Button className="w-full h-14 font-black uppercase" disabled={loading || !code}>
+              {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
               {role === 'admin' && joinAsPlayer ? 'Join as Player' : 'Join Queue'} <PlayCircle className="ml-2 h-5 w-5" />
             </Button>
           </form>
@@ -416,10 +442,67 @@ export default function SessionGatePage() {
         </CardContent>
         <CardFooter>
           <Button variant="ghost" className="w-full text-[10px] font-bold uppercase opacity-60 hover:opacity-100" onClick={handleLogout}>
-            <LogOut className="mr-2 h-3 w-3" /> Log out of {userProfile?.name}
+            <LogOut className="mr-2 h-3 w-3" /> Log out {user?.isAnonymous ? "(Guest)" : `as ${userProfile?.name}`}
           </Button>
         </CardFooter>
       </Card>
+
+      {/* Guest Name Prompt Dialog */}
+      <Dialog open={isGuestNameDialogOpen} onOpenChange={setIsGuestNameDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+              <UserCircle className="h-6 w-6 text-primary" /> Guest Details
+            </DialogTitle>
+            <DialogDescription className="text-xs font-bold uppercase tracking-widest">
+              Please provide a name and skill level for this session.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase opacity-60">Display Name</Label>
+              <Input
+                value={guestName}
+                onChange={e => setGuestName(e.target.value)}
+                placeholder="Guest Player"
+                className="h-12 font-black"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase opacity-60">Skill Tier</Label>
+              <Select value={guestSkill} onValueChange={setGuestSkill}>
+                <SelectTrigger className="h-12 border-2 font-black">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SKILL_LEVELS).map(([val, label]) => (
+                    <SelectItem key={val} value={val} className="font-bold">
+                      <div className="flex items-center gap-2">
+                        <Badge className={cn("h-4 px-1 text-[9px] font-black uppercase shrink-0", getSkillColor(parseInt(val)))}>
+                          {SKILL_LEVELS_SHORT[parseInt(val)]}
+                        </Badge>
+                        <span className="text-xs uppercase">{label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              className="w-full h-14 font-black uppercase" 
+              onClick={executeJoin}
+              disabled={!guestName.trim() || loading}
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {loading ? "Joining..." : "Continue to Session"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
