@@ -10,9 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, TrendingUp, Users, Trash2, Pencil, Search, Filter, ArrowUpDown, RefreshCw, CheckSquare, Square, X, ArrowUp, ArrowDown, Minus, Shield, ShieldCheck, ShieldAlert, Timer } from 'lucide-react';
+import { Plus, TrendingUp, Users, Trash2, Pencil, Search, Filter, ArrowUpDown, RefreshCw, CheckSquare, Square, X, ArrowUp, ArrowDown, Minus, Shield, ShieldCheck, ShieldAlert, Timer, History, Trophy, TrendingDown, Clock } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, Cell } from 'recharts';
-import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor, Player } from '@/lib/types';
+import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor, Player, Match } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -28,20 +28,6 @@ function StatusBadge({ status }: { status: string }) {
       {status}
     </Badge>
   );
-}
-
-function formatRelativeTime(timestamp: number | undefined): string {
-  if (!timestamp) return 'Never';
-  const now = Date.now();
-  const diff = now - timestamp;
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return `${days}d ago`;
 }
 
 function ImprovementSparkline({ score }: { score: number }) {
@@ -68,7 +54,7 @@ function ImprovementSparkline({ score }: { score: number }) {
 }
 
 export default function PlayersPage() {
-  const { players, addPlayer, updatePlayer, deletePlayer, role, currentPlayer } = useClub();
+  const { players, matches, addPlayer, updatePlayer, deletePlayer, role, currentPlayer } = useClub();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const isAdmin = role === 'admin';
@@ -90,21 +76,19 @@ export default function PlayersPage() {
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set());
   const [roleDialogPlayer, setRoleDialogPlayer] = useState<Player | null>(null);
   const [tempRoleHours, setTempRoleHours] = useState('2');
+  
+  const [historyDialogPlayer, setHistoryDialogPlayer] = useState<Player | null>(null);
 
   const filteredPlayers = useMemo(() => {
-    // For players, only show their own entry if they have joined with a valid name
     if (isPlayer && currentPlayer) {
       const player = players.find(p => p.id === currentPlayer.id);
-      // Only show if player exists and has a valid name (not "Unknown" or empty, case-insensitive)
       if (player && player.name && player.name.toLowerCase() !== 'unknown') {
         return [player];
       }
       return [];
     }
 
-    // For staff, show all players except those with "Unknown" names
     let result = players.filter(p => p.name && p.name.toLowerCase() !== 'unknown');
-    
     result = result.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     if (statusFilter !== 'all') {
@@ -117,20 +101,15 @@ export default function PlayersPage() {
 
     result = result.sort((a, b) => {
       switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'skill':
-          return b.skillLevel - a.skillLevel;
-        case 'games':
-          return b.gamesPlayed - a.gamesPlayed;
+        case 'name': return a.name.localeCompare(b.name);
+        case 'skill': return b.skillLevel - a.skillLevel;
+        case 'games': return b.gamesPlayed - a.gamesPlayed;
         case 'winRate':
           const aRate = a.gamesPlayed > 0 ? a.wins / a.gamesPlayed : 0;
           const bRate = b.gamesPlayed > 0 ? b.wins / b.gamesPlayed : 0;
           return bRate - aRate;
-        case 'improvement':
-          return b.improvementScore - a.improvementScore;
-        default:
-          return 0;
+        case 'improvement': return b.improvementScore - a.improvementScore;
+        default: return 0;
       }
     });
 
@@ -409,6 +388,9 @@ export default function PlayersPage() {
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStatusToggle(player)} title="Toggle status">
                             <RefreshCw className="h-3.5 w-3.5" />
                           </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setHistoryDialogPlayer(player)} title="Match History">
+                            <History className="h-3.5 w-3.5" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPlayer(player); setEditName(player.name); setEditSkill(player.skillLevel.toString()); setEditNotes(player.notes || ''); }}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -508,6 +490,73 @@ export default function PlayersPage() {
             </div>
             <Button className="w-full font-black uppercase text-compact h-12" onClick={handleEditPlayerAction}>Save</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={!!historyDialogPlayer} onOpenChange={(open) => !open && setHistoryDialogPlayer(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-compact font-black uppercase flex items-center gap-2">
+              <History className="h-5 w-5" /> Match History: {historyDialogPlayer?.name}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              View session match history for this player
+            </DialogDescription>
+          </DialogHeader>
+          {historyDialogPlayer && (
+            <ScrollArea className="max-h-[500px] mt-4">
+              <div className="space-y-3 pr-4 pb-4">
+                {matches
+                  .filter(m => m.status === 'completed' && (m.teamA.includes(historyDialogPlayer.id) || m.teamB.includes(historyDialogPlayer.id)))
+                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                  .map(match => {
+                    const isTeamA = match.teamA.includes(historyDialogPlayer.id);
+                    const won = (match.winner === 'teamA' && isTeamA) || (match.winner === 'teamB' && !isTeamA);
+                    return (
+                      <Card key={match.id} className={cn(
+                        "border-2",
+                        won ? "border-green-500/50 bg-green-500/5" : "border-destructive/50 bg-destructive/5"
+                      )}>
+                        <div className="p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Badge variant={won ? "default" : "destructive"} className="text-[8px] font-black uppercase px-2 h-4">
+                              {won ? <Trophy className="h-2 w-2 mr-1" /> : <TrendingDown className="h-2 w-2 mr-1" />}
+                              {won ? 'Victory' : 'Defeat'}
+                            </Badge>
+                            <span className="text-[9px] font-black text-muted-foreground uppercase flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1">
+                              {match.teamA.map(pid => (
+                                <div key={pid} className={cn("text-[10px] font-bold truncate", pid === historyDialogPlayer.id && "text-primary")}>
+                                  {players.find(p => p.id === pid)?.name}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="text-lg font-black">{match.teamAScore} - {match.teamBScore}</div>
+                            <div className="flex-1 text-right">
+                              {match.teamB.map(pid => (
+                                <div key={pid} className={cn("text-[10px] font-bold truncate", pid === historyDialogPlayer.id && "text-primary")}>
+                                  {players.find(p => p.id === pid)?.name}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })
+                }
+                {matches.filter(m => m.status === 'completed' && (m.teamA.includes(historyDialogPlayer.id) || m.teamB.includes(historyDialogPlayer.id))).length === 0 && (
+                  <div className="text-center py-10 opacity-30 italic text-sm">No matches found for this player.</div>
+                )}
+              </div>
+            </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
 

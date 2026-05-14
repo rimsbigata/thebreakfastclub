@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, Swords, Ban, Target, Loader2, Pencil, Coffee, CheckCircle2 } from 'lucide-react';
+import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, Swords, Ban, Target, Loader2, Pencil, Coffee, CheckCircle2, History, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -61,6 +61,25 @@ function WaitTimeBadge({ lastAvailableAt }: { lastAvailableAt?: number }) {
     <Badge variant="secondary" className="gap-1 text-tiny h-5 px-1.5 font-black uppercase tracking-tighter bg-secondary border shadow-sm">
       {mins}min
     </Badge>
+  );
+}
+
+function MatchWaitBadge({ timestamp }: { timestamp: string }) {
+  const [mins, setMins] = useState(0);
+
+  useEffect(() => {
+    const start = new Date(timestamp).getTime();
+    const update = () => setMins(Math.floor((Date.now() - start) / 60000));
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [timestamp]);
+
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] font-black text-orange-600 bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+      <Clock className="h-3 w-3" />
+      {mins}m WAITING
+    </div>
   );
 }
 
@@ -448,9 +467,12 @@ export default function HomePage() {
                         {draftPlayerIds.slice(0, 2).map(id => {
                           const p = players.find(x => x.id === id);
                           return (
-                            <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1">
+                            <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative">
                               <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
-                              {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                              <div className="flex items-center justify-between mt-1">
+                                {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
+                              </div>
                             </div>
                           );
                         })}
@@ -463,9 +485,12 @@ export default function HomePage() {
                           {draftPlayerIds.slice(2).map(id => {
                             const p = players.find(x => x.id === id);
                             return (
-                              <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1">
+                              <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative">
                                 <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
-                                {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                <div className="flex items-center justify-between mt-1">
+                                  {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                  <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
+                                </div>
                               </div>
                             );
                           })}
@@ -479,20 +504,37 @@ export default function HomePage() {
                 <Card key={m.id} draggable onDragStart={(e) => { e.dataTransfer.setData('application/x-tbc-match-id', m.id); }} className="p-4 border-2 shadow-sm bg-card hover:border-orange-500/50 transition-colors">
                   <div className="flex justify-between items-center mb-3">
                     <Badge className="text-[9px] h-4 font-black uppercase bg-orange-500/10 text-orange-600">Queue #{idx + 1}</Badge>
+                    <MatchWaitBadge timestamp={m.timestamp} />
                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteMatch(m.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                     <div className="space-y-2">
                       {m.teamA.map(id => {
                         const p = players.find(x => x.id === id);
-                        return <div key={id} className="flex flex-col"><span className="text-[11px] font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                        return (
+                          <div key={id} className="flex flex-col">
+                            <span className="text-[11px] font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {p && <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                              <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
+                            </div>
+                          </div>
+                        );
                       })}
                     </div>
                     <span className="text-[8px] font-black opacity-30">VS</span>
                     <div className="space-y-2 text-right">
                       {m.teamB.map(id => {
                         const p = players.find(x => x.id === id);
-                        return <div key={id} className="flex flex-col items-end"><span className="text-[11px] font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit mt-0.5", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                        return (
+                          <div key={id} className="flex flex-col items-end">
+                            <span className="text-[11px] font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
+                              {p && <Badge variant="outline" className={cn("text-[7px] h-3 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                            </div>
+                          </div>
+                        );
                       })}
                     </div>
                   </div>
@@ -590,9 +632,12 @@ export default function HomePage() {
                                   {currentDraft.slice(0, 2).map(id => {
                                     const p = players.find(x => x.id === id);
                                     return (
-                                      <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex items-center justify-between">
-                                        <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
-                                        {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                      <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1">
+                                        <div className="flex items-center justify-between">
+                                          <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                          <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
+                                        </div>
+                                        {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                       </div>
                                     );
                                   })}
@@ -610,9 +655,12 @@ export default function HomePage() {
                                     {currentDraft.slice(2).map(id => {
                                       const p = players.find(x => x.id === id);
                                       return (
-                                        <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex items-center justify-between">
-                                          <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
-                                          {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                        <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1">
+                                          <div className="flex items-center justify-between">
+                                            <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                            <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
+                                          </div>
+                                          {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                         </div>
                                       );
                                     })}

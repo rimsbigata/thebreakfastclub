@@ -116,6 +116,10 @@ export default function RankingsPage() {
                       <p className="text-[7px] font-black uppercase text-muted-foreground">W</p>
                     </div>
                     <div className="text-center">
+                      <p className="text-compact font-black opacity-60">{player.gamesPlayed}</p>
+                      <p className="text-[7px] font-black uppercase text-muted-foreground">GP</p>
+                    </div>
+                    <div className="text-center">
                       <p className="text-compact font-black opacity-60">{player.winRate.toFixed(0)}%</p>
                       <p className="text-[7px] font-black uppercase text-muted-foreground">WR</p>
                     </div>
@@ -182,7 +186,7 @@ export default function RankingsPage() {
             </TabsTrigger>
           </TabsList>
           <div className="hidden sm:flex items-center gap-1 text-[8px] font-black uppercase text-muted-foreground bg-primary/5 px-2 py-1 rounded-full border">
-            <Medal className="h-2.5 w-2.5 text-primary" /> Tiebreaker: Wins {'>'} Rate {'>'} Diff
+            <Medal className="h-2.5 w-2.5 text-primary" /> Tiebreaker: Wins {'>'} GP {'>'} Diff
           </div>
         </div>
         <TabsContent value="daily" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
