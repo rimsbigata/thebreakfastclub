@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2, Target, KeyRound, History, Menu, X, Award } from 'lucide-react';
+import { LayoutDashboard, Users, Trophy, Banknote, Settings, Plus, Zap, Swords, Sun, Moon, LogOut, Loader2, Target, KeyRound, History, Menu, X, Award, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useClub } from '@/context/ClubContext';
@@ -64,9 +64,12 @@ export function Header() {
   navItems.push({ label: 'Players', href: activeSession ? `/session/${activeSession.id}/players` : '/players', icon: Users });
   navItems.push({ label: 'Match History', href: activeSession ? `/session/${activeSession.id}/match-history` : '/match-history', icon: History });
   
+  // Profile access
+  navItems.push({ label: 'My Profile', href: '/profile', icon: UserCircle });
+  
   // Player Stats only for players
   if (isPlayer) {
-    navItems.push({ label: 'Player Stats', href: '/player-stats', icon: Award });
+    navItems.push({ label: 'Performance', href: '/player-stats', icon: Award });
   }
   
   if (isAdmin) {

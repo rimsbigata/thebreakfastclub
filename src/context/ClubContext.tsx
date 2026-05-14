@@ -522,7 +522,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       if (match) {
         const batch = writeBatch(firestore);
         for (const pid of [...match.teamA, ...match.teamB]) {
-          batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'available', lastAvailableAt: Date.now() });
+          // Return to available WITHOUT resetting wait timer
+          batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'available' });
         }
         batch.delete(doc(firestore, 'sessions', activeSession.id, 'matches', match.id));
         await batch.commit();
@@ -565,7 +566,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (match?.courtId) batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', match.courtId), { status: 'available', currentMatchId: null });
     if (match) {
       for (const pid of [...match.teamA, ...match.teamB]) {
-        batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'available', lastAvailableAt: Date.now() });
+        // Return to available WITHOUT resetting wait timer
+        batch.update(doc(firestore, 'sessions', activeSession.id, 'players', pid), { status: 'available' });
       }
     }
     batch.delete(doc(firestore, 'sessions', activeSession.id, 'matches', id));
