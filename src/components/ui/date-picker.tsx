@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { format, parseISO, isValid } from "date-fns"
-import { Calendar as CalendarIcon } from "lucide-react"
+import { ChevronDownIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -37,15 +37,15 @@ export function DatePicker({ value, onChange, placeholder = "Pick a date", class
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          variant={"outline"}
+          variant="outline"
+          data-empty={!date}
           className={cn(
-            "w-full justify-start text-left font-black border-2",
-            !value && "text-muted-foreground",
+            "w-full justify-between text-left font-normal data-[empty=true]:text-muted-foreground border-2",
             className
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
           {date && isValid(date) ? format(date, "PPP") : <span>{placeholder}</span>}
+          <ChevronDownIcon className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
@@ -53,6 +53,7 @@ export function DatePicker({ value, onChange, placeholder = "Pick a date", class
           mode="single"
           selected={date && isValid(date) ? date : undefined}
           onSelect={handleSelect}
+          defaultMonth={date}
           initialFocus
         />
       </PopoverContent>
