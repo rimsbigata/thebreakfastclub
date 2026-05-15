@@ -15,6 +15,7 @@ import { UserCircle, ShieldCheck, Trophy, Banknote, Calendar, Loader2, Save, His
 import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { useFcmToken } from '@/hooks/useFcmToken';
 
 export default function ProfilePage() {
   const { userProfile, activeSession, currentPlayer, players, fees, role } = useClub();
@@ -22,6 +23,7 @@ export default function ProfilePage() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const router = useRouter();
+  const { requestPermissionAndGetToken } = useFcmToken();
 
   const [name, setName] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
@@ -55,7 +57,7 @@ export default function ProfilePage() {
     setIsSaving(true);
     try {
       const profileRef = doc(firestore, 'userProfiles', user.uid);
-      const profileData = {
+      const profileData: any = {
         name: name.trim(),
         skillLevel: Number(skillLevel),
         lastActive: new Date().toISOString(),
@@ -64,6 +66,17 @@ export default function ProfilePage() {
       };
 
       if (isCreatingProfile) {
+        // Request FCM token for all roles and devices
+        try {
+          const fcmToken = await requestPermissionAndGetToken();
+          if (fcmToken) {
+            profileData.fcmToken = fcmToken;
+          }
+        } catch (fcmError) {
+          console.warn('FCM token request failed:', fcmError);
+          // Continue without FCM token if it fails
+        }
+
         await setDoc(profileRef, profileData);
         toast({ title: "Profile Created", description: "Your profile has been created successfully." });
         // Redirect to auth/session after creating profile
