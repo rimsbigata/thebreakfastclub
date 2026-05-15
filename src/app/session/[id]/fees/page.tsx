@@ -323,7 +323,7 @@ export default function FeesPage() {
                       paymentMethods.map(method => (
                         <Card key={method.id} className="overflow-hidden border-2">
                           <div key="method-name" className="bg-primary text-primary-foreground p-2 text-center text-[10px] font-black uppercase tracking-widest">{method.name}</div>
-                          <div key="method-image" className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill className="object-contain p-4" /></div>
+                          <div key="method-image" className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill sizes="256px" className="object-contain p-4" /></div>
                         </Card>
                       ))
                     ) : (
@@ -362,7 +362,7 @@ export default function FeesPage() {
                       {paymentMethods.map(method => (
                         <Card key={method.id} className="overflow-hidden border-2">
                           <div key="method-name" className="bg-primary text-primary-foreground p-1 text-center text-[10px] font-black uppercase">{method.name}</div>
-                          <div key="method-image" className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill className="object-contain p-4" /></div>
+                          <div key="method-image" className="relative h-64 bg-white"><Image src={method.imageUrl} alt={method.name} fill sizes="256px" className="object-contain p-4" /></div>
                         </Card>
                       ))}
                     </div>

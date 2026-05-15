@@ -141,7 +141,7 @@ export default function GlobalFeesPage() {
                   {paymentMethods.map((method) => (
                     <div key={method.id} className="border-2 rounded-xl p-4 bg-card flex flex-col items-center">
                       <div className="relative h-32 w-full border bg-white rounded-lg overflow-hidden mb-3 shadow-inner">
-                        <NextImage src={method.imageUrl} alt={method.name} fill className="object-contain p-2" />
+                        <NextImage src={method.imageUrl} alt={method.name} fill sizes="128px" className="object-contain p-2" />
                       </div>
                       <span className="font-black text-xs uppercase truncate w-full text-center">{method.name}</span>
                     </div>

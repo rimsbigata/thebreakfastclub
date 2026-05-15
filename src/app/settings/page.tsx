@@ -256,6 +256,7 @@ export default function GlobalSettingsPage() {
                       src={clubLogo || tbcLogo.src}
                       alt="Club Logo"
                       fill
+                      sizes="64px"
                       className="object-cover p-1"
                     />
                   </div>
