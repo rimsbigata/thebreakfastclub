@@ -984,7 +984,8 @@ export default function HomePage() {
                           ) : (
                             <>
                               <Button onClick={() => setScoringCourtId(court.id)} className="flex-1 bg-primary font-black text-tiny uppercase tracking-widest">FINISH</Button>
-                              <Button variant="outline" size="icon" onClick={() => endMatch(court.id, 'cancelled')} className="h-10 w-10 shrink-0"><Ban className="h-4 w-4" /></Button>
+                              <Button variant="outline" size="icon" onClick={() => deleteMatch(match.id)} className="h-10 w-10 shrink-0" title="Cancel (keep wait time)"><X className="h-4 w-4" /></Button>
+                              <Button variant="outline" size="icon" onClick={() => endMatch(court.id, 'cancelled')} className="h-10 w-10 shrink-0 text-destructive" title="Cancel (reset wait time)"><Ban className="h-4 w-4" /></Button>
                             </>
                           )}
                         </div>
