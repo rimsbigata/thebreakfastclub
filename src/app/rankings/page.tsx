@@ -1,16 +1,78 @@
-"use client";
-
 import { useClub } from '@/context/ClubContext';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collectionGroup, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trophy, TrendingUp, Medal, Star, Target, Calendar } from 'lucide-react';
+import { Trophy, TrendingUp, Medal, Star, Target, Calendar, Filter, X, Search, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useMemo } from 'react';
-import { Match, SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import { Match, SKILL_LEVELS_SHORT, getSkillColor, QueueSession } from '@/lib/types';
 
 export default function GlobalRankingsPage() {
-  const { players, matches } = useClub();
+  const { players, matches: currentSessionMatches, activeSession, getAllSessions } = useClub();
+  const { firestore } = useFirestore() as any;
+
+  const [allSessions, setAllSessions] = useState<QueueSession[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [historicalMatches, setHistoricalMatches] = useState<Match[]>([]);
+  const [isHistoricalLoading, setIsHistoricalLoading] = useState(false);
+
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        const sessions = await getAllSessions();
+        setAllSessions(sessions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      } catch (err) {
+        console.error('Failed to load sessions:', err);
+      }
+    };
+    loadSessions();
+  }, [getAllSessions]);
+
+  useEffect(() => {
+    // If no filter, we don't need to fetch extra matches yet (we'll fetch for monthly/overall separately or here)
+    // Actually, to implement "Monthly" and "Overall" properly across all sessions, 
+    // we should fetch all historical matches once or fetch based on active tab.
+    const loadAllMatches = async () => {
+      setIsHistoricalLoading(true);
+      try {
+        const matchesQuery = query(
+          collectionGroup(firestore, 'matches'),
+          where('status', '==', 'completed'),
+          orderBy('timestamp', 'desc')
+        );
+        const snapshot = await getDocs(matchesQuery);
+        const matches = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Match));
+        setHistoricalMatches(matches);
+      } catch (err) {
+        console.error('Failed to load all matches:', err);
+      } finally {
+        setIsHistoricalLoading(false);
+      }
+    };
+    loadAllMatches();
+  }, [firestore]);
+
+  const effectiveMatches = useMemo(() => {
+    let list = historicalMatches;
+
+    if (selectedSessionId) {
+      return list.filter(m => m.sessionId === selectedSessionId);
+    }
+
+    if (selectedDate) {
+      return list.filter(m => isSameDay(new Date(m.timestamp), selectedDate));
+    }
+
+    return list;
+  }, [historicalMatches, selectedSessionId, selectedDate]);
 
   const getRankingsForPeriod = (periodMatches: Match[], useStars: boolean = false) => {
     const stats: Record<string, { wins: number; total: number; diff: number; stars: number; doubleStarMatches: number }> = {};
@@ -62,22 +124,35 @@ export default function GlobalRankingsPage() {
       });
   };
 
-  const todayMatches = useMemo(() => {
-    const now = new Date().toDateString();
-    return matches.filter(m => new Date(m.timestamp).toDateString() === now);
-  }, [matches]);
+  const sessionMatches = useMemo(() => {
+    if (selectedSessionId) {
+      return historicalMatches.filter(m => m.sessionId === selectedSessionId);
+    }
+    if (selectedDate) {
+      return historicalMatches.filter(m => isSameDay(new Date(m.timestamp), selectedDate));
+    }
+    // Default to active session if it exists, otherwise empty
+    return activeSession ? historicalMatches.filter(m => m.sessionId === activeSession.id) : currentSessionMatches;
+  }, [historicalMatches, activeSession, selectedSessionId, selectedDate, currentSessionMatches]);
 
   const monthMatches = useMemo(() => {
     const now = new Date();
-    return matches.filter(m => {
+    const start = startOfMonth(now);
+    const end = endOfMonth(now);
+    return historicalMatches.filter(m => {
       const d = new Date(m.timestamp);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      return d >= start && d <= end;
     });
-  }, [matches]);
+  }, [historicalMatches]);
 
-  const dailyRankings = useMemo(() => getRankingsForPeriod(todayMatches, false), [todayMatches, players]);
+  const dailyRankings = useMemo(() => getRankingsForPeriod(sessionMatches, false), [sessionMatches, players]);
   const monthlyRankings = useMemo(() => getRankingsForPeriod(monthMatches, true), [monthMatches, players]);
-  const overallRankings = useMemo(() => getRankingsForPeriod(matches, true), [matches, players]);
+  const overallRankings = useMemo(() => getRankingsForPeriod(historicalMatches, true), [historicalMatches, players]);
+
+  const clearFilters = () => {
+    setSelectedSessionId(null);
+    setSelectedDate(null);
+  };
 
   const RenderLeaderboard = ({ data, tab }: { data: any[]; tab: 'daily' | 'monthly' | 'overall' }) => {
     const isDaily = tab === 'daily';
@@ -172,25 +247,88 @@ export default function GlobalRankingsPage() {
         <p className="text-tiny text-muted-foreground font-black uppercase tracking-widest opacity-60">Hall of fame across all sessions</p>
       </header>
 
+      {/* Filter Section */}
+      <Card className="border-2 bg-secondary/5">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex items-center gap-2 bg-background border-2 rounded-lg px-3 py-1.5 flex-1 min-w-[200px]">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-[10px] font-black uppercase tracking-tight text-muted-foreground mr-2">Session:</span>
+              <Select value={selectedSessionId || "none"} onValueChange={(v) => { setSelectedSessionId(v === "none" ? null : v); setSelectedDate(null); }}>
+                <SelectTrigger className="h-7 border-none bg-transparent p-0 text-[10px] font-black uppercase focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Select Session" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" className="text-[10px] font-black uppercase">All Sessions</SelectItem>
+                  {allSessions.map(s => (
+                    <SelectItem key={s.id} value={s.id} className="text-[10px] font-black uppercase">
+                      {s.venueName || 'Main Venue'} - {format(new Date(s.createdAt), 'MMM d')} ({s.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2 bg-background border-2 rounded-lg px-3 py-1.5 flex-1 min-w-[200px]">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-[10px] font-black uppercase tracking-tight text-muted-foreground mr-2">Date:</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" className="h-7 p-0 text-[10px] font-black uppercase justify-start hover:bg-transparent">
+                    {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate || undefined}
+                    onSelect={(d) => { setSelectedDate(d || null); setSelectedSessionId(null); }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {(selectedSessionId || selectedDate) && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10 text-[10px] font-black uppercase gap-2 hover:bg-destructive/10 hover:text-destructive">
+                <X className="h-4 w-4" /> Clear
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="daily" className="w-full">
-        <div className="flex items-center justify-between mb-4">
-          <TabsList className="bg-secondary/50 border-2">
-            <TabsTrigger value="daily" className="gap-2 font-black uppercase text-[10px]">
-              <TrendingUp className="h-3 w-3" /> Daily
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+          <TabsList className="bg-secondary/50 border-2 w-full sm:w-auto">
+            <TabsTrigger value="daily" className="gap-2 font-black uppercase text-[10px] flex-1 sm:flex-initial">
+              <Target className="h-3 w-3" /> This Session
             </TabsTrigger>
-            <TabsTrigger value="monthly" className="gap-2 font-black uppercase text-[10px]">
+            <TabsTrigger value="monthly" className="gap-2 font-black uppercase text-[10px] flex-1 sm:flex-initial">
               <Calendar className="h-3 w-3" /> Monthly
             </TabsTrigger>
-            <TabsTrigger value="overall" className="gap-2 font-black uppercase text-[10px]">
+            <TabsTrigger value="overall" className="gap-2 font-black uppercase text-[10px] flex-1 sm:flex-initial">
               <Star className="h-3 w-3" /> Overall
             </TabsTrigger>
           </TabsList>
-          <div className="hidden sm:flex items-center gap-1 text-[8px] font-black uppercase text-muted-foreground bg-primary/5 px-2 py-1 rounded-full border">
+          <div className="flex items-center gap-1 text-[8px] font-black uppercase text-muted-foreground bg-primary/5 px-2 py-1 rounded-full border">
             <Medal className="h-2.5 w-2.5 text-primary" /> Tiebreaker: Wins {'>'} GP {'>'} Diff
           </div>
         </div>
         <TabsContent value="daily" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <RenderLeaderboard data={dailyRankings} tab="daily" />
+          <div className="mb-4">
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+              {selectedSessionId ? `Session Record: ${allSessions.find(s => s.id === selectedSessionId)?.code}` : selectedDate ? `Record for ${format(selectedDate, 'MMMM d, yyyy')}` : activeSession ? `Active Session: ${activeSession.code}` : 'No session selected'}
+            </p>
+          </div>
+          {isHistoricalLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 opacity-40">
+              <Loader2 className="h-10 w-10 animate-spin mb-4" />
+              <p className="font-black uppercase text-tiny tracking-widest">Fetching records...</p>
+            </div>
+          ) : (
+            <RenderLeaderboard data={dailyRankings} tab="daily" />
+          )}
         </TabsContent>
         <TabsContent value="monthly" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="mb-4 flex items-center justify-between">

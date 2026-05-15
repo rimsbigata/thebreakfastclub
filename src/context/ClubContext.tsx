@@ -290,6 +290,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       timestamp: new Date().toISOString(),
       isCompleted: false,
       status: 'ongoing',
+      sessionId: activeSession.id,
       ...(matchData.courtId ? { courtId: matchData.courtId } : {}),
     };
 
@@ -474,7 +475,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   };
 
   const getAllSessions = async () => {
-    if (role !== 'admin') throw new Error('Unauthorized');
+    // Basic session info should be public for leaderboard filters
     const snap = await getDocs(collection(firestore, 'sessions'));
     return snap.docs.map(d => ({ ...d.data(), id: d.id } as QueueSession));
   };

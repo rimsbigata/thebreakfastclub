@@ -113,6 +113,7 @@ export interface Match {
   teamAScore?: number;
   teamBScore?: number;
   courtId?: string;
+  sessionId?: string;
   timestamp: string;
   startTime?: string;
   endTime?: string;
