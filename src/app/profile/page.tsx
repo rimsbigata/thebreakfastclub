@@ -42,6 +42,9 @@ export default function ProfilePage() {
     if (userProfile) {
       setName(userProfile.name);
       setSkillLevel(userProfile.skillLevel?.toString() || '3');
+    } else {
+      // Set default values when creating new profile
+      setSkillLevel('3');
     }
   }, [user, firestore, userProfile]);
 
@@ -56,7 +59,8 @@ export default function ProfilePage() {
         name: name.trim(),
         skillLevel: Number(skillLevel),
         lastActive: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        role: 'player'
       };
 
       if (isCreatingProfile) {
@@ -145,7 +149,7 @@ export default function ProfilePage() {
                     disabled={user.isAnonymous}
                   >
                     <SelectTrigger className="h-12 border-2 font-black">
-                      <SelectValue />
+                      <SelectValue placeholder="Select skill level" />
                     </SelectTrigger>
                     <SelectContent>
                       {Object.entries(SKILL_LEVELS).map(([val, label]) => (
