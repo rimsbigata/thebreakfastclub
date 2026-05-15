@@ -404,6 +404,15 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (participate) {
       const finalName = guestName || userProfile?.name || 'Guest';
       const finalSkill = guestSkill || userProfile?.skillLevel || 3;
+
+      // Get FCM token from user profile
+      let fcmToken = null;
+      if (!user.isAnonymous) {
+        const profileDoc = await getDoc(doc(firestore, 'userProfiles', user.uid));
+        if (profileDoc.exists()) {
+          fcmToken = profileDoc.data()?.fcmToken || null;
+        }
+      }
       
       await setDoc(doc(firestore, 'sessions', session.id, 'players', user.uid), {
         userId: user.uid,
@@ -411,7 +420,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         joinedAt: new Date().toISOString(),
         lastAvailableAt: Date.now(),
         name: finalName,
-        skillLevel: finalSkill
+        skillLevel: finalSkill,
+        ...(fcmToken ? { fcmToken } : {})
       });
       
       // Update synthesized profile for local context if guest
@@ -579,7 +589,16 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (!activeSession?.id || role !== 'admin') throw new Error('Unauthorized');
     const match = matches.find(m => m.id === id);
     const batch = writeBatch(firestore);
-    if (match?.courtId) batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', match.courtId), { status: 'available', currentMatchId: null });
+    if (match?.courtId) {
+      const court = courts.find(c => c.id === match.courtId);
+      batch.update(doc(firestore, 'sessions', activeSession.id, 'courts', match.courtId), { 
+        status: 'available', 
+        currentMatchId: null,
+        // Preserve queue and estimated wait time
+        queue: court?.queue || [],
+        estimatedWaitMinutes: court?.estimatedWaitMinutes || 0
+      });
+    }
     if (match) {
       for (const pid of [...match.teamA, ...match.teamB]) {
         // Return to available WITHOUT resetting wait timer
