@@ -9,9 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { DatePicker } from '@/components/ui/date-picker';
+import { format, startOfMonth, endOfMonth, isSameDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
 import { Match, SKILL_LEVELS_SHORT, getSkillColor, QueueSession } from '@/lib/types';
@@ -274,21 +273,14 @@ export default function GlobalRankingsPage() {
             <div className="flex items-center gap-2 bg-background border-2 rounded-lg px-3 py-1.5 flex-1 min-w-[200px]">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-[10px] font-black uppercase tracking-tight text-muted-foreground mr-2">Date:</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" className="h-7 p-0 text-[10px] font-black uppercase justify-start hover:bg-transparent">
-                    {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={selectedDate || undefined}
-                    onSelect={(d) => { setSelectedDate(d || null); setSelectedSessionId(null); }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ""}
+                onChange={(v) => { 
+                  setSelectedDate(v ? parseISO(v) : null); 
+                  setSelectedSessionId(null); 
+                }}
+                className="h-7 border-none bg-transparent p-0 text-[10px] font-black uppercase justify-start hover:bg-transparent shadow-none"
+              />
             </div>
 
             {(selectedSessionId || selectedDate) && (
