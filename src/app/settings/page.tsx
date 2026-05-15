@@ -33,6 +33,7 @@ export default function GlobalSettingsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isClearingClubData, setIsClearingClubData] = useState(false);
+  const [isDeletingInactiveSessions, setIsDeletingInactiveSessions] = useState(false);
   const [newBoostDate, setNewBoostDate] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
@@ -161,6 +162,57 @@ export default function GlobalSettingsPage() {
         description: error instanceof Error ? error.message : "Database update failed.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleDeleteInactiveSessions = async () => {
+    if (typeof window !== 'undefined') {
+      const confirmation = window.prompt(
+        "This will permanently delete all inactive sessions and their data (players, courts, matches, fees). Type DELETE to continue."
+      );
+
+      if (confirmation !== 'DELETE') {
+        toast({ title: "Deletion cancelled", description: "Inactive sessions were not deleted." });
+        return;
+      }
+
+      setIsDeletingInactiveSessions(true);
+      try {
+        const { getAuth } = await import('firebase/auth');
+        const auth = getAuth();
+        const token = await auth.currentUser?.getIdToken();
+
+        if (!token) {
+          throw new Error('Not authenticated');
+        }
+
+        const response = await fetch('/api/admin/delete-inactive-sessions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        const result = await response.json();
+
+        if (result.ok) {
+          toast({
+            title: "Inactive Sessions Deleted",
+            description: `${result.sessionsDeleted} session(s) deleted. ${result.deletedTotal} total records removed.`
+          });
+        } else {
+          throw new Error(result.error || 'Failed to delete inactive sessions');
+        }
+      } catch (error) {
+        toast({
+          title: "Failed to delete inactive sessions",
+          description: error instanceof Error ? error.message : "Database update failed.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsDeletingInactiveSessions(false);
+      }
     }
   };
 
@@ -349,6 +401,9 @@ export default function GlobalSettingsPage() {
             <CardContent className="space-y-3">
               <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
                 Reset Daily Board
+              </Button>
+              <Button onClick={handleDeleteInactiveSessions} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10" disabled={isDeletingInactiveSessions}>
+                {isDeletingInactiveSessions ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <Trash2 className="h-3 w-3 mr-2" />} Delete Inactive Sessions
               </Button>
               <div className="pt-2 border-t border-dashed">
                 <Button onClick={handleClearClubData} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10" disabled={isClearingClubData}>
