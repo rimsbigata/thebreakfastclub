@@ -43,7 +43,7 @@ export default function SessionGatePage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isDoubleStar, setIsDoubleStar] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const importInputRef = useRef(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const { firestore } = useFirebase();
 
   // Guest Specific State

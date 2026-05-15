@@ -997,7 +997,7 @@ export default function HomePage() {
                     </CardFooter>
                   </Card>
                 );
-              })})
+              })}
             </div>
           </ScrollArea>
           <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-4 pb-24 md:hidden">

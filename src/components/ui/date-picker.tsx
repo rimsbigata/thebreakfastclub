@@ -54,7 +54,6 @@ export function DatePicker({ value, onChange, placeholder = "Pick a date", class
           selected={date && isValid(date) ? date : undefined}
           onSelect={handleSelect}
           defaultMonth={date}
-          initialFocus
         />
       </PopoverContent>
     </Popover>
