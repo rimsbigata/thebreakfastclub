@@ -28,6 +28,7 @@ interface ClubSettings {
 
 interface ClubContextType {
   userProfile: UserProfile | null;
+  isProfileMissing: boolean;
   activeSession: QueueSession | null;
   players: Player[];
   courts: Court[];
@@ -109,6 +110,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   const [activeSession, setActiveSession] = useState<QueueSession | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isProfileMissing, setIsProfileMissing] = useState(false);
   const [isRestoringSession, setIsRestoringSession] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
@@ -127,6 +129,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setActiveSession(null);
       setUserProfile(null);
+      setIsProfileMissing(false);
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
       }
@@ -137,10 +140,17 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         name: 'Guest',
         role: 'player',
       });
-    } else if (profileData) {
-      setUserProfile(profileData);
+      setIsProfileMissing(false);
+    } else if (!isProfileLoading) {
+      if (profileData) {
+        setUserProfile(profileData);
+        setIsProfileMissing(false);
+      } else {
+        // User is authenticated but profile document is missing
+        setIsProfileMissing(true);
+      }
     }
-  }, [profileData, user]);
+  }, [profileData, user, isProfileLoading]);
 
   useEffect(() => {
     if (!firestore || !user?.uid || activeSession) return;
@@ -335,6 +345,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     for (const pid of [...match.teamA, ...match.teamB]) {
       const p = players.find(player => player.id === pid);
       const isTeamA = match.teamA.includes(pid);
+      const playerPoints = isTeamA ? (teamAScore || 0) : (teamBScore || 0);
+      const opponentPoints = isTeamA ? (teamBScore || 0) : (teamAScore || 0);
       const won = status === 'completed' && winner
         ? (winner === 'teamA' && isTeamA) || (winner === 'teamB' && !isTeamA)
         : false;
@@ -344,6 +356,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         lastAvailableAt: Date.now(),
         wins: (p?.wins || 0) + (won ? 1 : 0),
         gamesPlayed: (p?.gamesPlayed || 0) + (status === 'completed' ? 1 : 0),
+        pointsScored: (p?.pointsScored || 0) + (status === 'completed' ? playerPoints : 0),
+        pointsConceded: (p?.pointsConceded || 0) + (status === 'completed' ? opponentPoints : 0),
+        pointDiff: (p?.pointDiff || 0) + (status === 'completed' ? (playerPoints - opponentPoints) : 0),
         improvementScore: Math.max(0, (p?.improvementScore || 0) + (won ? 5 : status === 'completed' ? -2 : 0)),
         totalPlayTimeMinutes: (p?.totalPlayTimeMinutes || 0) + playDuration,
       });
@@ -680,7 +695,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
   return (
     <ClubContext.Provider value={{
-      userProfile, activeSession, players, courts, matches, fees, paymentMethods, role,
+      userProfile, isProfileMissing, activeSession, players, courts, matches, fees, paymentMethods, role,
       isSessionActive: !!activeSession, isProfileLoading, isAdminRoleLoading, isRestoringSession, currentPlayer,
       joinSession, createSession, regenerateQueueSessionCode, endSession, loadSessionById, endSessionById, getAllSessions,
       addPlayer, updatePlayer, deletePlayer, addCourt, updateCourt, deleteCourt, updateFcmToken, startMatch, startTimer, updateMatchScore, endMatch,

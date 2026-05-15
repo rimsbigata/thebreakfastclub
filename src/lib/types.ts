@@ -91,6 +91,9 @@ export interface Player extends UserProfile {
   lastAvailableAt?: number;
   notes?: string;
   stars?: number;
+  pointsScored?: number;
+  pointsConceded?: number;
+  pointDiff?: number;
   fcmToken?: string; // Firebase Cloud Messaging token for push notifications
 }
 

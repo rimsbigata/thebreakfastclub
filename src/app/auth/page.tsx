@@ -13,7 +13,8 @@ import { useFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, UserPlus, ShieldCheck, Sparkles, ChevronDown, ChevronUp, UserCircle, Loader2 } from 'lucide-react';
+import { LogIn, UserPlus, ShieldCheck, Sparkles, ChevronDown, ChevronUp, UserCircle, Loader2, AlertCircle } from 'lucide-react';
+import { useClub } from '@/context/ClubContext';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
@@ -54,6 +55,7 @@ const assessmentQuestions = [
 
 export default function AuthPage() {
   const { auth, firestore } = useFirebase();
+  const { isProfileMissing, userProfile } = useClub();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -174,6 +176,137 @@ export default function AuthPage() {
       setGuestLoading(false);
     }
   };
+
+  const handleFinishSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth || !firestore || !auth.currentUser) return;
+    setLoading(true);
+    try {
+      const user = auth.currentUser;
+      const profileData = {
+        id: user.uid,
+        name,
+        email: user.email || '',
+        role: 'player',
+        skillLevel: Number(skillLevel),
+        dateJoined: new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(firestore, 'userProfiles', user.uid), profileData);
+
+      toast({ title: "Profile Restored!", description: "Welcome back to The Breakfast Club." });
+      
+      if (redirectUrl) {
+        sessionStorage.removeItem('redirectAfterAuth');
+        router.push(redirectUrl);
+      } else {
+        router.push('/auth/session');
+      }
+    } catch (error: any) {
+      toast({ title: "Setup failed", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (isProfileMissing) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 py-12 space-y-6">
+        <Card className="w-full max-w-md border-2 shadow-xl border-yellow-500/50">
+          <CardHeader className="text-center space-y-2">
+            <div className="mx-auto h-12 w-12 rounded-xl bg-yellow-500 flex items-center justify-center text-white shadow-lg">
+              <AlertCircle className="h-8 w-8" />
+            </div>
+            <CardTitle className="text-2xl font-black uppercase tracking-tighter text-foreground">Finish Account Setup</CardTitle>
+            <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Your account exists, but your profile data is missing. Please re-enter your details.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleFinishSetup} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-foreground">Full Name</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} required placeholder="John Doe" />
+              </div>
+              
+              <div className="pt-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-black uppercase opacity-60">Skill Tier</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-[9px] font-black uppercase tracking-widest text-primary gap-1"
+                    onClick={() => setIsAssessmentOpen(!isAssessmentOpen)}
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    {isAssessmentOpen ? "Hide Tools" : "Evaluate My Skill"}
+                    {isAssessmentOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  </Button>
+                </div>
+
+                {isAssessmentOpen && (
+                  <div className="space-y-4 p-4 rounded-xl bg-secondary/30 border-2 border-dashed">
+                    {assessmentQuestions.map(q => (
+                      <div key={q.id} className="space-y-1.5">
+                        <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{q.label}</Label>
+                        <Select
+                          value={answers[q.id].toString()}
+                          onValueChange={(val) => setAnswers(prev => ({ ...prev, [q.id]: parseInt(val) }))}
+                        >
+                          <SelectTrigger className="h-9 text-xs font-bold bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {q.options.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value.toString()} className="text-xs font-medium">
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      className="w-full h-10 font-black uppercase text-[10px] bg-primary/20 text-primary hover:bg-primary/30 border-none"
+                      onClick={handleApplyRecommendation}
+                    >
+                      Use Recommended: Level {recommendedSkill}
+                    </Button>
+                  </div>
+                )}
+
+                <Select value={skillLevel} onValueChange={setSkillLevel}>
+                  <SelectTrigger className="h-12 border-2 font-black">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SKILL_LEVELS).map(([val, label]) => (
+                      <SelectItem key={val} value={val} className="font-bold">
+                        <div className="flex items-center gap-2">
+                          <Badge className={cn("h-4 px-1 text-[9px] font-black uppercase shrink-0", getSkillColor(parseInt(val)))}>
+                            {SKILL_LEVELS_SHORT[parseInt(val)]}
+                          </Badge>
+                          <span className="text-xs uppercase">{label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button className="w-full h-14 font-black uppercase mt-4" disabled={loading}>
+                {loading ? "Saving Profile..." : "Restore Profile"} <ShieldCheck className="ml-2 h-4 w-4" />
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 py-12 space-y-6">

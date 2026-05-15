@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCcw, Trash2, QrCode, Upload, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power, Target, Coffee, Bell } from 'lucide-react';
+import { RefreshCcw, Trash2, QrCode, Upload, Download, Loader2, Sun, Moon, Palette, Settings as SettingsIcon, Trophy, Zap, KeyRound, Power, Target, Coffee, Bell, FileJson } from 'lucide-react';
+import { collection, getDocs, doc, getDoc, writeBatch, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
@@ -49,6 +50,9 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isClearingClubData, setIsClearingClubData] = useState(false);
   const [isTestingNotifications, setIsTestingNotifications] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [isTestingPlayerNotification, setIsTestingPlayerNotification] = useState(false);
   const [isResettingToken, setIsResettingToken] = useState(false);
@@ -448,6 +452,93 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     }
   };
 
+  const handleExportSession = async () => {
+    setIsExporting(true);
+    const { firestore } = useFirebase();
+    try {
+      const sessionId = resolvedParams.id;
+      const sessionDoc = await getDoc(doc(firestore, 'sessions', sessionId));
+      if (!sessionDoc.exists()) throw new Error('Session not found');
+
+      const data: any = {
+        session: { id: sessionDoc.id, ...sessionDoc.data() },
+        subcollections: {}
+      };
+
+      const subcollections = ['players', 'courts', 'matches', 'fees', 'paymentMethods', 'settings'];
+      for (const sub of subcollections) {
+        const snap = await getDocs(collection(firestore, 'sessions', sessionId, sub));
+        data.subcollections[sub] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      }
+
+      const filename = `session-export-${sessionId}-${new Date().toISOString().split('T')[0]}.json`;
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({ title: "Session Exported", description: `Data saved to ${filename}` });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({ title: "Export Failed", description: error instanceof Error ? error.message : "Failed to export data", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportSession = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsImporting(true);
+    const { firestore } = useFirebase();
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data.session || !data.subcollections) {
+        throw new Error('Invalid export file structure');
+      }
+
+      // We might want to allow importing into a NEW session ID if the current one is occupied or after clear data
+      // But for now, let's restore to the ID in the file or the current session
+      const targetSessionId = data.session.id;
+      
+      const batch = writeBatch(firestore);
+      
+      // 1. Create/Update Session Doc
+      batch.set(doc(firestore, 'sessions', targetSessionId), data.session);
+
+      // 2. Restore Subcollections
+      for (const [sub, docs] of Object.entries(data.subcollections)) {
+        for (const d of (docs as any[])) {
+          const { id, ...docData } = d;
+          batch.set(doc(firestore, 'sessions', targetSessionId, sub, id), docData);
+        }
+      }
+
+      await batch.commit();
+      toast({ title: "Session Imported", description: "All data has been restored." });
+      
+      // If we are on a different session, redirect
+      if (resolvedParams.id !== targetSessionId) {
+        router.push(`/session/${targetSessionId}/settings`);
+      } else {
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      toast({ title: "Import Failed", description: error instanceof Error ? error.message : "Failed to import data", variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 pb-24 max-w-5xl animate-in fade-in duration-500">
       <header className="space-y-1">
@@ -694,9 +785,23 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
               <CardTitle className="text-sm font-black uppercase tracking-widest text-destructive">Danger Zone</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button onClick={handleEndSession} variant="destructive" className="w-full font-black uppercase text-[10px] h-12" disabled={!queueSessionCode}>
-                <Power className="h-4 w-4 mr-2" /> End Current Session
-              </Button>
+              <div className="pt-2 border-t border-dashed space-y-2">
+                <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Data Backup</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={handleExportSession} variant="outline" className="font-black uppercase text-[10px] h-10 border-primary/20 text-primary hover:bg-primary/5" disabled={isExporting}>
+                    {isExporting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Download className="h-3 w-3 mr-2" />} Export JSON
+                  </Button>
+                  <Button onClick={() => importInputRef.current?.click()} variant="outline" className="font-black uppercase text-[10px] h-10 border-primary/20 text-primary hover:bg-primary/5" disabled={isImporting}>
+                    {isImporting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Upload className="h-3 w-3 mr-2" />} Import JSON
+                  </Button>
+                  <input type="file" ref={importInputRef} className="hidden" accept=".json" onChange={handleImportSession} />
+                </div>
+              </div>
+              <div className="pt-2 border-t border-dashed">
+                <Button onClick={handleEndSession} variant="destructive" className="w-full font-black uppercase text-[10px] h-12" disabled={!queueSessionCode}>
+                  <Power className="h-4 w-4 mr-2" /> End Current Session
+                </Button>
+              </div>
               <div className="pt-2 border-t border-dashed">
                 <Button onClick={handleResetAction} variant="outline" className="w-full font-black uppercase text-[10px] border-destructive/20 text-destructive hover:bg-destructive/10">
                   <RefreshCcw className="h-3 w-3 mr-2" /> Reset Daily Board

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from '@/components/ui/label';
 import { useClub } from '@/context/ClubContext';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, PlayCircle, LogOut, Shield, User, List, Power, Loader2, Sparkles, UserCircle } from 'lucide-react';
+import { KeyRound, PlayCircle, LogOut, Shield, User, List, Power, Loader2, Sparkles, UserCircle, Upload } from 'lucide-react';
+import { doc, writeBatch } from 'firebase/firestore';
 import { useFirebase, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { Switch } from '@/components/ui/switch';
@@ -41,6 +42,9 @@ export default function SessionGatePage() {
   const [scheduledTime, setScheduledTime] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isDoubleStar, setIsDoubleStar] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const importInputRef = useRef(null);
+  const { firestore } = useFirebase();
 
   // Guest Specific State
   const [isGuestNameDialogOpen, setIsGuestNameDialogOpen] = useState(false);
@@ -153,6 +157,46 @@ export default function SessionGatePage() {
       toast({ title: "Failed to end session", description: error.message, variant: "destructive" });
     } finally {
       setEndingSessionId(null);
+    }
+  };
+
+  const handleImportSession = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsImporting(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data.session || !data.subcollections) {
+        throw new Error('Invalid export file structure');
+      }
+
+      const targetSessionId = data.session.id;
+      const batch = writeBatch(firestore);
+      
+      batch.set(doc(firestore, 'sessions', targetSessionId), data.session);
+
+      for (const [sub, docs] of Object.entries(data.subcollections)) {
+        for (const d of (docs as any[])) {
+          const { id, ...docData } = d;
+          batch.set(doc(firestore, 'sessions', targetSessionId, sub, id), docData);
+        }
+      }
+
+      await batch.commit();
+      toast({ title: "Session Restored", description: "All data has been imported successfully." });
+      
+      // Refresh session list
+      if (showAdminView) {
+        handleLoadSessions();
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      toast({ title: "Import Failed", description: error instanceof Error ? error.message : "Failed to import data", variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+      if (importInputRef.current) (importInputRef.current as any).value = '';
     }
   };
 
@@ -385,6 +429,13 @@ export default function SessionGatePage() {
                       {loadingSessions ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <List className="h-4 w-4 mr-2" />}
                       View All Sessions
                     </Button>
+                    <div className="pt-2 border-t border-dashed">
+                      <Button variant="outline" className="w-full h-10 font-black uppercase border-2 border-primary/20 text-primary hover:bg-primary/5" onClick={() => importInputRef.current?.click()} disabled={isImporting}>
+                        {isImporting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Upload className="h-3 w-3 mr-2" />}
+                        Import Session JSON
+                      </Button>
+                      <input type="file" ref={importInputRef} className="hidden" accept=".json" onChange={handleImportSession} />
+                    </div>
                   </>
                 ) : (
                   <div className="space-y-3 p-3 border-2 rounded-lg bg-secondary/30">

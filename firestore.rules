@@ -111,5 +111,10 @@ service cloud.firestore {
     match /pushTokens/{userId} {
       allow read, write: if isOwner(userId) || isAdmin();
     }
+
+    // --- Collection Group Rules for Leaderboards ---
+    match /{path=**}/matches/{matchId} {
+      allow read: if isSignedIn();
+    }
   }
 }

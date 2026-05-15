@@ -2,7 +2,7 @@
 
 import { useClub } from '@/context/ClubContext';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Trophy, TrendingUp, Medal, Star, Target, Calendar, Filter, X, Search, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -19,13 +19,27 @@ import { useParams } from 'next/navigation';
 export default function RankingsPage() {
   const { id } = useParams();
   const { players, matches: currentSessionMatches, activeSession, getAllSessions } = useClub();
-  const { firestore } = useFirestore() as any;
-
+  const firestore = useFirestore();
+  const [sessionPlayers, setSessionPlayers] = useState<any[]>([]);
   const [allSessions, setAllSessions] = useState<QueueSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(id as string);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [historicalMatches, setHistoricalMatches] = useState<Match[]>([]);
   const [isHistoricalLoading, setIsHistoricalLoading] = useState(false);
+
+  useEffect(() => {
+    const loadSessionData = async () => {
+      if (!id || !firestore) return;
+      try {
+        // Fetch players for this specific session
+        const pSnap = await getDocs(collection(firestore, 'sessions', id as string, 'players'));
+        setSessionPlayers(pSnap.docs.map(d => ({ ...d.data(), id: d.id })));
+      } catch (err) {
+        console.error('Failed to load session players:', err);
+      }
+    };
+    loadSessionData();
+  }, [id, firestore]);
 
   useEffect(() => {
     const loadSessions = async () => {
@@ -40,73 +54,109 @@ export default function RankingsPage() {
   }, [getAllSessions]);
 
   useEffect(() => {
-    const loadAllMatches = async () => {
+    const loadMatches = async () => {
       setIsHistoricalLoading(true);
       try {
-        const matchesQuery = query(
-          collectionGroup(firestore, 'matches'),
-          where('status', '==', 'completed'),
-          orderBy('timestamp', 'desc')
+        // 1. Fetch CURRENT session matches directly (No composite index required)
+        const sessionMatchesQuery = query(
+          collection(firestore, 'sessions', id as string, 'matches'),
+          where('status', '==', 'completed')
         );
-        const snapshot = await getDocs(matchesQuery);
-        const matches = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Match));
-        setHistoricalMatches(matches);
+        const sessionSnapshot = await getDocs(sessionMatchesQuery);
+        const sessionMatches = sessionSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, sessionId: id as string } as Match));
+        
+        // Pre-populate with session matches so "This Session" works immediately
+        setHistoricalMatches(sessionMatches);
+
+        // 2. Fetch ALL matches for Monthly/Overall (Requires composite index)
+        try {
+          const allMatchesQuery = query(
+            collectionGroup(firestore, 'matches'),
+            where('status', '==', 'completed'),
+            orderBy('timestamp', 'desc')
+          );
+          const allSnapshot = await getDocs(allMatchesQuery);
+          const allMatches = allSnapshot.docs.map(doc => ({ 
+            ...doc.data(), 
+            id: doc.id, 
+            sessionId: doc.ref.parent.parent?.id 
+          } as Match));
+          setHistoricalMatches(allMatches);
+        } catch (cgErr) {
+          console.warn('Collection Group query failed (likely index building):', cgErr);
+          // We still have the session matches, so we don't clear the state
+        }
       } catch (err) {
-        console.error('Failed to load all matches:', err);
+        console.error('Failed to load session matches:', err);
       } finally {
         setIsHistoricalLoading(false);
       }
     };
-    loadAllMatches();
-  }, [firestore]);
+    loadMatches();
+  }, [firestore, id]);
 
   const getRankingsForPeriod = (periodMatches: Match[], useStars: boolean = false) => {
-    const stats: Record<string, { wins: number; total: number; diff: number; stars: number; doubleStarMatches: number }> = {};
+    const stats: Record<string, { 
+      wins: number; 
+      losses: number; 
+      total: number; 
+      diff: number; 
+      stars: number; 
+      doubleStarMatches: number;
+      pointsScored: number;
+      pointsConceded: number;
+    }> = {};
+    
+    periodMatches.forEach(match => {
+      if (match.status !== 'completed' || !match.teamA || !match.teamB) return;
+      
+      const scoreA = match.teamAScore || 0;
+      const scoreB = match.teamBScore || 0;
+      const teamAWon = scoreA > scoreB;
+      const diff = Math.abs(scoreA - scoreB);
+      
+      const updatePlayer = (playerId: string, won: boolean, pScored: number, pConceded: number) => {
+        if (!stats[playerId]) {
+          stats[playerId] = { wins: 0, losses: 0, total: 0, diff: 0, stars: 0, doubleStarMatches: 0, pointsScored: 0, pointsConceded: 0 };
+        }
+        stats[playerId].total += 1;
+        if (won) stats[playerId].wins += 1;
+        else stats[playerId].losses += 1;
+        
+        stats[playerId].diff += (won ? diff : -diff);
+        stats[playerId].pointsScored += pScored;
+        stats[playerId].pointsConceded += pConceded;
+        
+        if (useStars) {
+          let matchStars = won ? 1 : 0.5;
+          if (match.isDoubleStar) {
+            matchStars *= 2;
+            stats[playerId].doubleStarMatches += 1;
+          }
+          stats[playerId].stars += matchStars;
+        }
+      };
 
-    periodMatches.forEach(m => {
-      if (m.status !== 'completed') return;
-      const pIds = [...m.teamA, ...m.teamB];
-      pIds.forEach(id => {
-        if (!stats[id]) stats[id] = { wins: 0, total: 0, diff: 0, stars: 0, doubleStarMatches: 0 };
-        stats[id].total += 1;
-        const isTeamA = m.teamA.includes(id);
-        const win = (m.winner === 'teamA' && isTeamA) || (m.winner === 'teamB' && !isTeamA);
-        if (win) stats[id].wins += 1;
-        if (m.teamAScore !== undefined && m.teamBScore !== undefined) {
-          const scoreDiff = isTeamA ? (m.teamAScore - m.teamBScore) : (m.teamBScore - m.teamAScore);
-          stats[id].diff += scoreDiff;
-        }
-        // Stars are now awarded at session end, not per match
-        // For daily rankings, we use wins/rate/diff (no stars)
-        // For monthly/overall, stars come from session finalStars
-        // Track double star matches for context
-        if (m.isDoubleStar) {
-          stats[id].doubleStarMatches += 1;
-        }
-      });
+      match.teamA.forEach(id => updatePlayer(id, teamAWon, scoreA, scoreB));
+      match.teamB.forEach(id => updatePlayer(id, !teamAWon, scoreB, scoreA));
     });
 
-    return players
-      .filter(p => useStars ? (p.stars || 0) > 0 : stats[p.id]?.total > 0)
-      .map(p => {
-        const s = stats[p.id];
+    return Object.entries(stats)
+      .map(([pid, s]) => {
+        const player = sessionPlayers.find(p => p.id === pid) || players.find(p => p.id === pid);
         return {
-          ...p,
-          wins: s?.wins || 0,
-          gamesPlayed: s?.total || 0,
-          winRate: s?.total ? (s.wins / s.total) * 100 : 0,
-          pointDiff: s?.diff || 0,
-          stars: p.stars || 0,
-          doubleStarMatches: s?.doubleStarMatches || 0
+          id: pid,
+          name: player?.name || 'Unknown',
+          skillLevel: player?.skillLevel || 3,
+          ...s,
+          gamesPlayed: s.total,
+          winRate: s.total > 0 ? (s.wins / s.total) * 100 : 0,
+          pointDiff: s.diff
         };
       })
       .sort((a, b) => {
-        if (useStars) {
-          if (b.stars !== a.stars) return b.stars - a.stars;
-        }
-        if (b.wins !== a.wins) return b.wins - a.wins;
-        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-        return b.pointDiff - a.pointDiff;
+        if (useStars) return b.stars - a.stars || b.wins - a.wins || b.total - a.total;
+        return b.wins - a.wins || a.total - b.total || b.pointDiff - a.pointDiff;
       });
   };
 
@@ -178,6 +228,14 @@ export default function RankingsPage() {
                     <div className="text-center">
                       <p className="text-compact font-black opacity-60">{player.gamesPlayed}</p>
                       <p className="text-[7px] font-black uppercase text-muted-foreground">GP</p>
+                    </div>
+                    <div className="hidden sm:block text-center">
+                      <p className="text-compact font-black opacity-60">{player.pointsScored}</p>
+                      <p className="text-[7px] font-black uppercase text-muted-foreground">PTS</p>
+                    </div>
+                    <div className="hidden sm:block text-center">
+                      <p className="text-compact font-black opacity-60">{player.pointsConceded}</p>
+                      <p className="text-[7px] font-black uppercase text-muted-foreground">AG</p>
                     </div>
                     <div className="text-center">
                       <p className="text-compact font-black opacity-60">{player.winRate.toFixed(0)}%</p>
@@ -300,9 +358,17 @@ export default function RankingsPage() {
             </p>
           </div>
           {isHistoricalLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 opacity-40">
-              <Loader2 className="h-10 w-10 animate-spin mb-4" />
-              <p className="font-black uppercase text-tiny tracking-widest">Fetching records...</p>
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-20 bg-secondary/10 rounded-xl animate-pulse flex items-center px-4 gap-4">
+                  <div className="h-8 w-8 bg-secondary/20 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-32 bg-secondary/20 rounded" />
+                    <div className="h-3 w-20 bg-secondary/20 rounded" />
+                  </div>
+                  <div className="h-8 w-20 bg-secondary/20 rounded" />
+                </div>
+              ))}
             </div>
           ) : (
             <RenderLeaderboard data={dailyRankings} tab="daily" />

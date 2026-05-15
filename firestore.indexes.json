@@ -1,1 +1,26 @@
-{}
+{
+  "indexes": [],
+  "fieldOverrides": [],
+  "collectionGroups": [
+    {
+      "collectionId": "matches",
+      "queryScope": "COLLECTION_GROUP",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP",
+          "fields": [
+            {
+              "fieldPath": "status",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "timestamp",
+              "order": "DESCENDING"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
