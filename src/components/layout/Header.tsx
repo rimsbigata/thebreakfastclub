@@ -65,11 +65,11 @@ export function Header() {
   navItems.push({ label: 'Match History', href: activeSession ? `/session/${activeSession.id}/match-history` : '/match-history', icon: History });
   
   // Profile access
-  navItems.push({ label: 'My Profile', href: '/profile', icon: UserCircle });
+  navItems.push({ label: 'My Profile', href: activeSession ? `/session/${activeSession.id}/profile` : '/profile', icon: UserCircle });
   
   // Player Stats only for players
   if (isPlayer) {
-    navItems.push({ label: 'Performance', href: '/player-stats', icon: Award });
+    navItems.push({ label: 'Performance', href: activeSession ? `/session/${activeSession.id}/player-stats` : '/player-stats', icon: Award });
   }
   
   if (isAdmin) {
