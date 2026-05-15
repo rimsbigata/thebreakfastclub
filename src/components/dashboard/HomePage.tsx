@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, Swords, Ban, Target, Loader2, Pencil, Coffee, CheckCircle2, History, Clock } from 'lucide-react';
+import { GripVertical, Trash2, Timer, Play, User, DoorOpen, ListOrdered, ShieldAlert, PlayCircle, KeyRound, ShieldCheck, Zap, X, Swords, Ban, Target, Loader2, Pencil, Coffee, CheckCircle2, History, Clock, AlertTriangle, ArrowRightLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ import { MatchScoreDialog } from '@/components/match/MatchScoreDialog';
 import { Switch } from '@/components/ui/switch';
 import { NotificationPermissionModal } from '@/components/NotificationPermissionModal';
 import { useFcmToken } from '@/hooks/useFcmToken';
+import { detectRepeatPartners, generateSwapSuggestions, RepeatPartnerInfo } from '@/lib/repeatPartner';
 
 function LiveTimer({ startTime }: { startTime?: string }) {
   const [elapsed, setElapsed] = useState('00:00');
@@ -116,6 +117,23 @@ export default function HomePage() {
   const [editingCourtId, setEditingCourtId] = useState<string | null>(null);
   const [tempCourtName, setTempCourtName] = useState('');
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [repeatPartnerThreshold, setRepeatPartnerThreshold] = useState(() => {
+    // Load from localStorage or default to 3
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('repeatPartnerThreshold');
+      return saved ? parseInt(saved) : 3;
+    }
+    return 3;
+  });
+  const [showSwapDialog, setShowSwapDialog] = useState(false);
+  const [swapSuggestions, setSwapSuggestions] = useState<any>(null);
+
+  // Save threshold to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('repeatPartnerThreshold', repeatPartnerThreshold.toString());
+    }
+  }, [repeatPartnerThreshold]);
 
   const handleNotificationModalClose = (open: boolean) => {
     setShowNotificationModal(open);
@@ -174,8 +192,8 @@ export default function HomePage() {
         switch (sortOption) {
           case 'skill-asc': res = a.skillLevel - b.skillLevel; break;
           case 'skill-desc': res = b.skillLevel - a.skillLevel; break;
-          case 'name-asc': res = a.name.localeCompare(b.name); break;
-          case 'name-desc': res = b.name.localeCompare(a.name); break;
+          case 'wait': res = (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0); break;
+          default: res = 0;
         }
         return res || (a.lastAvailableAt || 0) - (b.lastAvailableAt || 0);
       });
@@ -183,6 +201,27 @@ export default function HomePage() {
 
   const restingCount = useMemo(() => players.filter(p => p.status === 'resting').length, [players]);
   const availableCount = useMemo(() => players.filter(p => p.status === 'available').length, [players]);
+
+  // Detect repeat partners in the main draft
+  const draftRepeatPartners = useMemo(() => {
+    if (draftPlayerIds.length < 4) return [];
+    const teamA = draftPlayerIds.slice(0, 2);
+    const teamB = draftPlayerIds.slice(2, 4);
+    return detectRepeatPartners(teamA, teamB, players, repeatPartnerThreshold);
+  }, [draftPlayerIds, players, repeatPartnerThreshold]);
+
+  // Detect repeat partners in court drafts
+  const courtRepeatPartners = useMemo(() => {
+    const repeats: Record<string, RepeatPartnerInfo[]> = {};
+    Object.entries(courtDrafts).forEach(([courtId, draftIds]) => {
+      if (draftIds.length === 4) {
+        const teamA = draftIds.slice(0, 2);
+        const teamB = draftIds.slice(2, 4);
+        repeats[courtId] = detectRepeatPartners(teamA, teamB, players, repeatPartnerThreshold);
+      }
+    });
+    return repeats;
+  }, [courtDrafts, players, repeatPartnerThreshold]);
 
   // Generate unique display name: first name, or first name + surname initial if duplicate
   const getUniqueDisplayName = (playerName: string, allPlayerNames: string[]): string => {
@@ -377,16 +416,29 @@ export default function HomePage() {
                 <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
                   <User className="h-4 w-4 text-primary" /> Bench
                 </h2>
-                <Select value={sortOption} onValueChange={setSortOption}>
-                  <SelectTrigger className="h-7 text-[9px] font-black uppercase border-2 w-[100px] bg-background px-2">
-                    <SelectValue placeholder="Sort" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default" className="text-[9px] font-bold uppercase">Waiting</SelectItem>
-                    <SelectItem value="skill-desc" className="text-[9px] font-bold uppercase">Skill ↓</SelectItem>
-                    <SelectItem value="name-asc" className="text-[9px] font-bold uppercase">A-Z</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select value={sortOption} onValueChange={setSortOption}>
+                    <SelectTrigger className="h-7 text-[9px] font-black uppercase border-2 w-[100px] bg-background px-2">
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default" className="text-[9px] font-bold uppercase">Waiting</SelectItem>
+                      <SelectItem value="skill-desc" className="text-[9px] font-bold uppercase">Skill ↓</SelectItem>
+                      <SelectItem value="name-asc" className="text-[9px] font-bold uppercase">A-Z</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={repeatPartnerThreshold.toString()} onValueChange={(v) => setRepeatPartnerThreshold(parseInt(v))}>
+                    <SelectTrigger className="h-7 text-[9px] font-black uppercase border-2 w-[80px] bg-background px-2" title="Repeat partner threshold">
+                      <SelectValue placeholder="Threshold" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1" className="text-[9px] font-bold uppercase">1 Game</SelectItem>
+                      <SelectItem value="2" className="text-[9px] font-bold uppercase">2 Games</SelectItem>
+                      <SelectItem value="3" className="text-[9px] font-bold uppercase">3 Games</SelectItem>
+                      <SelectItem value="5" className="text-[9px] font-bold uppercase">5 Games</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <Tabs value={benchTab} onValueChange={(v) => setBenchTab(v as any)} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 h-8 p-1 bg-secondary/50">
@@ -497,10 +549,34 @@ export default function HomePage() {
           <ScrollArea className="flex-1 hidden md:block">
             <div className="p-2 space-y-3 pb-24">
               {draftPlayerIds.length > 0 && (
-                <Card className="border-dashed border-2 bg-primary/5 p-4 space-y-3">
+                <Card className={cn("border-dashed border-2 p-4 space-y-3", draftRepeatPartners.length > 0 ? "bg-orange-500/5 border-orange-500/30" : "bg-primary/5")}>
                   <div className="flex justify-between items-center">
-                    <p className="text-[10px] font-black uppercase text-primary tracking-widest">Drafting ({draftPlayerIds.length}/4)</p>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDraftPlayerIds([])}><X className="h-4 w-4" /></Button>
+                    <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                      Drafting ({draftPlayerIds.length}/4)
+                      {draftRepeatPartners.length > 0 && (
+                        <Badge variant="destructive" className="text-[8px] h-5 px-2 font-black uppercase gap-1">
+                          <AlertTriangle className="h-3 w-3" /> {draftRepeatPartners.length} Repeat{draftRepeatPartners.length > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </p>
+                    <div className="flex gap-1">
+                      {draftRepeatPartners.length > 0 && (
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-orange-600" onClick={() => {
+                          const suggestions = generateSwapSuggestions(
+                            draftPlayerIds.slice(0, 2),
+                            draftPlayerIds.slice(2, 4),
+                            players,
+                            allDraftedIds,
+                            repeatPartnerThreshold
+                          );
+                          setSwapSuggestions(suggestions);
+                          setShowSwapDialog(true);
+                        }}>
+                          <ArrowRightLeft className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDraftPlayerIds([])}><X className="h-4 w-4" /></Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <div className="p-3 rounded-xl border-2 border-dashed bg-muted/5">
@@ -508,9 +584,13 @@ export default function HomePage() {
                       <div className="grid grid-cols-2 gap-2">
                         {draftPlayerIds.slice(0, 2).map(id => {
                           const p = players.find(x => x.id === id);
+                          const repeatInfo = draftRepeatPartners.find(r => r.playerId === id);
                           return (
-                            <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative">
-                              <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                            <div key={id} className={cn("text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative", repeatInfo && "border-orange-500/50 bg-orange-500/5")}>
+                              <div className="flex items-center justify-between">
+                                <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
+                              </div>
                               <div className="flex items-center justify-between mt-1">
                                 {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                 <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
@@ -526,9 +606,13 @@ export default function HomePage() {
                         <div className="grid grid-cols-2 gap-2">
                           {draftPlayerIds.slice(2).map(id => {
                             const p = players.find(x => x.id === id);
+                            const repeatInfo = draftRepeatPartners.find(r => r.playerId === id);
                             return (
-                              <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative">
-                                <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                              <div key={id} className={cn("text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative", repeatInfo && "border-orange-500/50 bg-orange-500/5")}>
+                                <div className="flex items-center justify-between">
+                                  <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                  {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
+                                </div>
                                 <div className="flex items-center justify-between mt-1">
                                   {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                   <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
@@ -586,10 +670,34 @@ export default function HomePage() {
           </ScrollArea>
           <div className="p-2 space-y-3 pb-24 md:hidden">
             {draftPlayerIds.length > 0 && (
-              <Card className="border-dashed border-2 bg-primary/5 p-4 space-y-3">
+              <Card className={cn("border-dashed border-2 p-4 space-y-3", draftRepeatPartners.length > 0 ? "bg-orange-500/5 border-orange-500/30" : "bg-primary/5")}>
                 <div className="flex justify-between items-center">
-                  <p className="text-[10px] font-black uppercase text-primary tracking-widest">Drafting ({draftPlayerIds.length}/4)</p>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDraftPlayerIds([])}><X className="h-4 w-4" /></Button>
+                  <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    Drafting ({draftPlayerIds.length}/4)
+                    {draftRepeatPartners.length > 0 && (
+                      <Badge variant="destructive" className="text-[8px] h-5 px-2 font-black uppercase gap-1">
+                        <AlertTriangle className="h-3 w-3" /> {draftRepeatPartners.length} Repeat{draftRepeatPartners.length > 1 ? 's' : ''}
+                      </Badge>
+                    )}
+                  </p>
+                  <div className="flex gap-1">
+                    {draftRepeatPartners.length > 0 && (
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-orange-600" onClick={() => {
+                        const suggestions = generateSwapSuggestions(
+                          draftPlayerIds.slice(0, 2),
+                          draftPlayerIds.slice(2, 4),
+                          players,
+                          allDraftedIds,
+                          repeatPartnerThreshold
+                        );
+                        setSwapSuggestions(suggestions);
+                        setShowSwapDialog(true);
+                      }}>
+                        <ArrowRightLeft className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDraftPlayerIds([])}><X className="h-4 w-4" /></Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <div className="p-3 rounded-xl border-2 border-dashed bg-muted/5">
@@ -597,9 +705,13 @@ export default function HomePage() {
                     <div className="grid grid-cols-2 gap-2">
                       {draftPlayerIds.slice(0, 2).map(id => {
                         const p = players.find(x => x.id === id);
+                        const repeatInfo = draftRepeatPartners.find(r => r.playerId === id);
                         return (
-                          <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative">
-                            <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                          <div key={id} className={cn("text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative", repeatInfo && "border-orange-500/50 bg-orange-500/5")}>
+                            <div className="flex items-center justify-between">
+                              <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                              {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
+                            </div>
                             <div className="flex items-center justify-between mt-1">
                               {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                               <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
@@ -615,9 +727,13 @@ export default function HomePage() {
                       <div className="grid grid-cols-2 gap-2">
                         {draftPlayerIds.slice(2).map(id => {
                           const p = players.find(x => x.id === id);
+                          const repeatInfo = draftRepeatPartners.find(r => r.playerId === id);
                           return (
-                            <div key={id} className="text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative">
-                              <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                            <div key={id} className={cn("text-[11px] font-black bg-card p-2 rounded-lg border flex flex-col gap-1 relative", repeatInfo && "border-orange-500/50 bg-orange-500/5")}>
+                              <div className="flex items-center justify-between">
+                                <span className="truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
+                              </div>
                               <div className="flex items-center justify-between mt-1">
                                 {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
                                 <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
@@ -728,18 +844,43 @@ export default function HomePage() {
                         match ? (
                           <div className="space-y-4">
                             <LiveTimer startTime={match.startTime} />
+                            {(() => {
+                              const matchRepeats = detectRepeatPartners(match.teamA, match.teamB, players, repeatPartnerThreshold);
+                              return matchRepeats.length > 0 ? (
+                                <div className="flex items-center gap-2 p-2 bg-orange-500/5 border border-orange-500/30 rounded-lg">
+                                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                  <span className="text-[9px] font-black uppercase text-orange-600">{matchRepeats.length} Repeat Partner{matchRepeats.length > 1 ? 's' : ''}</span>
+                                </div>
+                              ) : null;
+                            })()}
                             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
                               <div className="space-y-2 p-3 rounded-xl border-l-4 border-primary bg-primary/5">
                                 {match.teamA.map(id => {
                                   const p = players.find(x => x.id === id);
-                                  return <div key={id} className="flex flex-col"><span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                                  const matchRepeats = detectRepeatPartners(match.teamA, match.teamB, players, repeatPartnerThreshold);
+                                  const repeatInfo = matchRepeats.find(r => r.playerId === id);
+                                  return <div key={id} className="flex flex-col">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                      {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
+                                    </div>
+                                    {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                  </div>;
                                 })}
                               </div>
                               <span className="text-[10px] font-black opacity-20">VS</span>
                               <div className="space-y-2 p-3 rounded-xl border-r-4 border-primary bg-primary/5 text-right">
                                 {match.teamB.map(id => {
                                   const p = players.find(x => x.id === id);
-                                  return <div key={id} className="flex flex-col items-end"><span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                                  const matchRepeats = detectRepeatPartners(match.teamA, match.teamB, players, repeatPartnerThreshold);
+                                  const repeatInfo = matchRepeats.find(r => r.playerId === id);
+                                  return <div key={id} className="flex flex-col items-end">
+                                    <div className="flex items-center gap-1">
+                                      {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
+                                      <span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                    </div>
+                                    {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                  </div>;
                                 })}
                               </div>
                             </div>
@@ -756,15 +897,36 @@ export default function HomePage() {
                         <div className="space-y-4">
                           {currentDraft.length > 0 ? (
                             <div className="space-y-3">
+                              {courtRepeatPartners[court.id]?.length > 0 && (
+                                <div className="flex items-center gap-2 p-2 bg-orange-500/5 border border-orange-500/30 rounded-lg">
+                                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                  <span className="text-[9px] font-black uppercase text-orange-600">{courtRepeatPartners[court.id].length} Repeat Partner{courtRepeatPartners[court.id].length > 1 ? 's' : ''}</span>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto text-orange-600" onClick={() => {
+                                    const suggestions = generateSwapSuggestions(
+                                      currentDraft.slice(0, 2),
+                                      currentDraft.slice(2, 4),
+                                      players,
+                                      [...allDraftedIds, ...currentDraft],
+                                      repeatPartnerThreshold
+                                    );
+                                    setSwapSuggestions(suggestions);
+                                    setShowSwapDialog(true);
+                                  }}>
+                                    <ArrowRightLeft className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
                               <div className="p-3 rounded-xl border-2 border-dashed bg-muted/5">
                                 <p className="text-[9px] font-black uppercase text-muted-foreground mb-2">Team 1</p>
                                 <div className="space-y-2">
                                   {currentDraft.slice(0, 2).map(id => {
                                     const p = players.find(x => x.id === id);
+                                    const repeatInfo = courtRepeatPartners[court.id]?.find(r => r.playerId === id);
                                     return (
-                                      <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1">
+                                      <div key={id} className={cn("text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1", repeatInfo && "border-orange-500/50 bg-orange-500/5")}>
                                         <div className="flex items-center justify-between">
                                           <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                          {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
                                           <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
                                         </div>
                                         {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
@@ -784,10 +946,12 @@ export default function HomePage() {
                                   <div className="space-y-2">
                                     {currentDraft.slice(2).map(id => {
                                       const p = players.find(x => x.id === id);
+                                      const repeatInfo = courtRepeatPartners[court.id]?.find(r => r.playerId === id);
                                       return (
-                                        <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1">
+                                        <div key={id} className={cn("text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1", repeatInfo && "border-orange-500/50 bg-orange-500/5")}>
                                           <div className="flex items-center justify-between">
                                             <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                            {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
                                             <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
                                           </div>
                                           {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
@@ -877,18 +1041,43 @@ export default function HomePage() {
                         match ? (
                           <div className="space-y-4">
                             <LiveTimer startTime={match.startTime} />
+                            {(() => {
+                              const matchRepeats = detectRepeatPartners(match.teamA, match.teamB, players, repeatPartnerThreshold);
+                              return matchRepeats.length > 0 ? (
+                                <div className="flex items-center gap-2 p-2 bg-orange-500/5 border border-orange-500/30 rounded-lg">
+                                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                  <span className="text-[9px] font-black uppercase text-orange-600">{matchRepeats.length} Repeat Partner{matchRepeats.length > 1 ? 's' : ''}</span>
+                                </div>
+                              ) : null;
+                            })()}
                             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
                               <div className="space-y-2 p-3 rounded-xl border-l-4 border-primary bg-primary/5">
                                 {match.teamA.map(id => {
                                   const p = players.find(x => x.id === id);
-                                  return <div key={id} className="flex flex-col"><span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                                  const matchRepeats = detectRepeatPartners(match.teamA, match.teamB, players, repeatPartnerThreshold);
+                                  const repeatInfo = matchRepeats.find(r => r.playerId === id);
+                                  return <div key={id} className="flex flex-col">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                      {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
+                                    </div>
+                                    {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                  </div>;
                                 })}
                               </div>
                               <span className="text-[10px] font-black opacity-20">VS</span>
                               <div className="space-y-2 p-3 rounded-xl border-r-4 border-primary bg-primary/5 text-right">
                                 {match.teamB.map(id => {
                                   const p = players.find(x => x.id === id);
-                                  return <div key={id} className="flex flex-col items-end"><span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>{p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}</div>;
+                                  const matchRepeats = detectRepeatPartners(match.teamA, match.teamB, players, repeatPartnerThreshold);
+                                  const repeatInfo = matchRepeats.find(r => r.playerId === id);
+                                  return <div key={id} className="flex flex-col items-end">
+                                    <div className="flex items-center gap-1">
+                                      {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
+                                      <span className="text-compact font-black truncate">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                    </div>
+                                    {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
+                                  </div>;
                                 })}
                               </div>
                             </div>
@@ -905,15 +1094,36 @@ export default function HomePage() {
                         <div className="space-y-4">
                           {currentDraft.length > 0 ? (
                             <div className="space-y-3">
+                              {courtRepeatPartners[court.id]?.length > 0 && (
+                                <div className="flex items-center gap-2 p-2 bg-orange-500/5 border border-orange-500/30 rounded-lg">
+                                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                  <span className="text-[9px] font-black uppercase text-orange-600">{courtRepeatPartners[court.id].length} Repeat Partner{courtRepeatPartners[court.id].length > 1 ? 's' : ''}</span>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto text-orange-600" onClick={() => {
+                                    const suggestions = generateSwapSuggestions(
+                                      currentDraft.slice(0, 2),
+                                      currentDraft.slice(2, 4),
+                                      players,
+                                      [...allDraftedIds, ...currentDraft],
+                                      repeatPartnerThreshold
+                                    );
+                                    setSwapSuggestions(suggestions);
+                                    setShowSwapDialog(true);
+                                  }}>
+                                    <ArrowRightLeft className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
                               <div className="p-3 rounded-xl border-2 border-dashed bg-muted/5">
                                 <p className="text-[9px] font-black uppercase text-muted-foreground mb-2">Team 1</p>
                                 <div className="space-y-2">
                                   {currentDraft.slice(0, 2).map(id => {
                                     const p = players.find(x => x.id === id);
+                                    const repeatInfo = courtRepeatPartners[court.id]?.find(r => r.playerId === id);
                                     return (
-                                      <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1">
+                                      <div key={id} className={cn("text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1", repeatInfo && "border-orange-500/50 bg-orange-500/5")}>
                                         <div className="flex items-center justify-between">
                                           <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                          {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
                                           <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
                                         </div>
                                         {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
@@ -933,10 +1143,12 @@ export default function HomePage() {
                                   <div className="space-y-2">
                                     {currentDraft.slice(2).map(id => {
                                       const p = players.find(x => x.id === id);
+                                      const repeatInfo = courtRepeatPartners[court.id]?.find(r => r.playerId === id);
                                       return (
-                                        <div key={id} className="text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1">
+                                        <div key={id} className={cn("text-[11px] font-black bg-background p-2 rounded-lg border flex flex-col gap-1", repeatInfo && "border-orange-500/50 bg-orange-500/5")}>
                                           <div className="flex items-center justify-between">
                                             <span className="truncate flex-1">{p?.name ? getUniqueDisplayName(p.name, allPlayerNames) : ''}</span>
+                                            {repeatInfo && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
                                             <WaitTimeBadge lastAvailableAt={p?.lastAvailableAt} />
                                           </div>
                                           {p && <Badge variant="outline" className={cn("text-[8px] h-3.5 px-1 shrink-0 w-fit", getSkillColor(p.skillLevel))}>{SKILL_LEVELS_SHORT[p.skillLevel]}</Badge>}
@@ -945,7 +1157,7 @@ export default function HomePage() {
                                     })}
                                     {currentDraft.slice(2).length < 2 && (
                                       <div className="h-8 border-2 border-dashed rounded-lg bg-background/50 flex items-center justify-center">
-                                        <p className="text-[8px] font-black uppercase opacity-30 italic">Drop player</p>
+                                        <p className="text-[8px] font-black uppercase opacity-30 italic">Drop opponent</p>
                                       </div>
                                     )}
                                   </div>
@@ -1003,6 +1215,67 @@ export default function HomePage() {
           <AlertDialogFooter>
             <Button variant="outline" onClick={() => setActiveModal('score')}>EDIT SCORE</Button>
             <AlertDialogAction onClick={() => { if (pendingScore) { endMatch(pendingScore.courtId, 'completed', pendingScore.winner, pendingScore.teamAScore, pendingScore.teamBScore); setScoringCourtId(null); setActiveModal(null); } }}>YES, CONFIRM</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Swap Suggestion Dialog */}
+      <AlertDialog open={showSwapDialog} onOpenChange={setShowSwapDialog}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5 text-orange-600" />
+              Swap Suggestions
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Recommended players to swap to avoid repeat partnerships
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            {swapSuggestions?.map((suggestion: any) => {
+              const player = players.find(p => p.id === suggestion.playerId);
+              return (
+                <div key={suggestion.playerId} className="border-2 rounded-xl p-4 bg-secondary/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-orange-600" />
+                      <span className="font-black text-sm">{player?.name ? getUniqueDisplayName(player.name, allPlayerNames) : ''}</span>
+                    </div>
+                    <Badge variant="destructive" className="text-[8px] h-5 px-2 font-black uppercase">
+                      Repeat Partner
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Suggested Swaps:</p>
+                    {suggestion.suggestedPlayers.map((sp: any, idx: number) => (
+                      <div key={sp.player.id} className="flex items-center justify-between p-2 bg-background rounded-lg border cursor-pointer hover:border-orange-500/50 transition-colors" onClick={() => {
+                        const newDraft = [...draftPlayerIds];
+                        const idxToReplace = newDraft.indexOf(suggestion.playerId);
+                        if (idxToReplace !== -1) {
+                          newDraft[idxToReplace] = sp.player.id;
+                          setDraftPlayerIds(newDraft);
+                          setShowSwapDialog(false);
+                          toast({ title: "Player Swapped", description: `${player?.name} swapped with ${sp.player.name}` });
+                        }
+                      }}>
+                        <div className="flex items-center gap-2">
+                          <Badge className="text-[8px] font-black bg-orange-500/10 text-orange-600 border-orange-500/20">#{idx + 1}</Badge>
+                          <span className="text-xs font-black">{sp.player.name}</span>
+                          <Badge variant="outline" className={cn("text-[8px] h-4 px-1", getSkillColor(sp.player.skillLevel))}>{SKILL_LEVELS_SHORT[sp.player.skillLevel]}</Badge>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[9px] text-muted-foreground">{sp.reason}</span>
+                          <Badge variant="secondary" className="text-[8px] h-4 px-1">{sp.player.gamesPlayed || 0}G</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowSwapDialog(false)}>Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
