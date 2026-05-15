@@ -25,6 +25,7 @@ export default function GlobalRankingsPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [historicalMatches, setHistoricalMatches] = useState<Match[]>([]);
   const [isHistoricalLoading, setIsHistoricalLoading] = useState(false);
+  const [sessionPlayers, setSessionPlayers] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const loadGlobalData = async () => {
@@ -50,6 +51,37 @@ export default function GlobalRankingsPage() {
     };
     loadSessions();
   }, [getAllSessions]);
+
+  useEffect(() => {
+    const loadSessionPlayers = async () => {
+      if (!firestore || allSessions.length === 0) return;
+      try {
+        const playersMap: Record<string, any> = {};
+        
+        for (const session of allSessions) {
+          try {
+            const pSnap = await getDocs(collection(firestore, 'sessions', session.id, 'players'));
+            pSnap.docs.forEach(doc => {
+              const data = doc.data();
+              playersMap[doc.id] = {
+                id: doc.id,
+                name: data.name || 'Unknown',
+                skillLevel: data.skillLevel || 3,
+                sessionId: session.id
+              };
+            });
+          } catch (err) {
+            console.warn(`Failed to load players for session ${session.id}:`, err);
+          }
+        }
+        
+        setSessionPlayers(playersMap);
+      } catch (err) {
+        console.error('Failed to load session players:', err);
+      }
+    };
+    loadSessionPlayers();
+  }, [firestore, allSessions]);
 
   useEffect(() => {
     const loadMatches = async () => {
@@ -154,7 +186,7 @@ export default function GlobalRankingsPage() {
 
     return Object.entries(stats)
       .map(([pid, s]) => {
-        const player = allUserProfiles.find(p => p.id === pid) || players.find(p => p.id === pid);
+        const player = allUserProfiles.find(p => p.id === pid) || players.find(p => p.id === pid) || sessionPlayers[pid];
         return {
           id: pid,
           name: player?.name || 'Unknown',
@@ -192,9 +224,9 @@ export default function GlobalRankingsPage() {
     });
   }, [historicalMatches]);
 
-  const dailyRankings = useMemo(() => getRankingsForPeriod(sessionMatches, false), [sessionMatches, players]);
-  const monthlyRankings = useMemo(() => getRankingsForPeriod(monthMatches, true), [monthMatches, players]);
-  const overallRankings = useMemo(() => getRankingsForPeriod(historicalMatches, true), [historicalMatches, players]);
+  const dailyRankings = useMemo(() => getRankingsForPeriod(sessionMatches, false), [sessionMatches, players, sessionPlayers]);
+  const monthlyRankings = useMemo(() => getRankingsForPeriod(monthMatches, true), [monthMatches, players, sessionPlayers]);
+  const overallRankings = useMemo(() => getRankingsForPeriod(historicalMatches, true), [historicalMatches, players, sessionPlayers]);
 
   const clearFilters = () => {
     setSelectedSessionId(null);

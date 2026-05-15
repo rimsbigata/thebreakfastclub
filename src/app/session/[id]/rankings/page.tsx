@@ -26,6 +26,7 @@ export default function RankingsPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [historicalMatches, setHistoricalMatches] = useState<Match[]>([]);
   const [isHistoricalLoading, setIsHistoricalLoading] = useState(false);
+  const [allSessionPlayers, setAllSessionPlayers] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const loadSessionData = async () => {
@@ -52,6 +53,37 @@ export default function RankingsPage() {
     };
     loadSessions();
   }, [getAllSessions]);
+
+  useEffect(() => {
+    const loadAllSessionPlayers = async () => {
+      if (!firestore || allSessions.length === 0) return;
+      try {
+        const playersMap: Record<string, any> = {};
+        
+        for (const session of allSessions) {
+          try {
+            const pSnap = await getDocs(collection(firestore, 'sessions', session.id, 'players'));
+            pSnap.docs.forEach(doc => {
+              const data = doc.data();
+              playersMap[doc.id] = {
+                id: doc.id,
+                name: data.name || 'Unknown',
+                skillLevel: data.skillLevel || 3,
+                sessionId: session.id
+              };
+            });
+          } catch (err) {
+            console.warn(`Failed to load players for session ${session.id}:`, err);
+          }
+        }
+        
+        setAllSessionPlayers(playersMap);
+      } catch (err) {
+        console.error('Failed to load all session players:', err);
+      }
+    };
+    loadAllSessionPlayers();
+  }, [firestore, allSessions]);
 
   useEffect(() => {
     const loadMatches = async () => {
@@ -143,7 +175,7 @@ export default function RankingsPage() {
 
     return Object.entries(stats)
       .map(([pid, s]) => {
-        const player = sessionPlayers.find(p => p.id === pid) || players.find(p => p.id === pid);
+        const player = sessionPlayers.find(p => p.id === pid) || players.find(p => p.id === pid) || allSessionPlayers[pid];
         return {
           id: pid,
           name: player?.name || 'Unknown',
@@ -180,9 +212,9 @@ export default function RankingsPage() {
     });
   }, [historicalMatches]);
 
-  const dailyRankings = useMemo(() => getRankingsForPeriod(sessionMatches, false), [sessionMatches, players]);
-  const monthlyRankings = useMemo(() => getRankingsForPeriod(monthMatches, true), [monthMatches, players]);
-  const overallRankings = useMemo(() => getRankingsForPeriod(historicalMatches, true), [historicalMatches, players]);
+  const dailyRankings = useMemo(() => getRankingsForPeriod(sessionMatches, false), [sessionMatches, players, sessionPlayers, allSessionPlayers]);
+  const monthlyRankings = useMemo(() => getRankingsForPeriod(monthMatches, true), [monthMatches, players, sessionPlayers, allSessionPlayers]);
+  const overallRankings = useMemo(() => getRankingsForPeriod(historicalMatches, true), [historicalMatches, players, sessionPlayers, allSessionPlayers]);
 
   const clearFilters = () => {
     setSelectedSessionId(id as string);

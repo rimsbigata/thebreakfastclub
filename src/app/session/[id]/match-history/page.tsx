@@ -3,18 +3,27 @@
 import { useClub } from '@/context/ClubContext';
 import { useUser } from '@/firebase';
 import { Card, CardContent } from '@/components/ui/card';
-import { History, Trophy, TrendingDown, Calendar, Clock } from 'lucide-react';
+import { History, Trophy, TrendingDown, Calendar, Clock, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { getSkillColor, SKILL_LEVELS_SHORT } from '@/lib/types';
-import { useMemo, use } from 'react';
+import { useMemo, use, useState } from 'react';
 import { Match } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 export default function SessionMatchHistoryPage({ params }: { params: Promise<{ id: string }> }) {
-  const { matches, players, activeSession, role } = useClub();
+  const { matches, players, activeSession, role, updateMatchScore } = useClub();
   const { user } = useUser();
   const resolvedParams = use(params);
+
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+  const [teamAScore, setTeamAScore] = useState<number>(0);
+  const [teamBScore, setTeamBScore] = useState<number>(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   const getSessionMatches = (allMatches: Match[]) => {
     if (!user?.uid || !activeSession) return [];
@@ -31,6 +40,25 @@ export default function SessionMatchHistoryPage({ params }: { params: Promise<{ 
   };
 
   const allUserMatches = useMemo(() => getSessionMatches(matches), [matches, user?.uid, activeSession, role]);
+
+  const handleEditMatch = (match: Match) => {
+    setEditingMatch(match);
+    setTeamAScore(match.teamAScore || 0);
+    setTeamBScore(match.teamBScore || 0);
+  };
+
+  const handleSaveScore = async () => {
+    if (!editingMatch) return;
+    setIsSaving(true);
+    try {
+      await updateMatchScore(editingMatch.id, teamAScore, teamBScore);
+      setEditingMatch(null);
+    } catch (error) {
+      console.error('Failed to update match score:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const RenderMatchList = ({ matchList }: { matchList: Match[] }) => {
     if (!user?.uid) return null;
@@ -83,9 +111,21 @@ export default function SessionMatchHistoryPage({ params }: { params: Promise<{ 
                       {new Date(match.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                   </div>
-                  <div className="text-[9px] font-black text-muted-foreground uppercase flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {new Date(match.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  <div className="flex items-center gap-3">
+                    <div className="text-[9px] font-black text-muted-foreground uppercase flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {new Date(match.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    {role === 'admin' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-primary"
+                        onClick={() => handleEditMatch(match)}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -173,6 +213,56 @@ export default function SessionMatchHistoryPage({ params }: { params: Promise<{ 
       </header>
 
       <RenderMatchList matchList={allUserMatches} />
+
+      {/* Edit Score Dialog */}
+      <Dialog open={!!editingMatch} onOpenChange={(open) => !open && setEditingMatch(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black uppercase">Edit Match Score</DialogTitle>
+            <DialogDescription>Update the final score for this match</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase">Team 1 Score</Label>
+                <Input
+                  type="number"
+                  value={teamAScore}
+                  onChange={(e) => setTeamAScore(parseInt(e.target.value) || 0)}
+                  className="h-12 font-black text-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase">Team 2 Score</Label>
+                <Input
+                  type="number"
+                  value={teamBScore}
+                  onChange={(e) => setTeamBScore(parseInt(e.target.value) || 0)}
+                  className="h-12 font-black text-xl"
+                />
+              </div>
+            </div>
+            {editingMatch && (
+              <div className="text-sm text-muted-foreground">
+                <p className="font-bold">Match ID: {editingMatch.id}</p>
+                <p className="text-xs">Date: {new Date(editingMatch.timestamp).toLocaleString()}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingMatch(null)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveScore} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
