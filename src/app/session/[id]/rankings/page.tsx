@@ -1,3 +1,5 @@
+"use client";
+
 import { useClub } from '@/context/ClubContext';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collectionGroup, query, where, orderBy, getDocs } from 'firebase/firestore';
