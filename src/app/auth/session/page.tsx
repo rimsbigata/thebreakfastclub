@@ -54,11 +54,17 @@ export default function SessionGatePage() {
   useEffect(() => {
     if (isRestoringSession) return;
 
+    // Check if user is authenticated but has no profile
+    if (user && !user.isAnonymous && !userProfile) {
+      router.push('/profile');
+      return;
+    }
+
     // Redirect to active session if already joined
     if (activeSession) {
       router.push(`/session/${activeSession.id}`);
     }
-  }, [activeSession, router, isRestoringSession]);
+  }, [activeSession, router, isRestoringSession, user, userProfile]);
 
   const handleJoinAttempt = async (e: React.FormEvent) => {
     e.preventDefault();

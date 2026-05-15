@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useClub } from '@/context/ClubContext';
 import { useUser, useFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,13 +26,24 @@ export default function ProfilePage() {
   const [name, setName] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
 
   useEffect(() => {
+    const checkProfileExists = async () => {
+      if (user?.uid && firestore) {
+        const profileRef = doc(firestore, 'userProfiles', user.uid);
+        const profileDoc = await getDoc(profileRef);
+        setIsCreatingProfile(!profileDoc.exists());
+      }
+    };
+
+    checkProfileExists();
+
     if (userProfile) {
       setName(userProfile.name);
       setSkillLevel(userProfile.skillLevel?.toString() || '3');
     }
-  }, [userProfile]);
+  }, [user, firestore, userProfile]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,14 +52,28 @@ export default function ProfilePage() {
     setIsSaving(true);
     try {
       const profileRef = doc(firestore, 'userProfiles', user.uid);
-      await updateDoc(profileRef, {
+      const profileData = {
         name: name.trim(),
         skillLevel: Number(skillLevel),
-        lastActive: new Date().toISOString()
-      });
-      toast({ title: "Profile Updated", description: "Your changes have been saved." });
+        lastActive: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      };
+
+      if (isCreatingProfile) {
+        await setDoc(profileRef, profileData);
+        toast({ title: "Profile Created", description: "Your profile has been created successfully." });
+        // Redirect to auth/session after creating profile
+        router.push('/auth/session');
+      } else {
+        await updateDoc(profileRef, {
+          name: name.trim(),
+          skillLevel: Number(skillLevel),
+          lastActive: new Date().toISOString()
+        });
+        toast({ title: "Profile Updated", description: "Your changes have been saved." });
+      }
     } catch (error: any) {
-      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+      toast({ title: isCreatingProfile ? "Creation Failed" : "Update Failed", description: error.message, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -92,10 +117,10 @@ export default function ProfilePage() {
           <Card className="border-2 shadow-lg">
             <CardHeader>
               <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-primary" /> Account Details
+                <ShieldCheck className="h-5 w-5 text-primary" /> {isCreatingProfile ? "Create Your Profile" : "Account Details"}
               </CardTitle>
               <CardDescription className="text-[10px] font-bold uppercase">
-                {user.isAnonymous ? "Guest accounts cannot be permanently saved." : "Update your global player record."}
+                {isCreatingProfile ? "Complete your profile to join sessions." : "Update your global player record."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -140,7 +165,7 @@ export default function ProfilePage() {
                 {!user.isAnonymous && (
                   <Button type="submit" className="w-full h-12 font-black uppercase" disabled={isSaving}>
                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                    Save Changes
+                    {isCreatingProfile ? "Create Profile & Continue" : "Save Changes"}
                   </Button>
                 )}
               </form>
