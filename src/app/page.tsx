@@ -10,7 +10,7 @@ import { SplashScreen } from '@/components/layout/SplashScreen';
 
 export default function RootPage() {
   const { user, isUserLoading } = useUser();
-  const { userProfile, isSessionActive, isProfileLoading, role, isAdminRoleLoading, activeSession } = useClub();
+  const { userProfile, isSessionActive, isProfileLoading, role, isAdminRoleLoading, activeSession, isRestoringSession } = useClub();
   const router = useRouter();
   const [hasSplashDelayElapsed, setHasSplashDelayElapsed] = useState(false);
 
@@ -35,6 +35,11 @@ export default function RootPage() {
 
     // 2. If user exists and critical profile/role data is loaded
     if (!isUserLoading && user && !isProfileLoading && !isAdminRoleLoading) {
+      // Wait for session restoration to complete before redirecting
+      if (isRestoringSession) {
+        return;
+      }
+
       // Access Control Logic
       // Admins are never redirected to session gate - they can see the dashboard anytime.
       // Players without an active session are forced to the session gate.
@@ -46,7 +51,7 @@ export default function RootPage() {
         router.replace(`/session/${activeSession.id}`);
       }
     }
-  }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, activeSession, role, isAdminRoleLoading, router, hasSplashDelayElapsed]);
+  }, [user, isUserLoading, userProfile, isProfileLoading, isSessionActive, activeSession, role, isAdminRoleLoading, router, hasSplashDelayElapsed, isRestoringSession]);
 
   // Priority 1: Show Splash while determining basic state
   if (!hasSplashDelayElapsed || isUserLoading || isProfileLoading || isAdminRoleLoading) {

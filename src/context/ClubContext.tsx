@@ -159,14 +159,24 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     const restoreSession = async () => {
       setIsRestoringSession(true);
       try {
+        console.log('Restoring session from localStorage:', storedSessionId);
         const sessionSnapshot = await getDoc(doc(firestore, 'sessions', storedSessionId));
-        if (!sessionSnapshot.exists()) return;
+        if (!sessionSnapshot.exists()) {
+          console.log('Session does not exist in Firestore, clearing localStorage');
+          window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+          return;
+        }
         const session = { ...sessionSnapshot.data(), id: sessionSnapshot.id } as QueueSession;
+        console.log('Session restored:', session.id, 'status:', session.status);
         if (session.status === 'active') {
           setActiveSession(session);
+        } else {
+          console.log('Session is not active, clearing localStorage');
+          window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
         }
       } catch (error) {
         console.error('Failed to restore session:', error);
+        window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
       } finally {
         setIsRestoringSession(false);
       }
