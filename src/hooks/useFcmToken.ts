@@ -146,11 +146,14 @@ export function useFcmToken() {
     if (!isSupported || permission !== 'granted') return
     const messaging = getMessaging(app)
     const unsubscribe = onMessage(messaging, (payload) => {
-      if (payload.notification) {
-        new Notification(payload.notification.title || 'The Breakfast Club', {
-          body: payload.notification.body,
-          icon: '/icon.png',
-        })
+      try {
+        console.log('Foreground message received:', payload)
+        // Don't show foreground notifications on mobile - they can cause crashes
+        // The service worker handles background notifications properly
+        // Only log the payload for debugging
+      } catch (error) {
+        console.error('Error handling foreground message:', error)
+        // Don't throw - let the app continue running
       }
     })
     return () => unsubscribe()

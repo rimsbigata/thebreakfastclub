@@ -76,10 +76,15 @@ export function PushNotificationInitializer() {
     let unsubscribe: (() => void) | undefined;
     const startListener = async () => {
       unsubscribe = await listenForForegroundPushMessages(firebaseApp, payload => {
-        const title = payload.notification?.title ?? 'New badminton update';
-        const description = payload.notification?.body ?? 'A new notification has arrived.';
-
-        toast({ title, description });
+        try {
+          console.log('Foreground push message received:', payload);
+          // Don't show toast notifications on mobile - they can cause crashes
+          // The service worker handles background notifications properly
+          // Only log for debugging
+        } catch (error) {
+          console.error('Error handling foreground push message:', error);
+          // Don't throw - let the app continue running
+        }
       });
     };
 
@@ -90,7 +95,7 @@ export function PushNotificationInitializer() {
         unsubscribe();
       }
     };
-  }, [currentPlayer, firebaseApp, toast]);
+  }, [currentPlayer, firebaseApp]);
 
   return null;
 }
