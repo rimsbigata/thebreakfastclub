@@ -69,8 +69,9 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
     return <SplashScreen />;
   }
 
-  // Priority 4: If session ID doesn't match, show splash while redirecting to /auth/session
+  // Priority 4: If session ID doesn't match, redirect to the correct session
   if (activeSession && activeSession.id !== sessionId) {
+    router.replace(`/session/${activeSession.id}`);
     return <SplashScreen />;
   }
 

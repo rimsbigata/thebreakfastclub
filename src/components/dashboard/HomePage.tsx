@@ -373,7 +373,7 @@ export default function HomePage() {
   if (!mounted) return null;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-background overflow-hidden relative">
+    <div className="flex flex-col min-h-[100dvh] bg-background overflow-y-auto relative">
       {!isSessionActive && (
         <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="max-w-md w-full border-2 border-primary/20 shadow-2xl">
@@ -408,9 +408,9 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex flex-col md:grid md:grid-cols-12">
+      <div className="flex-1 flex flex-col md:grid md:grid-cols-12 pb-32">
         {isStaff && (
-          <div className="md:col-span-3 border-r flex flex-col bg-secondary/5 min-h-0">
+          <div className="md:col-span-3 border-r flex flex-col bg-secondary/5">
             <div className="p-3 bg-card border-b flex flex-col gap-3 sticky top-0 z-10 md:sticky">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-tiny font-black uppercase tracking-widest flex items-center gap-2">
@@ -451,7 +451,7 @@ export default function HomePage() {
                 </TabsList>
               </Tabs>
             </div>
-            <ScrollArea className="flex-1 hidden md:block">
+            <ScrollArea className="flex-1 h-full hidden md:block">
               <div className="p-2 grid grid-cols-2 gap-2 pb-24">
                 {sortedBenchPlayers.map((p) => (
                   <Card
@@ -492,7 +492,7 @@ export default function HomePage() {
                 ))}
               </div>
             </ScrollArea>
-            <div className="p-2 grid grid-cols-2 gap-2 pb-24 md:hidden">
+            <div className="p-2 grid grid-cols-2 gap-2 pb-32 md:hidden">
               {sortedBenchPlayers.map((p) => (
                 <Card
                   key={p.id}
@@ -535,7 +535,7 @@ export default function HomePage() {
         )}
 
         <div
-          className={cn("md:col-span-3 border-r flex flex-col bg-background transition-all min-h-0", isQueueOver && "ring-4 ring-inset ring-primary/20 bg-primary/5")}
+          className={cn("md:col-span-3 border-r flex flex-col bg-background transition-all", isQueueOver && "ring-4 ring-inset ring-primary/20 bg-primary/5")}
           onDragOver={(e) => { e.preventDefault(); setIsQueueOver(true); }}
           onDragLeave={() => setIsQueueOver(false)}
           onDrop={onDropInQueue}
@@ -546,7 +546,7 @@ export default function HomePage() {
             </h2>
             <Badge variant="secondary" className="font-black h-6 px-2.5 bg-orange-500 text-white border-none">{waitingMatches.length}</Badge>
           </div>
-          <ScrollArea className="flex-1 hidden md:block">
+          <ScrollArea className="flex-1 h-full hidden md:block">
             <div className="p-2 space-y-3 pb-24">
               {draftPlayerIds.length > 0 && (
                 <Card className={cn("border-dashed border-2 p-4 space-y-3", draftRepeatPartners.length > 0 ? "bg-orange-500/5 border-orange-500/30" : "bg-primary/5")}>
@@ -668,7 +668,7 @@ export default function HomePage() {
               ))}
             </div>
           </ScrollArea>
-          <div className="p-2 space-y-3 pb-24 md:hidden">
+          <div className="p-2 space-y-3 pb-32 md:hidden">
             {draftPlayerIds.length > 0 && (
               <Card className={cn("border-dashed border-2 p-4 space-y-3", draftRepeatPartners.length > 0 ? "bg-orange-500/5 border-orange-500/30" : "bg-primary/5")}>
                 <div className="flex justify-between items-center">
@@ -791,7 +791,7 @@ export default function HomePage() {
         </div>
 
         <div
-          className={cn("md:col-span-6 flex flex-col transition-all min-h-0", isCourtPanelOver ? "bg-green-500/5" : "bg-secondary/5")}
+          className={cn("md:col-span-6 flex flex-col transition-all", isCourtPanelOver ? "bg-green-500/5" : "bg-secondary/5")}
           onDragOver={(e) => { e.preventDefault(); setIsCourtPanelOver(true); }}
           onDragLeave={() => setIsCourtPanelOver(false)}
           onDrop={onDropInCourtPanel}
@@ -802,8 +802,8 @@ export default function HomePage() {
             </h2>
             <Badge variant="outline" className="font-black h-6 px-2.5 text-compact">{courts.filter(c => c.status === 'occupied').length}/{courts.length}</Badge>
           </div>
-          <ScrollArea className="flex-1 hidden md:block">
-            <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-4 pb-24">
+          <ScrollArea className="flex-1 h-full hidden md:block">
+            <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-4 pb-32">
               {courts.map(court => {
                 const match = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
                 const isOccupied = court.status === 'occupied';
@@ -985,7 +985,6 @@ export default function HomePage() {
                             <>
                               <Button onClick={() => setScoringCourtId(court.id)} className="flex-1 bg-primary font-black text-tiny uppercase tracking-widest">FINISH</Button>
                               <Button variant="outline" size="icon" onClick={() => deleteMatch(match.id)} className="h-10 w-10 shrink-0" title="Cancel (keep wait time)"><X className="h-4 w-4" /></Button>
-                              <Button variant="outline" size="icon" onClick={() => endMatch(court.id, 'cancelled')} className="h-10 w-10 shrink-0 text-destructive" title="Cancel (reset wait time)"><Ban className="h-4 w-4" /></Button>
                             </>
                           )}
                         </div>
@@ -1001,7 +1000,7 @@ export default function HomePage() {
               })}
             </div>
           </ScrollArea>
-          <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-4 pb-24 md:hidden">
+          <div className="p-3 grid grid-cols-1 gap-4 pb-32 md:hidden">
               {courts.map(court => {
                 const match = matches.find(m => m.id === court.currentMatchId && !m.isCompleted);
                 const isOccupied = court.status === 'occupied';

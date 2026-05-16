@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserCircle, ShieldCheck, Trophy, Banknote, Calendar, Loader2, Save, History, Award, KeyRound } from 'lucide-react';
+import { UserCircle, ShieldCheck, Trophy, Banknote, Calendar, Loader2, Save, History, Award, KeyRound, Bell } from 'lucide-react';
 import { SKILL_LEVELS, SKILL_LEVELS_SHORT, getSkillColor } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const [skillLevel, setSkillLevel] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+  const [isResettingToken, setIsResettingToken] = useState(false);
 
   useEffect(() => {
     const checkProfileExists = async () => {
@@ -93,6 +94,34 @@ export default function ProfilePage() {
       toast({ title: isCreatingProfile ? "Creation Failed" : "Update Failed", description: error.message, variant: "destructive" });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleResetNotificationToken = async () => {
+    if (!user?.uid || !firestore || user.isAnonymous) return;
+
+    setIsResettingToken(true);
+    try {
+      const fcmToken = await requestPermissionAndGetToken();
+      
+      if (!fcmToken) {
+        throw new Error('Failed to get notification token');
+      }
+
+      const profileRef = doc(firestore, 'userProfiles', user.uid);
+      await updateDoc(profileRef, { fcmToken });
+
+      // If player is in an active session, also update the session player subcollection
+      if (activeSession && currentPlayer) {
+        const sessionPlayerRef = doc(firestore, 'sessions', activeSession.id, 'players', currentPlayer.id);
+        await updateDoc(sessionPlayerRef, { fcmToken });
+      }
+
+      toast({ title: "Notification Token Reset", description: "Your notification settings have been updated." });
+    } catch (error: any) {
+      toast({ title: "Reset Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsResettingToken(false);
     }
   };
 
@@ -180,10 +209,24 @@ export default function ProfilePage() {
                 </div>
 
                 {!user.isAnonymous && (
-                  <Button type="submit" className="w-full h-12 font-black uppercase" disabled={isSaving}>
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                    {isCreatingProfile ? "Create Profile & Continue" : "Save Changes"}
-                  </Button>
+                  <>
+                    <Button type="submit" className="w-full h-12 font-black uppercase" disabled={isSaving}>
+                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                      {isCreatingProfile ? "Create Profile & Continue" : "Save Changes"}
+                    </Button>
+                    {!isCreatingProfile && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="w-full h-12 font-black uppercase border-2" 
+                        onClick={handleResetNotificationToken}
+                        disabled={isResettingToken}
+                      >
+                        {isResettingToken ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bell className="h-4 w-4 mr-2" />}
+                        Reset Notification Token
+                      </Button>
+                    )}
+                  </>
                 )}
               </form>
             </CardContent>
