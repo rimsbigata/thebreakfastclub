@@ -51,6 +51,19 @@ export function useFcmToken() {
         throw new Error('Permission denied')
       }
 
+      // Register service worker explicitly for mobile browsers
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+            scope: '/'
+          })
+          console.log('Service worker registered successfully:', registration)
+        } catch (swError) {
+          console.warn('Service worker registration failed:', swError)
+          // Continue anyway - Firebase might handle it
+        }
+      }
+
       const messaging = getMessaging(app)
       const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
 
