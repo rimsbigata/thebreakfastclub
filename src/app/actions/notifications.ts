@@ -82,6 +82,7 @@ export async function notifyPlayerOfAssignment(playerId: string, courtName: stri
         type: 'court_assignment',
         courtName: courtName,
         playerId: playerId,
+        url: '/', // Include URL in data block for service worker
       },
       webpush: {
         fcmOptions: {
@@ -202,6 +203,7 @@ export async function sendMatchNotification(
         type: 'match_notification',
         sessionId: sessionId,
         playerId: playerId,
+        url: `/session/${sessionId}`, // Include URL in data block for service worker
       },
       webpush: {
         fcmOptions: {

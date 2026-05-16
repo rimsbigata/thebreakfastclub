@@ -30,40 +30,57 @@ self.addEventListener('install', (event) => {
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  
-  // Extract title and body from payload, checking both notification and data fields
-  const notificationTitle = payload.notification?.title || payload.data?.title || 'The Breakfast Club';
-  const notificationBody = payload.notification?.body || payload.data?.body || '';
-  
-  const notificationOptions = {
-    body: notificationBody,
-    icon: '/icon.png',
-    badge: '/icon.png',
-    data: payload.data || {}
-  };
+  try {
+    console.log('[firebase-messaging-sw.js] Received background message ', payload);
+    
+    // Extract title and body from payload, checking both notification and data fields
+    const notificationTitle = payload.notification?.title || payload.data?.title || 'The Breakfast Club';
+    const notificationBody = payload.notification?.body || payload.data?.body || '';
+    
+    const notificationOptions = {
+      body: notificationBody,
+      icon: '/icon.png',
+      badge: '/icon.png',
+      data: payload.data || {}
+    };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  } catch (error) {
+    console.error('[firebase-messaging-sw.js] Error in background message handler:', error);
+    // Don't throw - let the service worker continue running
+  }
 });
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const urlToOpen = event.notification.data?.url || '/';
+  try {
+    event.notification.close();
+    
+    // Get URL from notification data or webpush link, default to root
+    const urlToOpen = event.notification.data?.url || event.notification.data?.link || '/';
 
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Try to find an existing window with the URL
-      for (var i = 0; i < windowClients.length; i++) {
-        var client = windowClients[i];
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+        // Try to find an existing window to focus
+        for (let i = 0; i < windowClients.length; i++) {
+          const client = windowClients[i];
+          // Check if the client URL matches or starts with the target URL
+          if (client.url === urlToOpen || client.url.startsWith(urlToOpen)) {
+            if ('focus' in client) {
+              return client.focus();
+            }
+          }
         }
-      }
-      // If no existing window, open a new one
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
-    })
-  );
+        
+        // If no existing window, try to open a new one
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      }).catch((error) => {
+        console.error('[firebase-messaging-sw.js] Error handling notification click:', error);
+      })
+    );
+  } catch (error) {
+    console.error('[firebase-messaging-sw.js] Error in notification click handler:', error);
+  }
 });
