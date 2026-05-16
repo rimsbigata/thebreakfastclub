@@ -104,24 +104,11 @@ export default function ProfilePage() {
     try {
       console.log('FCM Reset - Starting token reset...');
       
-      // Delete existing token
+      // Delete existing token from Firebase messaging
       await deleteFcmToken();
       console.log('FCM Reset - Old token deleted');
       
-      // Unregister all service workers to clear cached tokens
-      if ('serviceWorker' in navigator) {
-        try {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const registration of registrations) {
-            await registration.unregister();
-            console.log('FCM Reset - Service worker unregistered:', registration.scope);
-          }
-        } catch (swError) {
-          console.warn('FCM Reset - Service worker unregistration failed:', swError);
-        }
-      }
-      
-      // Force service worker activation
+      // Force service worker update (don't unregister to avoid mobile issues)
       if ('serviceWorker' in navigator) {
         try {
           const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
@@ -131,15 +118,37 @@ export default function ProfilePage() {
           await registration.update();
           console.log('FCM Reset - Service worker updated');
           
-          // Wait for service worker to be ready with 15s timeout for mobile
+          // Wait for service worker to be ready and claim clients with 15s timeout for mobile
           await Promise.race([
-            navigator.serviceWorker.ready,
+            (async () => {
+              const swReg = await navigator.serviceWorker.ready;
+              await swReg.update();
+              // Claim clients to ensure service worker is active
+              if (!swReg.active) {
+                await new Promise<void>((resolve, reject) => {
+                  const timeout = setTimeout(() => reject(new Error('Service worker activation timeout')), 10000);
+                  if (swReg.installing) {
+                    swReg.installing.addEventListener('statechange', () => {
+                      if (swReg.active) {
+                        clearTimeout(timeout);
+                        resolve();
+                      }
+                    });
+                  } else if (swReg.active) {
+                    clearTimeout(timeout);
+                    resolve();
+                  }
+                });
+              }
+              return swReg;
+            })(),
             new Promise((resolve) => setTimeout(resolve, 15000))
           ]) as Promise<ServiceWorkerRegistration>;
-          console.log('FCM Reset - Service worker ready');
+          console.log('FCM Reset - Service worker ready and active');
         } catch (swError) {
           console.error('FCM Reset - Service worker error:', swError);
-          throw new Error(`Service worker registration failed: ${swError instanceof Error ? swError.message : 'Unknown error'}`);
+          // Don't throw - continue with token request anyway
+          console.warn('FCM Reset - Continuing despite service worker error');
         }
       }
       
