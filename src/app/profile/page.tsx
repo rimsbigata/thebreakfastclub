@@ -23,7 +23,7 @@ export default function ProfilePage() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const router = useRouter();
-  const { requestPermissionAndGetToken } = useFcmToken();
+  const { requestPermissionAndGetToken, deleteFcmToken } = useFcmToken();
 
   const [name, setName] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
@@ -102,24 +102,78 @@ export default function ProfilePage() {
 
     setIsResettingToken(true);
     try {
-      const fcmToken = await requestPermissionAndGetToken();
+      console.log('FCM Reset - Starting token reset...');
       
-      if (!fcmToken) {
+      // Delete existing token
+      await deleteFcmToken();
+      console.log('FCM Reset - Old token deleted');
+      
+      // Unregister all service workers to clear cached tokens
+      if ('serviceWorker' in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const registration of registrations) {
+            await registration.unregister();
+            console.log('FCM Reset - Service worker unregistered:', registration.scope);
+          }
+        } catch (swError) {
+          console.warn('FCM Reset - Service worker unregistration failed:', swError);
+        }
+      }
+      
+      // Force service worker activation
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+          console.log('FCM Reset - Service worker registered:', registration.scope);
+          
+          // Force check for changes
+          await registration.update();
+          console.log('FCM Reset - Service worker updated');
+          
+          // Wait for service worker to be ready with 15s timeout for mobile
+          await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((resolve) => setTimeout(resolve, 15000))
+          ]) as Promise<ServiceWorkerRegistration>;
+          console.log('FCM Reset - Service worker ready');
+        } catch (swError) {
+          console.error('FCM Reset - Service worker error:', swError);
+          throw new Error(`Service worker registration failed: ${swError instanceof Error ? swError.message : 'Unknown error'}`);
+        }
+      }
+      
+      // Request permission and get new token
+      const newToken = await requestPermissionAndGetToken();
+      console.log('FCM Reset - New token obtained:', newToken);
+      
+      if (!newToken) {
         throw new Error('Failed to get notification token');
       }
 
+      // Set fcmToken to null first to clear it
       const profileRef = doc(firestore, 'userProfiles', user.uid);
-      await updateDoc(profileRef, { fcmToken });
+      await updateDoc(profileRef, { fcmToken: null });
+      
+      // Then set the fresh token
+      await updateDoc(profileRef, { fcmToken: newToken });
 
       // If player is in an active session, also update the session player subcollection
       if (activeSession && currentPlayer) {
         const sessionPlayerRef = doc(firestore, 'sessions', activeSession.id, 'players', currentPlayer.id);
-        await updateDoc(sessionPlayerRef, { fcmToken });
+        await updateDoc(sessionPlayerRef, { fcmToken: null });
+        await updateDoc(sessionPlayerRef, { fcmToken: newToken });
       }
 
-      toast({ title: "Notification Token Reset", description: "Your notification settings have been updated." });
+      toast({ title: "Token Reset", description: "Your notification token has been successfully reset." });
     } catch (error: any) {
-      toast({ title: "Reset Failed", description: error.message, variant: "destructive" });
+      console.error('FCM Reset Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast({ 
+        title: "Reset Failed", 
+        description: `Could not reset token. Error: ${errorMessage}`, 
+        variant: "destructive" 
+      });
     } finally {
       setIsResettingToken(false);
     }
